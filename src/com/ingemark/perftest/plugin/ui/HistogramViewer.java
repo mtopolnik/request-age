@@ -52,32 +52,54 @@ public class HistogramViewer implements PaintListener
   }
 
   void drawStats(GC gc) {
-    paintBar(gc, SWT.COLOR_DARK_CYAN, 0, 0, 5, toMeter(stats.reqsPerSec));
-    paintBar(gc, SWT.COLOR_DARK_GREEN, 8, 0, 5,
-        toMeter(stats.succRespPerSec + stats.failsPerSec));
+    paintMeterBars(gc);
+    paintHistogram(gc);
+    paintTotalReqs(gc);
+    paintChartName(gc);
+  }
+
+  void paintMeterBars(GC gc) {
+    paintBar(gc, SWT.COLOR_WHITE, 8, 0, 5, 0);
+    int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
+    paintBar(gc, SWT.COLOR_DARK_BLUE, 0, 0, 5, a);
+    final int color;
+    if (b < a) {
+      int tmp = a; a = b; b = tmp;
+      color = SWT.COLOR_RED;
+    } else color = SWT.COLOR_DARK_GREEN;
+    paintBarNoBg(gc, color, 8, a, 5, b-a);
     paintBarNoBg(gc, SWT.COLOR_RED, 8, 0, 5, toMeter(stats.failsPerSec));
+  }
+
+  void paintHistogram(GC gc) {
     final int[] hist = stats.histogram;
     int i;
     for (i = 0; i < hist.length; i++) histBar(gc, SWT.COLOR_BLUE, i, 1, hist[i]);
     histBar(gc, SWT.COLOR_BLUE, i, (HIST_SIZE-i), 0);
+  }
+
+  void paintTotalReqs(GC gc) {
     final int
-      maxTotalBars = 1 +
-        (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
-      fullTotalBarHeight = 100,
-      fullTotalBars = min(stats.pendingReqs/fullTotalBarHeight, maxTotalBars),
-      lastTotalBarHeight = stats.pendingReqs%fullTotalBarHeight;
+    maxTotalBars = 1 +
+    (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
+    fullTotalBarHeight = 100,
+    fullTotalBars = min(stats.pendingReqs/fullTotalBarHeight, maxTotalBars),
+    lastTotalBarHeight = stats.pendingReqs%fullTotalBarHeight;
     final int totalReqColor = SWT.COLOR_GRAY;
     histBar(gc, totalReqColor, HIST_SIZE, fullTotalBars, fullTotalBarHeight);
     histBar(gc, totalReqColor, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
     histBar(gc, totalReqColor, HIST_SIZE+ fullTotalBars+ 1, maxTotalBars-fullTotalBars-1, 0);
     final String s = String.valueOf(stats.pendingReqs);
     final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
-    Point ext = gc.stringExtent(s);
+    final Point ext = gc.stringExtent(s);
     final int labelBase = HIST_YOFFSET+fullTotalBarHeight+5;
     paintRect(gc, SWT.COLOR_WHITE,
         TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
     drawString(gc, s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
-    ext = gc.stringExtent(stats.name);
+  }
+
+  void paintChartName(GC gc) {
+    final Point ext = gc.stringExtent(stats.name);
     drawString(gc, stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0), 5 + tickMarkY(3, 2), true);
   }
