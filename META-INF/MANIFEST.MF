@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Siemens Stress Testing Plug-in
+Bundle-SymbolicName: com.siemens.stresstest;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Vendor: Siemens CVC
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime
+Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+Bundle-ClassPath: .,
+ lib/async-http-client-1.7.15.jar,
+ lib/netty-3.6.3.Final.jar
+Bundle-ActivationPolicy: lazy
+Bundle-Activator: com.ingemark.perftest.plugin.Activator
+Import-Package: org.slf4j
