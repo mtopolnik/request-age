@@ -1,6 +1,5 @@
 package com.ingemark.perftest;
 
-import static com.ingemark.perftest.plugin.ui.RequestAgeView.STATS_EVTYPE_BASE;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -17,6 +16,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 
+import com.ingemark.perftest.plugin.StressTestActivator;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
@@ -62,18 +62,19 @@ public class StressTester implements Runnable, IStressTester
               for (Stats s : stats) {
                 final Event e = new Event();
                 e.data = s;
-                eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, e);
+                eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
               }
               final long end = now(), elapsed = end-start, timeInQueue = start-enqueuedAt;
               if (++updateCount % 50 == 0)
                 System.out.println("Repaint time: " + elapsed/1_000_000 +
                     ", time in queue: " + timeInQueue/1_000_000 +
                     ", refresh divisor: " + guiUpdateDivisor);
-              if (!adjustSlowGui(end, elapsed, timeInQueue)) adjustFastGui(end, elapsed, timeInQueue);
+              if (!adjustSlowGui(end, elapsed, timeInQueue))
+                adjustFastGui(end, elapsed, timeInQueue);
             }
             boolean adjustSlowGui(long now, long elapsed, long timeInQueue) {
               if (timeInQueue < 500_000_000L) { guiSlowSince = 0; return false; }
-              if (guiUpdateDivisor >= 10) return true;
+              if (guiUpdateDivisor >= TIMESLOTS_PER_SEC) return true;
               if (guiSlowSince == 0) { guiSlowSince = now; return true; }
               if (now-guiSlowSince > 5_000_000_000L) {
                 guiSlowSince = 0;
@@ -149,8 +150,6 @@ public class StressTester implements Runnable, IStressTester
           si.result(null, false);
         }
       };
-//      int i = 1;
-//      while (i < Integer.MAX_VALUE && rnd.nextInt(10_000) >= intensity) i++;
       if (!sched.isShutdown())
         sched.schedule(this, /*100_000*i*/ 1_000_000_000/intensity - (now()-start), NANOSECONDS);
     } catch (Throwable t) {

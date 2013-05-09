@@ -4,9 +4,13 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
-public class Activator implements BundleActivator
+public class StressTestActivator implements BundleActivator
 {
-  static Activator instance;
+  public static final String STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
+  public static final int
+    STATS_EVTYPE_BASE = 1024,
+    RUN_SCRIPT_EVTYPE = 2048;
+  static StressTestActivator instance;
   private Bundle bundle;
 
   @Override public void start(BundleContext context) throws Exception {
@@ -16,7 +20,7 @@ public class Activator implements BundleActivator
   @Override public void stop(BundleContext context) throws Exception {
     instance = null;
   }
-  public static Activator stressTestPlugin() {
+  public static StressTestActivator stressTestPlugin() {
     return instance;
   }
   public Bundle bundle() { return bundle; }

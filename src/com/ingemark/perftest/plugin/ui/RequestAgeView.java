@@ -1,6 +1,10 @@
 package com.ingemark.perftest.plugin.ui;
 
+import static com.ingemark.perftest.plugin.StressTestActivator.RUN_SCRIPT_EVTYPE;
+import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
+
+import java.io.InputStream;
 
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
@@ -23,42 +27,55 @@ import com.ingemark.perftest.script.Parser;
 
 public class RequestAgeView extends ViewPart
 {
-  public static final int STATS_EVTYPE_BASE = 1024;
+  private static final int MIN_THROTTLE = 70;
+  public static Composite statsParent;
   Scale throttle;
   Display disp;
   IStressTester stressTester = StressTester.NULL;
   Stats stats = new Stats();
 
-  public void createPartControl(Composite p) {
+
+  public void createPartControl(final Composite p) {
     disp = Display.getDefault();
     final GridLayout l = new GridLayout(2, false);
     p.setLayout(l);
     throttle = new Scale(p, SWT.VERTICAL);
-    throttle.setMinimum(70);
+    throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(330);
-    final Composite statsParent = new Composite(p, SWT.NONE);
+    throttle.addSelectionListener(new SelectionAdapter() {
+      @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
+    });
+    newStatsParent(p);
+  }
+
+  void newStatsParent(final Composite p) {
+    statsParent = new Composite(p, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
     statsParent.setLayout(new GridLayout(2, true));
-    final Script script = new Parser(getClass().getResourceAsStream("/test1.sts")).parse();
-    for (RequestProvider rp : script.testReqs) {
-      final HistogramViewer histogram = new HistogramViewer(statsParent);
-      gridData().grab(true, true).applyTo(histogram.canvas);
-      p.addListener(RequestAgeView.STATS_EVTYPE_BASE + rp.liveStats.index, new Listener() {
-        public void handleEvent(Event event) {
-          histogram.statsUpdate((Stats) event.data);
+    statsParent.addListener(RUN_SCRIPT_EVTYPE, new Listener() {
+      public void handleEvent(Event event) {
+        final Script script = new Parser((InputStream) event.data).parse();
+        stressTester.shutdown();
+        statsParent.dispose();
+        newStatsParent(p);
+        for (RequestProvider rp : script.testReqs) {
+          final HistogramViewer histogram = new HistogramViewer(statsParent);
+          gridData().grab(true, true).applyTo(histogram.canvas);
+          statsParent.addListener(STATS_EVTYPE_BASE + rp.liveStats.index, new Listener() {
+            public void handleEvent(Event event) { histogram.statsUpdate((Stats) event.data); }
+          });
         }
-      });
-    }
-    stressTester = new StressTester(p, script);
-    throttle.addSelectionListener(new SelectionAdapter() {
-      @Override public void widgetSelected(SelectionEvent e) {
-        stressTester.setIntensity(pow(throttle.getSelection()));
-    }});
-    try { stressTester.runTest(); }
-    catch (Throwable t) {
-      openError(null, "Stress test init error", String.format(
-          "%s: %s", t.getClass().getSimpleName(), t.getMessage()));
-    }
+        p.layout(true);
+        try {
+          stressTester = new StressTester(statsParent, script);
+          throttle.setSelection(MIN_THROTTLE);
+          stressTester.runTest();
+        }
+        catch (Throwable t) {
+          openError(null, "Stress test init error", String.format(
+              "%s: %s", t.getClass().getSimpleName(), t.getMessage()));
+        }
+      }});
   }
 
   static int pow(int in) { return (int)Math.pow(10, in/100d); }
@@ -66,4 +83,8 @@ public class RequestAgeView extends ViewPart
 
   @Override public void dispose() { stressTester.shutdown(); }
   @Override public void setFocus() { }
+
+  private void applyThrottle() {
+    stressTester.setIntensity(pow(throttle.getSelection()));
+  }
 }
