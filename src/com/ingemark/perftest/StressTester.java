@@ -53,6 +53,7 @@ public class StressTester implements Runnable, IStressTester
       public void run() {
         try {
           final List<Stats> stats = stats();
+          if (stats.isEmpty()) return;
           final long enqueuedAt = now();
           Display.getDefault().asyncExec(new Runnable() {
             final long maxRefreshTime = (980_000_000L * guiUpdateDivisor) / TIMESLOTS_PER_SEC;

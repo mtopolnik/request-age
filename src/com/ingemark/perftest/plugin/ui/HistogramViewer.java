@@ -2,6 +2,7 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.StressTester.HIST_SIZE;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.perftest.StressTester.now;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -23,91 +24,105 @@ import com.ingemark.perftest.Stats;
 
 public class HistogramViewer implements PaintListener
 {
+  private static final int FULL_TOTAL_BAR_HEIGHT = 100;
   static final int
     HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 1, HIST_XOFFSET = 50, METER_SCALE = 50,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH;
   static int HIST_YOFFSET;
   Stats stats = new Stats();
   final Canvas canvas;
+  final GC ownGc;
+  GC gc;
+  boolean numbersWillBePrinted;
+  long numbersLastPrinted;
 
   HistogramViewer(Composite parent) {
     canvas = new Canvas(parent, SWT.NONE);
     canvas.setBackground(color(SWT.COLOR_WHITE));
     canvas.addPaintListener(this);
-    final GC gc = new GC(canvas);
-    try {HIST_YOFFSET = 10 + gc.getFontMetrics().getHeight();} finally {gc.dispose();}
+    ownGc = new GC(canvas);
+    HIST_YOFFSET = 10 + ownGc.getFontMetrics().getHeight();
   }
 
   void statsUpdate(Stats stats) {
     this.stats = stats;
-    final GC gc = new GC(canvas);
-    try {drawStats(gc);} finally {gc.dispose();}
+    final long now = now();
+    numbersWillBePrinted = now-numbersLastPrinted > 500_000_000;
+    if (numbersWillBePrinted) numbersLastPrinted = now;
+    gc = ownGc;
+    drawStats();
+    gc = null;
   }
 
   @Override public void paintControl(PaintEvent e) {
-    final GC gc = e.gc;
-    paintRect(gc, SWT.COLOR_WHITE, 0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
-    drawStaticStuff(gc, 15);
-    drawStats(gc);
+    gc = e.gc;
+    paintRect(SWT.COLOR_WHITE, 0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    numbersWillBePrinted = true;
+    drawStaticStuff(15);
+    drawStats();
+    gc = null;
   }
 
-  void drawStats(GC gc) {
-    paintMeterBars(gc);
-    paintHistogram(gc);
-    paintTotalReqs(gc);
-    printChartName(gc);
+  void drawStats() {
+    paintMeterBars();
+    paintHistogram();
+    paintTotalReqs();
+    printChartName();
   }
 
-  void paintMeterBars(GC gc) {
-    paintBar(gc, SWT.COLOR_WHITE, 8, HIST_YOFFSET, 5, 0);
+  void paintMeterBars() {
+    paintBar(SWT.COLOR_WHITE, 8, HIST_YOFFSET, 5, 0, Integer.MAX_VALUE);
     final Point maxReqsPerSecExtent = gc.stringExtent("9999");
-    paintRect(gc, SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
-    printString(gc, String.valueOf(stats.reqsPerSec), 2, 0);
+    if (numbersWillBePrinted) {
+      paintRect(SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
+      printString(String.valueOf(stats.reqsPerSec), 2, 0);
+    }
     int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
-    paintBar(gc, SWT.COLOR_DARK_BLUE, 0, HIST_YOFFSET, 5, a);
+    paintBar(SWT.COLOR_DARK_BLUE, 0, HIST_YOFFSET, 5, a, Integer.MAX_VALUE);
     final int color;
     if (b < a) {
       int tmp = a; a = b; b = tmp;
       color = SWT.COLOR_RED;
     } else color = SWT.COLOR_DARK_GREEN;
-    paintBarNoBg(gc, color, 8, HIST_YOFFSET+a, 5, b-a);
-    paintBarNoBg(gc, SWT.COLOR_RED, 8, HIST_YOFFSET, 5, toMeter(stats.failsPerSec));
+    paintBar(color, 8, HIST_YOFFSET+a, 5, b-a, b-a);
+    paintBar(SWT.COLOR_RED, 8, HIST_YOFFSET, 5, toMeter(stats.failsPerSec), 0);
   }
 
-  void paintHistogram(GC gc) {
+  void paintHistogram() {
     final int[] hist = stats.histogram;
     int i;
-    for (i = 0; i < hist.length; i++) histBar(gc, SWT.COLOR_BLUE, i, 1, hist[i]);
-    histBar(gc, SWT.COLOR_BLUE, i, (HIST_SIZE-i), 0);
+    for (i = 0; i < hist.length; i++) histBar(SWT.COLOR_BLUE, i, 1, hist[i]);
+    histBar(SWT.COLOR_BLUE, i, (HIST_SIZE-i), 0);
   }
 
-  void paintTotalReqs(GC gc) {
+  void paintTotalReqs() {
     final int
     maxTotalBars = 1 +
-    (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
-    fullTotalBarHeight = 100,
-    fullTotalBars = min(stats.pendingReqs/fullTotalBarHeight, maxTotalBars),
-    lastTotalBarHeight = stats.pendingReqs%fullTotalBarHeight;
-    final int totalReqColor = SWT.COLOR_GRAY;
-    histBar(gc, totalReqColor, HIST_SIZE, fullTotalBars, fullTotalBarHeight);
-    histBar(gc, totalReqColor, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
-    histBar(gc, totalReqColor, HIST_SIZE+ fullTotalBars+ 1, maxTotalBars-fullTotalBars-1, 0);
-    final String s = String.valueOf(stats.pendingReqs);
-    final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
-    final Point ext = gc.stringExtent(s);
-    final int labelBase = HIST_YOFFSET+fullTotalBarHeight+5;
-    paintRect(gc, SWT.COLOR_WHITE,
-        TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
-    printString(gc, s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
+        (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
+    fullTotalBars = min(stats.pendingReqs/FULL_TOTAL_BAR_HEIGHT, maxTotalBars),
+    lastTotalBarHeight = stats.pendingReqs%FULL_TOTAL_BAR_HEIGHT;
+    final int totalBarColor = SWT.COLOR_GRAY;
+    totalBar(totalBarColor, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
+    totalBar(totalBarColor, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
+    totalBar(totalBarColor, HIST_SIZE+ fullTotalBars+ 1, maxTotalBars-fullTotalBars-1, 0);
+    if (numbersWillBePrinted) {
+      final String s = String.valueOf(stats.pendingReqs);
+      final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
+      final Point ext = gc.stringExtent(s);
+      final int labelBase = HIST_YOFFSET+FULL_TOTAL_BAR_HEIGHT+5;
+      paintRect(SWT.COLOR_WHITE,
+          TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
+      printString(s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
+    }
   }
 
-  void printChartName(GC gc) {
+  void printChartName() {
     final Point ext = gc.stringExtent(stats.name);
-    printString(gc, stats.name,
+    printString(stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0), 5 + tickMarkY(3, 2), true);
   }
 
-  void drawStaticStuff(GC gc, int xOffset) {
+  void drawStaticStuff(int xOffset) {
     final FontMetrics m = gc.getFontMetrics();
     final int labelOffset = m.getAscent()/2 - 1;
     loop: for (int exp = 0;; exp++)
@@ -115,25 +130,25 @@ public class HistogramViewer implements PaintListener
         final int label = (int)pow(10, exp)*i;
         if (label >= 3000) break loop;
         final int y = HIST_YOFFSET + tickMarkY(exp, i);
-        drawHorLine(gc, xOffset, y, 5);
+        drawHorLine(SWT.COLOR_BLACK, xOffset, y, 5);
         if (i == 2 || i == 10)
-          printString(gc, String.valueOf(label), 8+xOffset, y-labelOffset);
+          printString(String.valueOf(label), 8+xOffset, y-labelOffset);
       }
     for (int i = 0;; i++) {
       final int barIndex = i*TIMESLOTS_PER_SEC;
       final int xPos = HIST_XOFFSET + barIndex*HIST_BAR_WIDTH;
-      drawVerLine(gc, xPos, m.getHeight()+3, 5);
+      drawVerLine(SWT.COLOR_BLACK, xPos, m.getHeight()+3, 5);
       final String label = String.valueOf(i);
       final Point ext = gc.stringExtent(label);
-      printString(gc, label, xPos - ext.x/2, 2);
+      printString(label, xPos - ext.x/2, 2);
       if (barIndex >= HIST_SIZE) break;
     }
   }
 
-  void printString(GC gc, String s, int x, int y) {
-    printString(gc, s, x, y, false);
+  void printString(String s, int x, int y) {
+    printString(s, x, y, false);
   }
-  void printString(GC gc, String s, int x, int y, boolean fitHeight) {
+  void printString(String s, int x, int y, boolean fitHeight) {
     gc.setForeground(color(SWT.COLOR_BLACK));
     gc.setBackground(color(SWT.COLOR_WHITE));
     final FontMetrics m = gc.getFontMetrics();
@@ -141,32 +156,37 @@ public class HistogramViewer implements PaintListener
     if (fitHeight) y = max(y, 0);
     gc.drawString(s, x, y);
   }
-  void drawHorLine(GC gc, int x, int y, int len) {
-    gc.setForeground(color(SWT.COLOR_BLACK));
+  void drawHorLine(int color, int x, int y, int len) {
+    gc.setForeground(color(color));
     final int height = canvas.getClientArea().height;
-    gc.drawLine(x, height-y, x+len, height-y);
+    gc.drawLine(x, height-y, x+len-1, height-y);
   }
-  void drawVerLine(GC gc, int x, int y, int len) {
-    gc.setForeground(color(SWT.COLOR_BLACK));
+  void drawVerLine(int color, int x, int y, int len) {
+    gc.setForeground(color(color));
     final int height = canvas.getClientArea().height;
-    gc.drawLine(x, height-y, x, height-y-len);
+    gc.drawLine(x, height-y-1, x, height-y-len);
   }
-  void paintRect(GC gc, int color, int x, int y, int width, int height) {
+  void paintRect(int color, int x, int y, int width, int height) {
+    if (height == 0 || width == 0) return;
+    if (width == 1) {drawVerLine(color, x, y, height); return;}
+    if (height == 1) {drawHorLine(color, x, y, width); return;}
     final Rectangle all = canvas.getClientArea();
     gc.setBackground(color(color));
     height = min(height, all.height-y);
     gc.fillRectangle(x, max(0, all.height-y-height), width, height);
   }
-  void paintBarNoBg(GC gc, int color, int x, int y, int width, int height) {
-    paintRect(gc, color, x, y, width, height);
+  void paintBar(int color, int x, int y, int width, int height, int maxHeight) {
+    paintRect(color, x, y, width, height);
+    paintRect(SWT.COLOR_WHITE, x, y+height, width, maxHeight-height);
   }
-  void paintBar(GC gc, int color, int x, int y, int width, int height) {
-    paintBarNoBg(gc, color, x, y, width, height);
-    paintRect(gc, SWT.COLOR_WHITE, x, y+height, width, Integer.MAX_VALUE);
+  void histBar(int color, int pos, int barCount, int barHeight) {
+    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, HIST_YOFFSET,
+        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE, Integer.MAX_VALUE);
   }
-  void histBar(GC gc, int color, int pos, int barCount, int barHeight) {
-    paintBar(gc, color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, HIST_YOFFSET,
-        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE);
+  void totalBar(int color, int pos, int barCount, int barHeight) {
+    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, HIST_YOFFSET,
+        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE,
+        FULL_TOTAL_BAR_HEIGHT*HIST_HEIGHT_SCALE);
   }
   Color color(int id) { return Display.getCurrent().getSystemColor(id); }
 
