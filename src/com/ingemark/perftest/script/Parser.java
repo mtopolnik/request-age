@@ -90,7 +90,7 @@ public class Parser
       List<Line> section = newSection(ret);
       int i = 0;
       for (String line; (line = r.readLine()) != null; i++) {
-        if (line.startsWith("---")) section = newSection(ret);
+        if (line.matches("-{3,}")) section = newSection(ret);
         else section.add(new Line(i, line));
       }
     }

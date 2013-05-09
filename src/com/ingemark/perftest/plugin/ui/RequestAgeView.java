@@ -69,6 +69,7 @@ public class RequestAgeView extends ViewPart
         try {
           stressTester = new StressTester(statsParent, script);
           throttle.setSelection(MIN_THROTTLE);
+          applyThrottle();
           stressTester.runTest();
         }
         catch (Throwable t) {
