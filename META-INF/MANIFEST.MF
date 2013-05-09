@@ -5,7 +5,9 @@ Bundle-SymbolicName: com.siemens.stresstest;singleton:=true
 Bundle-Version: 1.0.0.qualifier
 Bundle-Vendor: Siemens CVC
 Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime
+ org.eclipse.core.runtime,
+ org.eclipse.debug.core,
+ org.eclipse.debug.ui
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Bundle-ClassPath: .,
  lib/async-http-client-1.7.15.jar,

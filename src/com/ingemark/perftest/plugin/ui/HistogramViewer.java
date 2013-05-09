@@ -24,7 +24,7 @@ import com.ingemark.perftest.Stats;
 public class HistogramViewer implements PaintListener
 {
   static final int
-    HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 2, HIST_XOFFSET = 50, METER_SCALE = 50,
+    HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 1, HIST_XOFFSET = 50, METER_SCALE = 50,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH;
   static int HIST_YOFFSET;
   Stats stats = new Stats();
@@ -55,20 +55,23 @@ public class HistogramViewer implements PaintListener
     paintMeterBars(gc);
     paintHistogram(gc);
     paintTotalReqs(gc);
-    paintChartName(gc);
+    printChartName(gc);
   }
 
   void paintMeterBars(GC gc) {
-    paintBar(gc, SWT.COLOR_WHITE, 8, 0, 5, 0);
+    paintBar(gc, SWT.COLOR_WHITE, 8, HIST_YOFFSET, 5, 0);
+    final Point maxReqsPerSecExtent = gc.stringExtent("9999");
+    paintRect(gc, SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
+    printString(gc, String.valueOf(stats.reqsPerSec), 2, 0);
     int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
-    paintBar(gc, SWT.COLOR_DARK_BLUE, 0, 0, 5, a);
+    paintBar(gc, SWT.COLOR_DARK_BLUE, 0, HIST_YOFFSET, 5, a);
     final int color;
     if (b < a) {
       int tmp = a; a = b; b = tmp;
       color = SWT.COLOR_RED;
     } else color = SWT.COLOR_DARK_GREEN;
-    paintBarNoBg(gc, color, 8, a, 5, b-a);
-    paintBarNoBg(gc, SWT.COLOR_RED, 8, 0, 5, toMeter(stats.failsPerSec));
+    paintBarNoBg(gc, color, 8, HIST_YOFFSET+a, 5, b-a);
+    paintBarNoBg(gc, SWT.COLOR_RED, 8, HIST_YOFFSET, 5, toMeter(stats.failsPerSec));
   }
 
   void paintHistogram(GC gc) {
@@ -95,12 +98,12 @@ public class HistogramViewer implements PaintListener
     final int labelBase = HIST_YOFFSET+fullTotalBarHeight+5;
     paintRect(gc, SWT.COLOR_WHITE,
         TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
-    drawString(gc, s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
+    printString(gc, s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
   }
 
-  void paintChartName(GC gc) {
+  void printChartName(GC gc) {
     final Point ext = gc.stringExtent(stats.name);
-    drawString(gc, stats.name,
+    printString(gc, stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0), 5 + tickMarkY(3, 2), true);
   }
 
@@ -111,10 +114,10 @@ public class HistogramViewer implements PaintListener
       for (int i = 2; i <= 10; i += 2) {
         final int label = (int)pow(10, exp)*i;
         if (label >= 3000) break loop;
-        final int y = tickMarkY(exp, i);
+        final int y = HIST_YOFFSET + tickMarkY(exp, i);
         drawHorLine(gc, xOffset, y, 5);
         if (i == 2 || i == 10)
-          drawString(gc, String.valueOf(label), 8+xOffset, y-labelOffset);
+          printString(gc, String.valueOf(label), 8+xOffset, y-labelOffset);
       }
     for (int i = 0;; i++) {
       final int barIndex = i*TIMESLOTS_PER_SEC;
@@ -122,15 +125,15 @@ public class HistogramViewer implements PaintListener
       drawVerLine(gc, xPos, m.getHeight()+3, 5);
       final String label = String.valueOf(i);
       final Point ext = gc.stringExtent(label);
-      drawString(gc, label, xPos - ext.x/2, 2);
+      printString(gc, label, xPos - ext.x/2, 2);
       if (barIndex >= HIST_SIZE) break;
     }
   }
 
-  void drawString(GC gc, String s, int x, int y) {
-    drawString(gc, s, x, y, false);
+  void printString(GC gc, String s, int x, int y) {
+    printString(gc, s, x, y, false);
   }
-  void drawString(GC gc, String s, int x, int y, boolean fitHeight) {
+  void printString(GC gc, String s, int x, int y, boolean fitHeight) {
     gc.setForeground(color(SWT.COLOR_BLACK));
     gc.setBackground(color(SWT.COLOR_WHITE));
     final FontMetrics m = gc.getFontMetrics();

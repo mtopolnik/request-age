@@ -9,10 +9,11 @@
             id="ingemark-perftest-plugin">
       </category>
       <view
-            name="Request Age"
             category="ingemark-perftest-plugin"
             class="com.ingemark.perftest.plugin.ui.RequestAgeView"
-            id="com.ingemark.perftest.plugin.views.RequestAgeView">
+            icon="img/perftest.gif"
+            id="com.ingemark.perftest.plugin.views.RequestAgeView"
+            name="Request Age">
       </view>
    </extension>
    <extension
@@ -27,5 +28,22 @@
          </view>
       </perspectiveExtension>
    </extension>
+  <extension point="org.eclipse.debug.core.launchConfigurationTypes">
+    <launchConfigurationType
+        name="Stress Test"
+        delegate="com.ingemark.perftest.plugin.LaunchDelegate"
+        modes="run"
+        id="com.ingemark.perftest.launchDelegate">        
+    </launchConfigurationType>
+  </extension>
+  <extension point="org.eclipse.debug.ui.launchShortcuts">
+    <shortcut
+        id="com.ingemark.perftest.launchShortcut"
+        class="com.ingemark.perftest.plugin.LaunchShortcut"
+        label="Stress Test"
+        icon="img/perftest.gif"
+        modes="run">
+    </shortcut>
+  </extension>
 
 </plugin>

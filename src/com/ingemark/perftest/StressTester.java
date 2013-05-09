@@ -25,7 +25,7 @@ import com.ning.http.client.Response;
 
 public class StressTester implements Runnable, IStressTester
 {
-  public static final int TIMESLOTS_PER_SEC = 10, HIST_SIZE = 100;
+  public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   final ScheduledExecutorService sched = Executors.newScheduledThreadPool(2);
   final Script script;
   final Random rnd = new Random();
