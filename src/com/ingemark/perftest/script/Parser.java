@@ -14,17 +14,21 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.JTextField;
+
 import com.ingemark.perftest.RequestProvider;
 import com.ingemark.perftest.Script;
 
 public class Parser
 {
   static final Pattern
-    headerRegex = Pattern.compile("\\s*(\\S+)(?:\\s+(.+))?"),
-    kvRegex = Pattern.compile("\\s*(\\S+)\\s*[=:]\\s*(.+)$");
+    rxHeader = r("\\s*(\\S+)(?:\\s+(.+))?"),
+    rxKv = r("\\s*(\\S+)\\s*[=:]\\s*(.+)$"),
+    rxSectionBreak = r("-{3,}");
   final InputStream is;
   final List<RequestProvider> initReqs = new ArrayList<>(), testReqs = new ArrayList<>();
   List<RequestProvider> currReqs;
+  RequestProvider currReqProvider;
   int reqProviderIndex;
   final Map<String, String> config = new HashMap<>();
 
@@ -41,14 +45,18 @@ public class Parser
   void parseSection(List<Line> section) {
     if (section.isEmpty()) return;
     final Line header = section.get(0);
-    final Matcher m = headerRegex.matcher(header.line);
+    final Matcher m = rxHeader.matcher(header.line);
     if (!m.matches()) throw new RuntimeException("Invalid section header at " + header);
     switch(m.group(1)) {
     case "CONFIG": parseConfig(section); break;
     case "REQUEST":
-      currReqs.add(parseReqProvider(reqProviderIndex, m.group(2), section));
+      final RequestProvider rp = parseReqProvider(reqProviderIndex, m.group(2), section);
+      currReqProvider = rp;
+      currReqs.add(rp);
       if (isNotBlank(m.group(2))) reqProviderIndex++;
       break;
+    case "ASSIGN":
+      assign(section);
     case "ONCE":
       if (currReqs == null) currReqs = initReqs;
       else throw new RuntimeException(
@@ -59,8 +67,8 @@ public class Parser
   }
 
   void parseConfig(List<Line> lines) {
-    for (Line l : skipBlankLines(lines)) {
-      final Matcher m = kvRegex.matcher(l.line);
+    for (Line l : skipBlankLines(lines.subList(1, lines.size()))) {
+      final Matcher m = rxKv.matcher(l.line);
       if (m.matches()) throw new RuntimeException("Malformed configuration line at " + l);
       config.put(m.group(1), m.group(2));
     }
@@ -71,7 +79,7 @@ public class Parser
     final Line header = it.next();
     if (!it.hasNext()) throw new RuntimeException("Empty request section at " + header);
     final Line req = it.next();
-    final Matcher m = headerRegex.matcher(req.line);
+    final Matcher m = rxHeader.matcher(req.line);
     if (!m.matches()) throw new RuntimeException("Malformed request at " + req);
     if (it.hasNext() && !isBlank(it.next().line))
       throw new RuntimeException("Blank line must follow request at " + req);
@@ -84,13 +92,17 @@ public class Parser
     return new RequestProvider(index, name, m.group(1), m.group(2), body);
   }
 
+  void assign(List<Line> section) {
+
+  }
+
   List<List<Line>> slurp(InputStream is) throws IOException {
     final List<List<Line>> ret = new ArrayList<>();
     try (BufferedReader r = new BufferedReader(new InputStreamReader(is))) {
       List<Line> section = newSection(ret);
       int i = 0;
       for (String line; (line = r.readLine()) != null; i++) {
-        if (line.matches("-{3,}")) section = newSection(ret);
+        if (rxSectionBreak.matcher(line).matches()) section = newSection(ret);
         else section.add(new Line(i, line));
       }
     }
@@ -113,8 +125,10 @@ public class Parser
       if (!isWhitespace(str.charAt(i))) return true;
     return false;
   }
-  static boolean isBlank(String str) { return !isNotBlank(str);
-  }
+  static boolean isBlank(String str) { return !isNotBlank(str); }
+
+  static Pattern r(String s) { return Pattern.compile(s); }
+
   static class Line {
     final int ind;
     final String line;
