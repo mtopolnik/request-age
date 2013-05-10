@@ -17,15 +17,10 @@ public class Stats
   Stats(LiveStats live, String name) {
     this.index = live.index;
     this.name = name;
-    reqsPerSec = arraySum(live.reqs);
-    succRespPerSec = arraySum(live.succs);
-    failsPerSec = arraySum(live.fails);
+    reqsPerSec = Util.arraySum(live.reqs);
+    succRespPerSec = Util.arraySum(live.succs);
+    failsPerSec = Util.arraySum(live.fails);
     pendingReqs = live.pendingReqs.get();
     histogram = live.reqHistogram();
-  }
-  static int arraySum(int[] array) {
-    int sum = 0;
-    for (int cnt : array) sum += cnt;
-    return sum;
   }
 }

@@ -1,5 +1,8 @@
 package com.ingemark.perftest;
 
+import static com.ingemark.perftest.Util.arraySum;
+import static com.ingemark.perftest.Util.toIndex;
+import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -25,12 +28,13 @@ import com.ning.http.client.Response;
 
 public class StressTester implements Runnable, IStressTester
 {
+  private static final int NS_TO_MS = 1_000_000;
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   final ScheduledExecutorService sched = Executors.newScheduledThreadPool(2);
   final Script script;
   final Random rnd = new Random();
   final Control eventReceiver;
-  volatile int intensity = 1, guiUpdateDivisor = 1;
+  volatile int intensity = 1, refreshDivisor = 1;
   volatile long guiSlowSince, guiFastSince;
   AsyncHttpClient client;
   volatile ScheduledFuture<?> nettyReportingTask;
@@ -49,51 +53,61 @@ public class StressTester implements Runnable, IStressTester
     warmup();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
-      int updateCount;
+      int refreshTimeslot = Integer.MIN_VALUE;
+      volatile int[] refreshTimes;
+      volatile int maxRefreshTime;
+      {resetRefreshData();}
+      void resetRefreshData() {
+        refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
+        maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
+      }
       public void run() {
         try {
           final List<Stats> stats = stats();
           if (stats.isEmpty()) return;
-          final long enqueuedAt = now();
+          final long enqueuedAt = now()/NS_TO_MS;
           Display.getDefault().asyncExec(new Runnable() {
-            final long maxRefreshTime = (980_000_000L * guiUpdateDivisor) / TIMESLOTS_PER_SEC;
             public void run() {
-              final long start = now();
+              final long start = now()/NS_TO_MS;
               if (eventReceiver.isDisposed()) return;
               for (Stats s : stats) {
                 final Event e = new Event();
                 e.data = s;
                 eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
               }
-              final long end = now(), elapsed = end-start, timeInQueue = start-enqueuedAt;
-              if (++updateCount % 50 == 0)
-                System.out.println("Repaint time: " + elapsed/1_000_000 +
-                    ", time in queue: " + timeInQueue/1_000_000 +
-                    ", refresh divisor: " + guiUpdateDivisor);
-              if (!adjustSlowGui(end, elapsed, timeInQueue))
-                adjustFastGui(end, elapsed, timeInQueue);
+              final long end = now()/NS_TO_MS;
+              final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
+              refreshTimes[toIndex(refreshTimes, refreshTimeslot++)] = elapsed;
+              final int avgRefresh = arraySum(refreshTimes)/refreshTimes.length;
+              if (!adjustSlowGui(end, avgRefresh, timeInQueue))
+                adjustFastGui(end, avgRefresh, timeInQueue);
+              if (refreshTimeslot % ((5*TIMESLOTS_PER_SEC)/refreshDivisor) == 0)
+                System.out.format("timeInQueue %d avgRefresh %d refreshDivisor %d\n",
+                    timeInQueue, avgRefresh, refreshDivisor);
             }
-            boolean adjustSlowGui(long now, long elapsed, long timeInQueue) {
-              if (timeInQueue < 500_000_000L) { guiSlowSince = 0; return false; }
-              if (guiUpdateDivisor >= TIMESLOTS_PER_SEC) return true;
+            boolean adjustSlowGui(long now, int avgRefresh, int timeInQueue) {
+              if (timeInQueue < 200) { guiSlowSince = 0; return false; }
+              if (refreshDivisor >= TIMESLOTS_PER_SEC) return true;
               if (guiSlowSince == 0) { guiSlowSince = now; return true; }
-              if (now-guiSlowSince > 5_000_000_000L) {
+              if (now-guiSlowSince > 5000) {
                 guiSlowSince = 0;
-                guiUpdateDivisor++;
+                refreshDivisor = max(refreshDivisor+1, (avgRefresh*TIMESLOTS_PER_SEC)/1000);
+                resetRefreshData();
                 System.out.println("Reducing refresh rate");
               }
               return true;
             }
-            void adjustFastGui(long now, long elapsed, long timeInQueue) {
-              if (guiUpdateDivisor <= 1) return;
-              final double d = guiUpdateDivisor;
-              if (elapsed * (d/(d-1)) > maxRefreshTime || timeInQueue > 10_000_000L) {
+            void adjustFastGui(long now, int avgRefresh, long timeInQueue) {
+              if (refreshDivisor <= 1) return;
+              final double d = refreshDivisor;
+              if (timeInQueue > 100 || avgRefresh * (d/(d-1)) > maxRefreshTime) {
                 guiFastSince = 0; return;
               }
               if (guiFastSince == 0) { guiFastSince = now; return; }
-              if (now-guiFastSince > 5_000_000_000L) {
+              if (now-guiFastSince > 5000) {
                 guiFastSince = 0;
-                guiUpdateDivisor--;
+                refreshDivisor--;
+                resetRefreshData();
                 System.out.println("Increasing refresh rate");
               }
             }
@@ -162,7 +176,7 @@ public class StressTester implements Runnable, IStressTester
   List<Stats> stats() {
     final List<Stats> ret = new ArrayList<>(script.testReqs.size());
     for (RequestProvider p : script.testReqs) {
-      final Stats stats = p.liveStats.stats(guiUpdateDivisor);
+      final Stats stats = p.liveStats.stats(refreshDivisor);
       if (stats != null) ret.add(stats);
     }
     return ret;

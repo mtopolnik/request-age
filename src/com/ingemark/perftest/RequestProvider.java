@@ -34,20 +34,20 @@ public class RequestProvider {
 
     synchronized int registerReq() {
       pendingReqs.incrementAndGet();
-      histogram[toIndex(histogram, timeSlot)]++;
-      reqs[toIndex(reqs, timeSlot)]++;
+      histogram[Util.toIndex(histogram, timeSlot)]++;
+      reqs[Util.toIndex(reqs, timeSlot)]++;
       return timeSlot;
     }
     synchronized void deregisterReq(int startSlot, boolean success) {
       pendingReqs.decrementAndGet();
       final int[] hist = histogram;
-      if (startSlot-timeSlot < hist.length) hist[toIndex(hist, startSlot)]--;
+      if (startSlot-timeSlot < hist.length) hist[Util.toIndex(hist, startSlot)]--;
       final int[] ary = success?succs:fails;
-      ary[toIndex(ary, timeSlot)]++;
+      ary[Util.toIndex(ary, timeSlot)]++;
     }
     synchronized int[] reqHistogram() {
       final int[] hist = histogram, ret = new int[hist.length];
-      final int ind = toIndex(hist, timeSlot);
+      final int ind = Util.toIndex(hist, timeSlot);
       System.arraycopy(hist, ind, ret, 0, hist.length-ind);
       if (ind != 0) System.arraycopy(hist, 0, ret, hist.length-ind, ind);
       return ret;
@@ -57,15 +57,11 @@ public class RequestProvider {
         return timeSlot % guiUpdateDivisor == 0? new Stats(this, name) : null;
       } finally {
         timeSlot--;
-        final int histIndex = toIndex(histogram, timeSlot);
+        final int histIndex = Util.toIndex(histogram, timeSlot);
         histogram[histIndex] =
-            reqs[toIndex(reqs, timeSlot)] = succs[toIndex(succs, timeSlot)] =
-            fails[toIndex(fails, timeSlot)] = 0;
+            reqs[Util.toIndex(reqs, timeSlot)] = succs[Util.toIndex(succs, timeSlot)] =
+            fails[Util.toIndex(fails, timeSlot)] = 0;
       }
     }
-  }
-  static int toIndex(int[] array, int timeSlot) {
-    int slot = timeSlot%array.length;
-    return slot >= 0? slot : slot + array.length;
   }
 }

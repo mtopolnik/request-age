@@ -31,7 +31,7 @@ public class HistogramViewer implements PaintListener
   static int HIST_YOFFSET;
   Stats stats = new Stats();
   final Canvas canvas;
-  final GC ownGc;
+  GC ownGc;
   GC gc;
   boolean numbersWillBePrinted;
   long numbersLastPrinted;
@@ -47,11 +47,15 @@ public class HistogramViewer implements PaintListener
   void statsUpdate(Stats stats) {
     this.stats = stats;
     final long now = now();
-    numbersWillBePrinted = now-numbersLastPrinted > 500_000_000;
-    if (numbersWillBePrinted) numbersLastPrinted = now;
+    numbersWillBePrinted = now-numbersLastPrinted > 200_000_000;
     gc = ownGc;
     drawStats();
     gc = null;
+    if (numbersWillBePrinted) {
+      ownGc.dispose();
+      ownGc = new GC(canvas);
+      numbersLastPrinted = now;
+    }
   }
 
   @Override public void paintControl(PaintEvent e) {
@@ -85,7 +89,8 @@ public class HistogramViewer implements PaintListener
       color = SWT.COLOR_RED;
     } else color = SWT.COLOR_DARK_GREEN;
     paintBar(color, 8, HIST_YOFFSET+a, 5, b-a, b-a);
-    paintBar(SWT.COLOR_RED, 8, HIST_YOFFSET, 5, toMeter(stats.failsPerSec), 0);
+    final int failsHeight = toMeter(stats.failsPerSec);
+    paintBar(SWT.COLOR_RED, 8, HIST_YOFFSET, 5, failsHeight, failsHeight);
   }
 
   void paintHistogram() {
