@@ -14,5 +14,4 @@ Bundle-ClassPath: .,
 Bundle-ActivationPolicy: lazy
 Bundle-Activator: com.ingemark.perftest.plugin.StressTestActivator
 Import-Package: org.eclipse.jdt.launching,
- org.eclipse.ui.part,
- org.slf4j
+ org.eclipse.ui.part
