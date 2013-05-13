@@ -11,4 +11,5 @@ public class Util
     for (int cnt : array) sum += cnt;
     return sum;
   }
+  public static long now() { return System.nanoTime(); }
 }

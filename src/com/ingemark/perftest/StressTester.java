@@ -1,13 +1,21 @@
 package com.ingemark.perftest;
 
-import static com.ingemark.perftest.Util.arraySum;
-import static com.ingemark.perftest.Util.toIndex;
-import static java.lang.Math.max;
+import static com.ingemark.perftest.Message.DIVISOR;
+import static com.ingemark.perftest.Message.INIT;
+import static com.ingemark.perftest.Message.INTENSITY;
+import static com.ingemark.perftest.Message.SHUTDOWN;
+import static com.ingemark.perftest.Util.now;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.jboss.netty.channel.Channels.pipeline;
+import static org.jboss.netty.channel.Channels.pipelineFactory;
+import static org.jboss.netty.handler.codec.serialization.ClassResolvers.cacheDisabled;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -15,132 +23,101 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
+import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ExceptionEvent;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelHandler;
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
+import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 
-import com.ingemark.perftest.plugin.StressTestActivator;
+import com.ingemark.perftest.script.Parser;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
-public class StressTester implements Runnable, IStressTester
+public class StressTester implements Runnable
 {
-  private static final int NS_TO_MS = 1_000_000;
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   final ScheduledExecutorService sched = Executors.newScheduledThreadPool(2);
   final Script script;
   final Random rnd = new Random();
-  final Control eventReceiver;
-  volatile int intensity = 1, refreshDivisor = 1;
-  volatile long guiSlowSince, guiFastSince;
-  AsyncHttpClient client;
+  final ClientBootstrap netty;
+  final Channel channel;
+  final AsyncHttpClient client;
+  volatile int intensity = 1, updateDivisor = 1;
   volatile ScheduledFuture<?> nettyReportingTask;
 
-  public StressTester(Control eventReceiver, Script script) {
-    this.eventReceiver = eventReceiver;
+  public StressTester(Script script) {
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
     b.setProxyServer(toProxyServer(script.initEnv.get("system.proxy")));
     this.client = new AsyncHttpClient();
     this.script = script;
+    this.netty = netty();
+    this.channel = channel(netty);
+  }
+
+  Channel channel(ClientBootstrap netty) {
+    try {
+      return netty.connect(new InetSocketAddress("localhost", 49131)).await().getChannel();
+    } catch (InterruptedException e) {return null;}
+  }
+
+  ClientBootstrap netty() {
+    final ClientBootstrap b = new ClientBootstrap(
+        new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
+    b.setPipelineFactory(pipelineFactory(pipeline(
+      new ObjectDecoder(cacheDisabled(getClass().getClassLoader())),
+      new SimpleChannelHandler() {
+        @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
+          try {
+            final Message msg = (Message)e.getMessage();
+            System.out.println(msg);
+            switch (msg.type) {
+            case DIVISOR: updateDivisor = (int) msg.value; break;
+            case INTENSITY: intensity = (int) msg.value; break;
+            case SHUTDOWN:
+              sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
+              break;
+            }
+          } catch (Throwable t) {t.printStackTrace();}
+        }
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+          System.out.println(e.getCause().getMessage());
+        }
+      },
+      new ObjectEncoder())));
+    return b;
   }
 
   public void setIntensity(int intensity) { this.intensity = intensity; }
 
   public void runTest() throws Exception {
+    channel.write(new Message(INIT, script.testReqs.size()));
     warmup();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
-      int refreshTimeslot = Integer.MIN_VALUE;
-      volatile int[] refreshTimes;
-      volatile int maxRefreshTime;
-      {resetRefreshData();}
-      void resetRefreshData() {
-        refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
-        maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
-      }
       public void run() {
-        try {
-          final List<Stats> stats = stats();
-          if (stats.isEmpty()) return;
-          final long enqueuedAt = now()/NS_TO_MS;
-          Display.getDefault().asyncExec(new Runnable() {
-            public void run() {
-              final long start = now()/NS_TO_MS;
-              if (eventReceiver.isDisposed()) return;
-              for (Stats s : stats) {
-                final Event e = new Event();
-                e.data = s;
-                eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
-              }
-              final long end = now()/NS_TO_MS;
-              final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
-              refreshTimes[toIndex(refreshTimes, refreshTimeslot++)] = elapsed;
-              final int avgRefresh = arraySum(refreshTimes)/refreshTimes.length;
-              if (!adjustSlowGui(end, avgRefresh, timeInQueue))
-                adjustFastGui(end, avgRefresh, timeInQueue);
-              if (refreshTimeslot % ((5*TIMESLOTS_PER_SEC)/refreshDivisor) == 0)
-                System.out.format("timeInQueue %d avgRefresh %d refreshDivisor %d\n",
-                    timeInQueue, avgRefresh, refreshDivisor);
-            }
-            boolean adjustSlowGui(long now, int avgRefresh, int timeInQueue) {
-              if (timeInQueue < 200) { guiSlowSince = 0; return false; }
-              if (refreshDivisor >= TIMESLOTS_PER_SEC) return true;
-              if (guiSlowSince == 0) { guiSlowSince = now; return true; }
-              if (now-guiSlowSince > 5000) {
-                guiSlowSince = 0;
-                refreshDivisor = max(refreshDivisor+1, (avgRefresh*TIMESLOTS_PER_SEC)/1000);
-                resetRefreshData();
-                System.out.println("Reducing refresh rate");
-              }
-              return true;
-            }
-            void adjustFastGui(long now, int avgRefresh, long timeInQueue) {
-              if (refreshDivisor <= 1) return;
-              final double d = refreshDivisor;
-              if (timeInQueue > 100 || avgRefresh * (d/(d-1)) > maxRefreshTime) {
-                guiFastSince = 0; return;
-              }
-              if (guiFastSince == 0) { guiFastSince = now; return; }
-              if (now-guiFastSince > 5000) {
-                guiFastSince = 0;
-                refreshDivisor--;
-                resetRefreshData();
-                System.out.println("Increasing refresh rate");
-              }
-            }
-          });
-        } catch (Throwable t) {
-          System.err.println("Error in state reporting task");
-          t.printStackTrace();
-        }
-      }
-    }, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
-    }
+        final List<Stats> stats = stats();
+        if (stats.isEmpty()) return;
+        channel.write(stats.toArray(new Stats[stats.size()]));
+    }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
+  }
 
   void warmup() throws Exception {
     System.out.print("Warming up"); System.out.flush();
     try {
-//      long prevTime = Long.MAX_VALUE;
-//      for (int i = 0; i < 10; i++) {
-//        final long start = now();
-//        final Response r = client.executeRequest(req).get(10, SECONDS);
-//        final long rt = now() - start;
-//        if (!isSuccessResponse(r))
-//          throw new RuntimeException("Request failed during warmup with status " +
-//              r.getStatusCode() + " " + r.getStatusText());
-//        System.out.print("."); System.out.flush();
-//        if (1.2 * rt > prevTime) break;
-//        prevTime = rt;
-//      }
       System.out.println(" done.");
     } catch (Throwable t) { shutdown(); }
   }
 
   @Override public void run() {
-    final long start = now();
+    final long start = Util.now();
     final Script.Instance si = script.newInstance(client);
     try {
       new AsyncCompletionHandlerBase() {
@@ -166,7 +143,7 @@ public class StressTester implements Runnable, IStressTester
         }
       };
       if (!sched.isShutdown())
-        sched.schedule(this, /*100_000*i*/ 1_000_000_000/intensity - (now()-start), NANOSECONDS);
+        sched.schedule(this, 1_000_000_000/intensity - (now()-start), NANOSECONDS);
     } catch (Throwable t) {
       System.err.println("Error in request firing task.");
       t.printStackTrace();
@@ -176,7 +153,7 @@ public class StressTester implements Runnable, IStressTester
   List<Stats> stats() {
     final List<Stats> ret = new ArrayList<>(script.testReqs.size());
     for (RequestProvider p : script.testReqs) {
-      final Stats stats = p.liveStats.stats(refreshDivisor);
+      final Stats stats = p.liveStats.stats(updateDivisor);
       if (stats != null) ret.add(stats);
     }
     return ret;
@@ -187,23 +164,19 @@ public class StressTester implements Runnable, IStressTester
       sched.shutdown();
       sched.awaitTermination(5, SECONDS);
       client.close();
+      netty.shutdown();
     } catch (InterruptedException e) { }
   }
 
   static boolean isSuccessResponse(Response r) {
     return r.getStatusCode() >= 200 && r.getStatusCode() < 400;
   }
-  public static long now() { return System.nanoTime(); }
-
   static ProxyServer toProxyServer(String proxyString) {
     if (proxyString == null) return null;
     final String[] parts = proxyString.split(":");
     return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
-
-  public static final IStressTester NULL = new IStressTester() {
-    public void setIntensity(int intensity) { }
-    public void shutdown() { }
-    public void runTest() { }
-  };
+  public static void main(String[] args) throws Exception {
+    new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
+  }
 }

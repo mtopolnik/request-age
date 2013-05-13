@@ -1,10 +1,11 @@
 package com.ingemark.perftest.plugin.ui;
 
+import static com.ingemark.perftest.plugin.StressTestActivator.INIT_HIST_EVTYPE;
 import static com.ingemark.perftest.plugin.StressTestActivator.RUN_SCRIPT_EVTYPE;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
+import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static org.eclipse.core.runtime.FileLocator.getBundleFile;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
-
-import java.io.InputStream;
 
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
@@ -18,24 +19,25 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
 import org.eclipse.ui.part.ViewPart;
 
-import com.ingemark.perftest.IStressTester;
-import com.ingemark.perftest.RequestProvider;
-import com.ingemark.perftest.Script;
+import com.ingemark.perftest.IStressTestServer;
 import com.ingemark.perftest.Stats;
+import com.ingemark.perftest.StressTestServer;
 import com.ingemark.perftest.StressTester;
-import com.ingemark.perftest.script.Parser;
 
 public class RequestAgeView extends ViewPart
 {
   private static final int MIN_THROTTLE = 70;
-  public static Composite statsParent;
+  public static RequestAgeView instance;
+  public Composite statsParent;
+  Process subprocess;
   Scale throttle;
   Display disp;
-  IStressTester stressTester = StressTester.NULL;
+  IStressTestServer testServer = StressTestServer.NULL;
   Stats stats = new Stats();
 
 
   public void createPartControl(final Composite p) {
+    instance = this;
     disp = Display.getDefault();
     final GridLayout l = new GridLayout(2, false);
     p.setLayout(l);
@@ -54,23 +56,33 @@ public class RequestAgeView extends ViewPart
     statsParent.setLayout(new GridLayout(2, true));
     statsParent.addListener(RUN_SCRIPT_EVTYPE, new Listener() {
       public void handleEvent(Event event) {
-        final Script script = new Parser((InputStream) event.data).parse();
-        stressTester.shutdown();
-        statsParent.dispose();
-        newStatsParent(p);
-        for (RequestProvider rp : script.testReqs) {
-          final HistogramViewer histogram = new HistogramViewer(statsParent);
-          gridData().grab(true, true).applyTo(histogram.canvas);
-          statsParent.addListener(STATS_EVTYPE_BASE + rp.liveStats.index, new Listener() {
-            public void handleEvent(Event event) { histogram.statsUpdate((Stats) event.data); }
-          });
-        }
-        p.layout(true);
         try {
-          stressTester = new StressTester(statsParent, script);
-          throttle.setSelection(MIN_THROTTLE);
-          applyThrottle();
-          stressTester.runTest();
+          testServer.shutdown();
+          if (subprocess != null) subprocess.waitFor();
+          statsParent.dispose();
+          newStatsParent(p);
+          statsParent.addListener(INIT_HIST_EVTYPE, new Listener() {
+            @Override public void handleEvent(Event event) {
+              System.out.println("Init histogram");
+              throttle.setSelection(MIN_THROTTLE);
+              applyThrottle();
+              for (int i = 0; i < (int)event.data; i++) {
+                final HistogramViewer histogram = new HistogramViewer(statsParent);
+                gridData().grab(true, true).applyTo(histogram.canvas);
+                statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
+                  public void handleEvent(Event event) { histogram.statsUpdate((Stats) event.data); }
+                });
+              }
+              p.layout(true);
+          }});
+          System.out.println("Start test server");
+          testServer = new StressTestServer(statsParent);
+          System.out.println("Start subprocess");
+          final String cp = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath();
+          System.out.println("cp " + cp);
+          subprocess = new ProcessBuilder("java", "-Xmx64m", "-XX:+UseConcMarkSweepGC",
+              "-cp", String.format("%s:%s/bin:%s/lib", cp, cp, cp),
+              StressTester.class.getName(), (String) event.data) .inheritIO().start();
         }
         catch (Throwable t) {
           openError(null, "Stress test init error", String.format(
@@ -79,13 +91,19 @@ public class RequestAgeView extends ViewPart
       }});
   }
 
+  static String joinPath(String[] ps) {
+    final StringBuilder b = new StringBuilder(128);
+    for (String p : ps) b.append(p).append(":");
+    return b.toString();
+  }
+
   static int pow(int in) { return (int)Math.pow(10, in/100d); }
   static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 
-  @Override public void dispose() { stressTester.shutdown(); }
+  @Override public void dispose() { testServer.shutdown(); }
   @Override public void setFocus() { }
 
   private void applyThrottle() {
-    stressTester.setIntensity(pow(throttle.getSelection()));
+    testServer.intensity(pow(throttle.getSelection()));
   }
 }

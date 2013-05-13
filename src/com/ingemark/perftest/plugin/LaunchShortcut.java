@@ -26,9 +26,10 @@ public class LaunchShortcut implements ILaunchShortcut
   void launch(IFile in) {
     try {
       getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(STRESSTEST_VIEW_ID);
-      final Event event = new Event();
-      event.data = in.getContents();
-      RequestAgeView.statsParent.notifyListeners(RUN_SCRIPT_EVTYPE, event);
+      final RequestAgeView view = RequestAgeView.instance;
+      final Event e = new Event();
+      e.data = in.getLocation().toOSString();
+      view.statsParent.notifyListeners(RUN_SCRIPT_EVTYPE, e);
     } catch (CoreException e) { throw new RuntimeException(e); }
   }
 }

@@ -6,10 +6,12 @@ import org.osgi.framework.BundleContext;
 
 public class StressTestActivator implements BundleActivator
 {
-  public static final String STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
+  public static final String
+    STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
   public static final int
-    STATS_EVTYPE_BASE = 1024,
-    RUN_SCRIPT_EVTYPE = 2048;
+    RUN_SCRIPT_EVTYPE = 1024,
+    INIT_HIST_EVTYPE = 1025,
+    STATS_EVTYPE_BASE = 2048;
   static StressTestActivator instance;
   private Bundle bundle;
 

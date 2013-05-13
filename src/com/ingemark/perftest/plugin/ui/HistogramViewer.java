@@ -2,7 +2,6 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.StressTester.HIST_SIZE;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
-import static com.ingemark.perftest.StressTester.now;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -21,6 +20,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 
 import com.ingemark.perftest.Stats;
+import com.ingemark.perftest.Util;
 
 public class HistogramViewer implements PaintListener
 {
@@ -46,7 +46,7 @@ public class HistogramViewer implements PaintListener
 
   void statsUpdate(Stats stats) {
     this.stats = stats;
-    final long now = now();
+    final long now = Util.now();
     numbersWillBePrinted = now-numbersLastPrinted > 200_000_000;
     gc = ownGc;
     drawStats();

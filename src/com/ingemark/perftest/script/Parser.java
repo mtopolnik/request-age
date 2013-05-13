@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.swing.JTextField;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ContextAction;
+import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.ScriptableObject;
 
 import com.ingemark.perftest.RequestProvider;
 import com.ingemark.perftest.Script;
@@ -26,13 +29,29 @@ public class Parser
     rxKv = r("\\s*(\\S+)\\s*[=:]\\s*(.+)$"),
     rxSectionBreak = r("-{3,}");
   final InputStream is;
+  final ScriptableObject jsScope;
   final List<RequestProvider> initReqs = new ArrayList<>(), testReqs = new ArrayList<>();
   List<RequestProvider> currReqs;
   RequestProvider currReqProvider;
   int reqProviderIndex;
   final Map<String, String> config = new HashMap<>();
 
-  public Parser(InputStream is) { this.is = is; }
+  public Parser(InputStream is) {
+    this.is = is;
+    this.jsScope = initJsScope();
+  }
+
+  ScriptableObject initJsScope() {
+    return (ScriptableObject) ContextFactory.getGlobal().call(new ContextAction() {
+      public Object run(Context cx) {
+        final ScriptableObject scope = cx.initStandardObjects(null, true);
+        cx.evaluateString(scope ,
+            "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
+        scope.sealObject();
+        return scope;
+      }
+    });
+  }
 
   public Script parse() {
     try {
@@ -93,6 +112,12 @@ public class Parser
   }
 
   void assign(List<Line> section) {
+    final Iterator<Line> it = section.iterator();
+    it.next();
+    final Line line = it.next();
+    final Matcher m = rxKv.matcher(line.line);
+    if (!m.matches()) throw new RuntimeException("Malformed assignment at " + line);
+    m.group(2);
 
   }
 
