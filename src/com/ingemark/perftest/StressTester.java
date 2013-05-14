@@ -76,7 +76,7 @@ public class StressTester implements Runnable
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           try {
             final Message msg = (Message)e.getMessage();
-            System.out.println(msg);
+            System.out.println("StressTester received " + msg);
             switch (msg.type) {
             case DIVISOR: updateDivisor = (int) msg.value; break;
             case INTENSITY: intensity = (int) msg.value; break;
@@ -88,7 +88,7 @@ public class StressTester implements Runnable
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.out.println(e.getCause().getMessage());
+          System.out.println("StressTester netty error " + e.getCause().getMessage());
         }
       },
       new ObjectEncoder())));
@@ -98,7 +98,7 @@ public class StressTester implements Runnable
   public void setIntensity(int intensity) { this.intensity = intensity; }
 
   public void runTest() throws Exception {
-    channel.write(new Message(INIT, script.testReqs.size()));
+    channel.write(new Message(INIT, script.testReqs.size())).await();
     warmup();
     run();
     sched.scheduleAtFixedRate(new Runnable() {

@@ -7,6 +7,8 @@ import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static org.eclipse.core.runtime.FileLocator.getBundleFile;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
 
+import java.io.File;
+
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -75,14 +77,14 @@ public class RequestAgeView extends ViewPart
               }
               p.layout(true);
           }});
-          System.out.println("Start test server");
           testServer = new StressTestServer(statsParent);
-          System.out.println("Start subprocess");
-          final String cp = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath();
-          System.out.println("cp " + cp);
+          final String
+            bpath = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath(),
+            cp = String.format("%s%s%s%sbin%s%s%slib", bpath, File.pathSeparator,
+                bpath, File.separator, File.pathSeparator, bpath, File.separator);
           subprocess = new ProcessBuilder("java", "-Xmx64m", "-XX:+UseConcMarkSweepGC",
-              "-cp", String.format("%s:%s/bin:%s/lib", cp, cp, cp),
-              StressTester.class.getName(), (String) event.data) .inheritIO().start();
+              "-cp", cp, StressTester.class.getName(), (String) event.data) .inheritIO().start();
+          System.out.println("Subprocess running");
         }
         catch (Throwable t) {
           openError(null, "Stress test init error", String.format(

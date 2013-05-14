@@ -56,6 +56,7 @@ public class Parser
   public Script parse() {
     try {
       final List<List<Line>> sections = slurp(is);
+      currReqs = testReqs;
       for (List<Line> sec : sections) parseSection(sec);
       return new Script(initReqs, testReqs, config);
     } catch (IOException e) {throw new RuntimeException(e);}

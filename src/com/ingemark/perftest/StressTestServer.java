@@ -69,7 +69,7 @@ public class StressTestServer implements IStressTestServer
       new SimpleChannelHandler() {
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           final Message msg = (Message)e.getMessage();
-          System.out.println("received message " + msg);
+          System.out.println("Server received " + msg);
           switch (msg.type) {
           case INIT:
             final Event event = new Event();
@@ -79,14 +79,14 @@ public class StressTestServer implements IStressTestServer
           case STATS:
           try {
             final Stats[] stats = (Stats[])e.getMessage();
-            System.out.println(stats);
+            System.out.println("Received stats " + stats);
           } catch (Throwable t) {t.printStackTrace();}
           break;
           }
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.out.println(e.getCause().getMessage());
+          System.err.println("Server netty error " + e.getCause().getMessage());
         }},
         new ObjectEncoder()
       )));
