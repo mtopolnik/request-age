@@ -1,5 +1,6 @@
 package com.ingemark.perftest;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,5 +37,11 @@ public class Script
     public void result(Response resp, boolean isSuccess) {
 
     }
+  }
+
+  public ArrayList<Integer> getInit() {
+    final ArrayList<Integer> ret = new ArrayList<>();
+    for (RequestProvider rp : testReqs) ret.add(rp.liveStats.index);
+    return ret;
   }
 }

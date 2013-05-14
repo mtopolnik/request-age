@@ -22,8 +22,8 @@ public class RequestProvider {
 
   public class LiveStats {
     public final int index;
+    final char[] histogram = new char[HIST_SIZE];
     final int[]
-        histogram = new int[HIST_SIZE],
         reqs = new int[TIMESLOTS_PER_SEC],
         succs = new int[TIMESLOTS_PER_SEC],
         fails = new int[TIMESLOTS_PER_SEC];
@@ -40,13 +40,13 @@ public class RequestProvider {
     }
     synchronized void deregisterReq(int startSlot, boolean success) {
       pendingReqs.decrementAndGet();
-      final int[] hist = histogram;
+      final char[] hist = histogram;
       if (startSlot-timeSlot < hist.length) hist[Util.toIndex(hist, startSlot)]--;
       final int[] ary = success?succs:fails;
       ary[Util.toIndex(ary, timeSlot)]++;
     }
-    synchronized int[] reqHistogram() {
-      final int[] hist = histogram, ret = new int[hist.length];
+    synchronized char[] reqHistogram() {
+      final char[] hist = histogram, ret = new char[hist.length];
       final int ind = Util.toIndex(hist, timeSlot);
       System.arraycopy(hist, ind, ret, 0, hist.length-ind);
       if (ind != 0) System.arraycopy(hist, 0, ret, hist.length-ind, ind);
@@ -58,9 +58,10 @@ public class RequestProvider {
       } finally {
         timeSlot--;
         final int histIndex = Util.toIndex(histogram, timeSlot);
-        histogram[histIndex] =
-            reqs[Util.toIndex(reqs, timeSlot)] = succs[Util.toIndex(succs, timeSlot)] =
-            fails[Util.toIndex(fails, timeSlot)] = 0;
+        histogram[histIndex] = (char)
+            (reqs[Util.toIndex(reqs, timeSlot)] =
+            succs[Util.toIndex(succs, timeSlot)] =
+            fails[Util.toIndex(fails, timeSlot)] = 0);
       }
     }
   }

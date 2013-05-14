@@ -27,7 +27,7 @@ public class Parser
   static final Pattern
     rxHeader = r("\\s*(\\S+)(?:\\s+(.+))?"),
     rxKv = r("\\s*(\\S+)\\s*[=:]\\s*(.+)$"),
-    rxSectionBreak = r("-{3,}");
+    rxSectionBreak = r("-{3,}\\s*");
   final InputStream is;
   final ScriptableObject jsScope;
   final List<RequestProvider> initReqs = new ArrayList<>(), testReqs = new ArrayList<>();
@@ -56,7 +56,6 @@ public class Parser
   public Script parse() {
     try {
       final List<List<Line>> sections = slurp(is);
-      currReqs = testReqs;
       for (List<Line> sec : sections) parseSection(sec);
       return new Script(initReqs, testReqs, config);
     } catch (IOException e) {throw new RuntimeException(e);}
@@ -70,6 +69,7 @@ public class Parser
     switch(m.group(1)) {
     case "CONFIG": parseConfig(section); break;
     case "REQUEST":
+      if (currReqs == null) currReqs = initReqs;
       final RequestProvider rp = parseReqProvider(reqProviderIndex, m.group(2), section);
       currReqProvider = rp;
       currReqs.add(rp);
@@ -78,9 +78,9 @@ public class Parser
     case "ASSIGN":
       assign(section);
     case "ONCE":
-      if (currReqs == null) currReqs = initReqs;
-      else throw new RuntimeException(
-          "ONCE section can only appear before any REQUEST section at " + header);
+      if (currReqs != null) throw new RuntimeException(
+          "ONCE can only appear before the first request section. " + header);
+      currReqs = initReqs;
       break;
     case "REPEAT": currReqs = testReqs; break;
     }
@@ -101,8 +101,10 @@ public class Parser
     final Line req = it.next();
     final Matcher m = rxHeader.matcher(req.line);
     if (!m.matches()) throw new RuntimeException("Malformed request at " + req);
-    if (it.hasNext() && !isBlank(it.next().line))
+    if (it.hasNext() && !isBlank(it.next().line)) {
+      System.out.println("section " + section);
       throw new RuntimeException("Blank line must follow request at " + req);
+    }
     final String body;
     if (it.hasNext()) {
       final StringBuilder b = new StringBuilder(128);
@@ -126,7 +128,7 @@ public class Parser
     final List<List<Line>> ret = new ArrayList<>();
     try (BufferedReader r = new BufferedReader(new InputStreamReader(is))) {
       List<Line> section = newSection(ret);
-      int i = 0;
+      int i = 1;
       for (String line; (line = r.readLine()) != null; i++) {
         if (rxSectionBreak.matcher(line).matches()) section = newSection(ret);
         else section.add(new Line(i, line));
@@ -159,6 +161,6 @@ public class Parser
     final int ind;
     final String line;
     Line(int ind, String line) { this.ind = ind; this.line = line; }
-    public String toString() { return "line " + ind + "\"" + line + "\""; }
+    public String toString() { return "line " + ind + " \"" + line + "\""; }
   }
 }

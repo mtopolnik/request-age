@@ -5,15 +5,20 @@ import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
+import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.now;
+import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.eclipse.core.runtime.FileLocator.getBundleFile;
+import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.cacheDisabled;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -24,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 
+import org.eclipse.jdt.launching.IVMInstall;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -101,7 +107,7 @@ public class StressTester implements Runnable
   public void setIntensity(int intensity) { this.intensity = intensity; }
 
   public void runTest() throws Exception {
-    final ChannelFuture result = channel.write(new Message(INIT, script.testReqs.size())).await();
+    final ChannelFuture result = channel.write(new Message(INIT, script.getInit())).await();
     if (!result.isSuccess()) {
       System.err.println("Sending initial message failed");
       result.getCause().printStackTrace();
@@ -175,6 +181,26 @@ public class StressTester implements Runnable
       netty.shutdown();
       System.out.println("Netty client shut down");
     } catch (InterruptedException e) { }
+  }
+
+  static String java() {
+    final IVMInstall inst = getDefaultVMInstall();
+    if (inst == null) return "java";
+    final File loc = inst.getInstallLocation();
+    if (loc == null) return "java";
+    final File java = new File(new File(loc, "bin"), "java");
+    return java != null && java.exists()? java.getAbsolutePath() : "java";
+  }
+
+  public static Process launchTester(String scriptFile) {
+    try {
+      final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
+      final String slash = File.separator;
+      final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
+      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
+          StressTester.class.getName(), scriptFile)
+        .inheritIO().start();
+    } catch (IOException e) { throw new RuntimeException(e); }
   }
 
   static boolean isSuccessResponse(Response r) {

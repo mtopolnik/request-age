@@ -94,7 +94,7 @@ public class HistogramViewer implements PaintListener
   }
 
   void paintHistogram() {
-    final int[] hist = stats.histogram;
+    final char[] hist = stats.histogram;
     int i;
     for (i = 0; i < hist.length; i++) histBar(SWT.COLOR_BLUE, i, 1, hist[i]);
     histBar(SWT.COLOR_BLUE, i, (HIST_SIZE-i), 0);

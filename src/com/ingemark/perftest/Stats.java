@@ -8,12 +8,12 @@ public class Stats implements Serializable
 {
   public final int index;
   public final String name;
-  public final int[] histogram;
+  public final char[] histogram;
   public final int reqsPerSec, succRespPerSec, failsPerSec, pendingReqs;
   public Stats() {
     index = 0;
     name = "<empty>";
-    histogram = new int[0];
+    histogram = new char[0];
     reqsPerSec = succRespPerSec = failsPerSec = pendingReqs = 0;
   }
   Stats(LiveStats live, String name) {

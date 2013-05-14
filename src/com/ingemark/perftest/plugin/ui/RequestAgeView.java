@@ -3,12 +3,9 @@ package com.ingemark.perftest.plugin.ui;
 import static com.ingemark.perftest.plugin.StressTestActivator.INIT_HIST_EVTYPE;
 import static com.ingemark.perftest.plugin.StressTestActivator.RUN_SCRIPT_EVTYPE;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
-import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
-import static org.eclipse.core.runtime.FileLocator.getBundleFile;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
 
-import java.io.File;
-import java.io.IOException;
+import java.util.List;
 
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
@@ -68,17 +65,17 @@ public class RequestAgeView extends ViewPart
               System.out.println("Init histogram");
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
-              for (int i = 0; i < (int)event.data; i++) {
+              for (int i : (List<Integer>)event.data) {
                 final HistogramViewer histogram = new HistogramViewer(statsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
-                  public void handleEvent(Event event) { histogram.statsUpdate((Stats) event.data); }
+                  public void handleEvent(Event e) { histogram.statsUpdate((Stats) e.data); }
                 });
               }
               p.layout(true);
           }});
           testServer = new StressTestServer(statsParent);
-          subprocess = launchTester((String)event.data);
+          subprocess = StressTester.launchTester((String)event.data);
           System.out.println("Subprocess running");
         }
         catch (Throwable t) {
@@ -113,17 +110,5 @@ public class RequestAgeView extends ViewPart
 
   private void applyThrottle() {
     testServer.intensity(pow(throttle.getSelection()));
-  }
-
-  Process launchTester(String scriptFile) {
-    try {
-      final String
-        bpath = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath(),
-        cp = String.format("%s%s%s%sbin%s%s%slib", bpath, File.pathSeparator,
-            bpath, File.separator, File.pathSeparator, bpath, File.separator);
-      return new ProcessBuilder("java", "-Xmx64m", "-XX:+UseConcMarkSweepGC",
-          "-Dorg.jboss.netty.debug",
-          "-cp", cp, StressTester.class.getName(), scriptFile) .inheritIO().start();
-    } catch (IOException e) { throw new RuntimeException(e); }
   }
 }
