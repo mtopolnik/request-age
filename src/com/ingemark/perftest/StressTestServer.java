@@ -24,6 +24,7 @@ import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -39,7 +40,7 @@ public class StressTestServer implements IStressTestServer
 {
   private static final int NS_TO_MS = 1_000_000;
   final Control eventReceiver;
-  final Channel channel;
+  volatile Channel channel;
   final ServerBootstrap netty;
   int refreshTimeslot = Integer.MIN_VALUE;
   volatile int[] refreshTimes;
@@ -49,12 +50,9 @@ public class StressTestServer implements IStressTestServer
   public StressTestServer(Control c) {
     this.eventReceiver = c;
     this.netty = netty();
-    this.channel = netty.bind(new InetSocketAddress(49131));
-    System.out.println("StressTest Server started");
-    refreshDivisorChanged();
   }
 
-  public void intensity(int intensity) { channel.write(new Message(INTENSITY, intensity)); }
+  public void intensity(int intensity) { nettySend(new Message(INTENSITY, intensity)); }
 
   public void shutdown() {
     final ChannelFuture fut = channel.write(new Message(SHUTDOWN, 0));
@@ -62,45 +60,66 @@ public class StressTestServer implements IStressTestServer
     netty.shutdown();
   };
 
+  Event swtEvent(Object data) {
+    final Event e = new Event();
+    e.data = data;
+    return e;
+  }
+
+  void nettySend(Message msg) {
+    if (channel == null) {
+      System.err.println("Attempt to send message without connected client: " + msg);
+      return;
+    }
+    channel.write(msg).addListener(new ChannelFutureListener() {
+      @Override public void operationComplete(ChannelFuture f) {
+        if (f.isSuccess()) return;
+        System.err.println("Failed to send message");
+        f.getCause().printStackTrace();
+      }
+    });
+  }
+
   ServerBootstrap netty() {
     final ServerBootstrap b = new ServerBootstrap(
         new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
-      new ObjectDecoder(cacheDisabled(StressTestServer.class.getClassLoader())),
+      new ObjectDecoder(cacheDisabled(getClass().getClassLoader())),
       new SimpleChannelHandler() {
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           final Message msg = (Message)e.getMessage();
-          System.out.println("Server received " + msg);
           switch (msg.type) {
           case INIT:
-            final Event event = new Event();
-            event.data = (int)msg.value;
-            RequestAgeView.instance.statsParent.notifyListeners(INIT_HIST_EVTYPE, event);
+            channel = ctx.getChannel();
+            refreshDivisorChanged();
+            Display.getDefault().asyncExec(new Runnable() { public void run() {
+              RequestAgeView.instance.statsParent.notifyListeners(INIT_HIST_EVTYPE,
+                  swtEvent(msg.value));
+            }});
             break;
           case STATS:
-          try {
-            final Stats[] stats = (Stats[])e.getMessage();
-            System.out.println("Received stats " + stats);
-          } catch (Throwable t) {t.printStackTrace();}
-          break;
+            receivedStats((Stats[])msg.value);
+            break;
           }
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.err.println("Server netty error " + e.getCause().getMessage());
-        }},
-        new ObjectEncoder()
+          System.err.println("Server netty error");
+          e.getCause().printStackTrace();
+        }}
+      , new ObjectEncoder()
       )));
+    b.bind(new InetSocketAddress(49131));
     return b;
   }
 
   void refreshDivisorChanged() {
-    channel.write(new Message(DIVISOR, refreshDivisor));
+    nettySend(new Message(DIVISOR, refreshDivisor));
     refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
     maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
   }
 
-  void receive(final Stats[] stats) {
+  void receivedStats(final Stats[] stats) {
     final long enqueuedAt = now()/NS_TO_MS;
     Display.getDefault().asyncExec(new Runnable() {
       public void run() {

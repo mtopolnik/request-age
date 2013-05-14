@@ -4,6 +4,7 @@ import static com.ingemark.perftest.Message.DIVISOR;
 import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
+import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.Util.now;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -25,11 +26,12 @@ import java.util.concurrent.ScheduledFuture;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 
@@ -69,17 +71,16 @@ public class StressTester implements Runnable
 
   ClientBootstrap netty() {
     final ClientBootstrap b = new ClientBootstrap(
-        new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
+        new NioClientSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
       new ObjectDecoder(cacheDisabled(getClass().getClassLoader())),
       new SimpleChannelHandler() {
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           try {
             final Message msg = (Message)e.getMessage();
-            System.out.println("StressTester received " + msg);
             switch (msg.type) {
-            case DIVISOR: updateDivisor = (int) msg.value; break;
-            case INTENSITY: intensity = (int) msg.value; break;
+            case DIVISOR: updateDivisor = (Integer) msg.value; break;
+            case INTENSITY: intensity = (Integer) msg.value; break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
@@ -88,24 +89,30 @@ public class StressTester implements Runnable
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.out.println("StressTester netty error " + e.getCause().getMessage());
+          System.err.println("StressTester netty error");
+          e.getCause().printStackTrace();
         }
-      },
-      new ObjectEncoder())));
+      }
+      , new ObjectEncoder()
+      )));
     return b;
   }
 
   public void setIntensity(int intensity) { this.intensity = intensity; }
 
   public void runTest() throws Exception {
-    channel.write(new Message(INIT, script.testReqs.size())).await();
+    final ChannelFuture result = channel.write(new Message(INIT, script.testReqs.size())).await();
+    if (!result.isSuccess()) {
+      System.err.println("Sending initial message failed");
+      result.getCause().printStackTrace();
+    }
     warmup();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
       public void run() {
         final List<Stats> stats = stats();
         if (stats.isEmpty()) return;
-        channel.write(stats.toArray(new Stats[stats.size()]));
+        channel.write(new Message(STATS, stats.toArray(new Stats[stats.size()])));
     }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
   }
 

@@ -8,6 +8,7 @@ import static org.eclipse.core.runtime.FileLocator.getBundleFile;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
 
 import java.io.File;
+import java.io.IOException;
 
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
@@ -77,12 +78,7 @@ public class RequestAgeView extends ViewPart
               p.layout(true);
           }});
           testServer = new StressTestServer(statsParent);
-          final String
-            bpath = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath(),
-            cp = String.format("%s%s%s%sbin%s%s%slib", bpath, File.pathSeparator,
-                bpath, File.separator, File.pathSeparator, bpath, File.separator);
-          subprocess = new ProcessBuilder("java", "-Xmx64m", "-XX:+UseConcMarkSweepGC",
-              "-cp", cp, StressTester.class.getName(), (String) event.data) .inheritIO().start();
+          subprocess = launchTester((String)event.data);
           System.out.println("Subprocess running");
         }
         catch (Throwable t) {
@@ -117,5 +113,17 @@ public class RequestAgeView extends ViewPart
 
   private void applyThrottle() {
     testServer.intensity(pow(throttle.getSelection()));
+  }
+
+  Process launchTester(String scriptFile) {
+    try {
+      final String
+        bpath = getBundleFile(stressTestPlugin().bundle()).getCanonicalPath(),
+        cp = String.format("%s%s%s%sbin%s%s%slib", bpath, File.pathSeparator,
+            bpath, File.separator, File.pathSeparator, bpath, File.separator);
+      return new ProcessBuilder("java", "-Xmx64m", "-XX:+UseConcMarkSweepGC",
+          "-Dorg.jboss.netty.debug",
+          "-cp", cp, StressTester.class.getName(), scriptFile) .inheritIO().start();
+    } catch (IOException e) { throw new RuntimeException(e); }
   }
 }

@@ -1,8 +1,10 @@
 package com.ingemark.perftest;
 
+import java.io.Serializable;
+
 import com.ingemark.perftest.RequestProvider.LiveStats;
 
-public class Stats
+public class Stats implements Serializable
 {
   public final int index;
   public final String name;
@@ -22,5 +24,9 @@ public class Stats
     failsPerSec = Util.arraySum(live.fails);
     pendingReqs = live.pendingReqs.get();
     histogram = live.reqHistogram();
+  }
+  @Override public String toString() {
+    return String.format("%s %d %d %d %d",
+        name, reqsPerSec, succRespPerSec, failsPerSec, pendingReqs);
   }
 }
