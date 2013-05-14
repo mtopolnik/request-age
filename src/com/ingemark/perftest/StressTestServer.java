@@ -7,6 +7,7 @@ import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.perftest.Util.arraySum;
+import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.Util.toIndex;
 import static com.ingemark.perftest.plugin.StressTestActivator.INIT_HIST_EVTYPE;
@@ -24,7 +25,6 @@ import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -52,7 +52,7 @@ public class StressTestServer implements IStressTestServer
     this.netty = netty();
   }
 
-  public void intensity(int intensity) { nettySend(new Message(INTENSITY, intensity)); }
+  public void intensity(int intensity) { nettySend(channel, new Message(INTENSITY, intensity)); }
 
   public void shutdown() {
     final ChannelFuture fut = channel.write(new Message(SHUTDOWN, 0));
@@ -64,20 +64,6 @@ public class StressTestServer implements IStressTestServer
     final Event e = new Event();
     e.data = data;
     return e;
-  }
-
-  void nettySend(Message msg) {
-    if (channel == null) {
-      System.err.println("Attempt to send message without connected client: " + msg);
-      return;
-    }
-    channel.write(msg).addListener(new ChannelFutureListener() {
-      @Override public void operationComplete(ChannelFuture f) {
-        if (f.isSuccess()) return;
-        System.err.println("Failed to send message");
-        f.getCause().printStackTrace();
-      }
-    });
   }
 
   ServerBootstrap netty() {
@@ -114,7 +100,7 @@ public class StressTestServer implements IStressTestServer
   }
 
   void refreshDivisorChanged() {
-    nettySend(new Message(DIVISOR, refreshDivisor));
+    Util.nettySend(channel, new Message(DIVISOR, refreshDivisor));
     refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
     maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
   }

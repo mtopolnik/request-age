@@ -6,6 +6,7 @@ import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.Util.join;
+import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -32,7 +33,6 @@ import java.util.concurrent.ScheduledFuture;
 import org.eclipse.jdt.launching.IVMInstall;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -107,18 +107,14 @@ public class StressTester implements Runnable
   public void setIntensity(int intensity) { this.intensity = intensity; }
 
   public void runTest() throws Exception {
-    final ChannelFuture result = channel.write(new Message(INIT, script.getInit())).await();
-    if (!result.isSuccess()) {
-      System.err.println("Sending initial message failed");
-      result.getCause().printStackTrace();
-    }
+    nettySend(channel, new Message(INIT, script.getInit()), true);
     warmup();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
       public void run() {
         final List<Stats> stats = stats();
         if (stats.isEmpty()) return;
-        channel.write(new Message(STATS, stats.toArray(new Stats[stats.size()])));
+        nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
     }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
   }
 
@@ -130,7 +126,7 @@ public class StressTester implements Runnable
   }
 
   @Override public void run() {
-    final long start = Util.now();
+    final long start = now();
     final Script.Instance si = script.newInstance(client);
     try {
       new AsyncCompletionHandlerBase() {

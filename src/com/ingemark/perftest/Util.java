@@ -1,5 +1,9 @@
 package com.ingemark.perftest;
 
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+
 public class Util
 {
   public static int toIndex(int[] array, int timeSlot) {
@@ -24,5 +28,24 @@ public class Util
     String sep = "";
     for (String part : parts) { b.append(sep).append(part); sep = separator; }
     return b.toString();
+  }
+  public static void nettySend(Channel channel, Message msg, boolean sync) {
+    if (channel == null) {
+      System.err.println("Attempt to send message without connected client: " + msg);
+      return;
+    }
+    final ChannelFuture fut = channel.write(msg);
+    fut.addListener(new ChannelFutureListener() {
+      @Override public void operationComplete(ChannelFuture f) {
+        if (f.isSuccess()) return;
+        System.err.println("Failed to send message");
+        f.getCause().printStackTrace();
+      }
+    });
+    if (sync)
+      try { fut.await(); } catch (InterruptedException e) { throw new RuntimeException(e); }
+  }
+  public static void nettySend(Channel channel, Message msg) {
+    nettySend(channel, msg, false);
   }
 }
