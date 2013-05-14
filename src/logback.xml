@@ -5,11 +5,12 @@
 
   <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>${shortpattern}</pattern>
+      <pattern>${longpattern}</pattern>
     </encoder>
   </appender>
 
-  <root level="WARN">
+  <root level="ALL">
     <appender-ref ref="console"/>
   </root>
+  <logger name="com.ning" level="INFO"/>
 </configuration>

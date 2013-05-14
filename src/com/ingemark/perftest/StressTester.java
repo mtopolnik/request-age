@@ -164,7 +164,9 @@ public class StressTester implements Runnable
       sched.shutdown();
       sched.awaitTermination(5, SECONDS);
       client.close();
+      System.out.println("HTTP Client shut down");
       netty.shutdown();
+      System.out.println("Netty client shut down");
     } catch (InterruptedException e) { }
   }
 
@@ -176,7 +178,12 @@ public class StressTester implements Runnable
     final String[] parts = proxyString.split(":");
     return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
-  public static void main(String[] args) throws Exception {
-    new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
+  public static void main(String[] args) {
+    try {
+      new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
+    } catch (Throwable t) {
+      System.err.println("StressTester.main failed");
+      t.printStackTrace();
+    }
   }
 }

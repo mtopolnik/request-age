@@ -59,8 +59,7 @@ public class RequestAgeView extends ViewPart
     statsParent.addListener(RUN_SCRIPT_EVTYPE, new Listener() {
       public void handleEvent(Event event) {
         try {
-          testServer.shutdown();
-          if (subprocess != null) subprocess.waitFor();
+          shutdown();
           statsParent.dispose();
           newStatsParent(p);
           statsParent.addListener(INIT_HIST_EVTYPE, new Listener() {
@@ -93,6 +92,16 @@ public class RequestAgeView extends ViewPart
       }});
   }
 
+  void shutdown() {
+    try {
+      testServer.shutdown();
+      if (subprocess != null) {
+        subprocess.destroy();
+        subprocess.waitFor();
+      }
+    } catch (InterruptedException e) { throw new RuntimeException(e); }
+  }
+
   static String joinPath(String[] ps) {
     final StringBuilder b = new StringBuilder(128);
     for (String p : ps) b.append(p).append(":");
@@ -102,7 +111,8 @@ public class RequestAgeView extends ViewPart
   static int pow(int in) { return (int)Math.pow(10, in/100d); }
   static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 
-  @Override public void dispose() { testServer.shutdown(); }
+  @Override public void dispose() { shutdown(); }
+
   @Override public void setFocus() { }
 
   private void applyThrottle() {

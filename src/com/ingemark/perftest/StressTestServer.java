@@ -50,6 +50,7 @@ public class StressTestServer implements IStressTestServer
     this.eventReceiver = c;
     this.netty = netty();
     this.channel = netty.bind(new InetSocketAddress(49131));
+    System.out.println("StressTest Server started");
     refreshDivisorChanged();
   }
 
