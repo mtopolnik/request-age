@@ -18,6 +18,7 @@ public class Util
     return sum;
   }
   public static long now() { return System.nanoTime(); }
+
   public static String join(String separator, String... parts) {
     final StringBuilder b = new StringBuilder(128);
     String sep = "";
