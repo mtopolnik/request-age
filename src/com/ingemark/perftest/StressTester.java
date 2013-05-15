@@ -5,6 +5,7 @@ import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
+import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
@@ -70,16 +71,19 @@ public class StressTester implements Runnable
     this.client = new AsyncHttpClient();
     this.script = script;
     this.netty = netty();
+    System.out.println("Stress tester connecting to server");
     this.channel = channel(netty);
+    System.out.println("Stress tester connected");
   }
 
   Channel channel(ClientBootstrap netty) {
     try {
-      return netty.connect(new InetSocketAddress("localhost", 49131)).await().getChannel();
+      return netty.connect(new InetSocketAddress("localhost", NETTY_PORT)).await().getChannel();
     } catch (InterruptedException e) {return null;}
   }
 
   ClientBootstrap netty() {
+    System.out.println("StressTester initializing Netty");
     final ClientBootstrap b = new ClientBootstrap(
         new NioClientSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
@@ -181,13 +185,22 @@ public class StressTester implements Runnable
     } catch (InterruptedException e) { }
   }
 
+  static final String[]
+    javaCandidates = {"javaw", "javaw.exe", "java", "java.exe", "j9w", "j9w.exe", "j9", "j9.exe"},
+    javaDirCandidates = {"bin", "jre" + File.separator + "bin"};
+
   static String java() {
     final IVMInstall inst = getDefaultVMInstall();
     if (inst == null) return "java";
     final File loc = inst.getInstallLocation();
     if (loc == null) return "java";
-    final File java = new File(new File(loc, "bin"), "java");
-    return java != null && java.exists()? java.getAbsolutePath() : "java";
+    for (String java : javaCandidates) {
+      for (String javaDir : javaDirCandidates) {
+        final File javaFile = new File(loc, javaDir + File.separator + java);
+        if (javaFile.isFile()) return javaFile.getAbsolutePath();
+      }
+    }
+    return "java";
   }
 
   public static Process launchTester(String scriptFile) {
@@ -195,9 +208,10 @@ public class StressTester implements Runnable
       final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
-      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
-          StressTester.class.getName(), scriptFile)
-        .inheritIO().start();
+      System.out.println("Classpath " + cp);
+      return new ProcessBuilder(java(),
+          "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp, StressTester.class.getName(), scriptFile
+      ) .inheritIO().start();
     } catch (IOException e) { throw new RuntimeException(e); }
   }
 
@@ -211,6 +225,7 @@ public class StressTester implements Runnable
   }
   public static void main(String[] args) {
     try {
+      System.out.println("Loading script " + args[0]);
       new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
     } catch (Throwable t) {
       System.err.println("StressTester.main failed");

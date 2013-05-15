@@ -37,6 +37,7 @@ import com.ingemark.perftest.plugin.ui.RequestAgeView;
 
 public class StressTestServer implements IStressTestServer
 {
+  public static final int NETTY_PORT = 49131;
   private static final int NS_TO_MS = 1_000_000;
   final Control eventReceiver;
   volatile Channel channel;
@@ -66,6 +67,7 @@ public class StressTestServer implements IStressTestServer
   }
 
   ServerBootstrap netty() {
+    System.out.println("StressTestServer starting Netty");
     final ServerBootstrap b = new ServerBootstrap(
         new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
@@ -94,7 +96,8 @@ public class StressTestServer implements IStressTestServer
         }}
       , new ObjectEncoder()
       )));
-    b.bind(new InetSocketAddress(49131));
+    b.bind(new InetSocketAddress("localhost", NETTY_PORT));
+    System.out.println("StressTestServer listening on " + NETTY_PORT);
     return b;
   }
 

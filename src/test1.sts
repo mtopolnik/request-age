@@ -1,9 +1,2 @@
-ONCE
----
-REQUEST Google
-GET http://www.google.at
----
-REPEAT
----
 REQUEST siemens.at
 GET http://www.siemens.at

@@ -31,7 +31,7 @@ public class Util
   }
   public static void nettySend(Channel channel, Message msg, boolean sync) {
     if (channel == null) {
-      System.err.println("Attempt to send message without connected client: " + msg);
+      System.err.println("Attempt to send message without connected peer: " + msg);
       return;
     }
     final ChannelFuture fut = channel.write(msg);
