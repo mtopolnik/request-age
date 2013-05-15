@@ -9,7 +9,9 @@ import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static java.lang.Math.min;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -26,9 +28,9 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 
 import org.eclipse.jdt.launching.IVMInstall;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -51,13 +53,17 @@ import com.ning.http.client.Response;
 public class StressTester implements Runnable
 {
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
-  final ScheduledExecutorService sched = Executors.newScheduledThreadPool(2);
+  final ScheduledExecutorService sched = newScheduledThreadPool(2, new ThreadFactory(){
+    volatile int i; public Thread newThread(Runnable r) {
+      return new Thread(r, "StressTester scheduler #"+i++);
+  }});
   final Script script;
   final Random rnd = new Random();
   final ClientBootstrap netty;
   final Channel channel;
   final AsyncHttpClient client;
   volatile int intensity = 1, updateDivisor = 1;
+  volatile long lastReqFire, periodCorrection;
   volatile ScheduledFuture<?> nettyReportingTask;
 
   public StressTester(Script script) {
@@ -86,7 +92,7 @@ public class StressTester implements Runnable
             final Message msg = (Message)e.getMessage();
             switch (msg.type) {
             case DIVISOR: updateDivisor = (Integer) msg.value; break;
-            case INTENSITY: intensity = (Integer) msg.value; break;
+            case INTENSITY: intensity = (Integer) msg.value; System.out.println("Intensity " + intensity); break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
@@ -104,11 +110,10 @@ public class StressTester implements Runnable
     return b;
   }
 
-  public void setIntensity(int intensity) { this.intensity = intensity; }
-
   public void runTest() throws Exception {
     nettySend(channel, new Message(INIT, script.getInit()), true);
     warmup();
+    lastReqFire = now();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
       public void run() {
@@ -151,8 +156,17 @@ public class StressTester implements Runnable
           si.result(null, false);
         }
       };
-      if (!sched.isShutdown())
-        sched.schedule(this, 1_000_000_000/intensity - (now()-start), NANOSECONDS);
+      final long
+        idealPeriod = 1_000_000_000L/intensity,
+        actualPeriod = start-lastReqFire,
+        deviation = actualPeriod - idealPeriod;
+      lastReqFire = start;
+      periodCorrection =
+          deviation < 0? periodCorrection/2
+          : deviation > 0? min(2 * min(periodCorrection, -1), -idealPeriod)
+          : 0;
+      final long delay = idealPeriod + periodCorrection - (now()-start);
+      if (!sched.isShutdown()) sched.schedule(this, delay, NANOSECONDS);
     } catch (Throwable t) {
       System.err.println("Error in request firing task.");
       t.printStackTrace();

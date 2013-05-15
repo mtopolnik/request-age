@@ -24,7 +24,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -55,8 +54,8 @@ public class StressTestServer implements IStressTestServer
   public void intensity(int intensity) { nettySend(channel, new Message(INTENSITY, intensity)); }
 
   public void shutdown() {
-    final ChannelFuture fut = channel.write(new Message(SHUTDOWN, 0));
-    try {fut.await();} catch (InterruptedException e) {}
+    try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
+    catch (Throwable t) {}
     netty.shutdown();
   };
 
@@ -100,7 +99,7 @@ public class StressTestServer implements IStressTestServer
   }
 
   void refreshDivisorChanged() {
-    Util.nettySend(channel, new Message(DIVISOR, refreshDivisor));
+    nettySend(channel, new Message(DIVISOR, refreshDivisor));
     refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
     maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
   }
