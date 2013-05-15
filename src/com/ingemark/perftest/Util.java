@@ -48,4 +48,7 @@ public class Util
   public static void nettySend(Channel channel, Message msg) {
     nettySend(channel, msg, false);
   }
+  public static <T> T spy(String msg, T x) {
+    System.out.println(msg + ": " + x); return x;
+  }
 }

@@ -2,6 +2,7 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.StressTester.HIST_SIZE;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.perftest.Util.now;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -23,7 +24,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 
 import com.ingemark.perftest.Stats;
-import com.ingemark.perftest.Util;
 
 public class HistogramViewer implements PaintListener
 {
@@ -31,11 +31,12 @@ public class HistogramViewer implements PaintListener
   static final int
     HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 1, HIST_XOFFSET = 50, METER_SCALE = 50,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH;
-  static int HIST_YOFFSET;
+  final int histYoffset;
   Stats stats = new Stats();
   final Canvas canvas;
   GC ownGc;
   GC gc;
+  Region clipping = new Region();
   boolean numbersWillBePrinted;
   long numbersLastPrinted;
 
@@ -44,7 +45,7 @@ public class HistogramViewer implements PaintListener
     canvas.setBackground(color(SWT.COLOR_WHITE));
     canvas.addPaintListener(this);
     ownGc = new GC(canvas);
-    HIST_YOFFSET = 10 + ownGc.getFontMetrics().getHeight();
+    histYoffset = 10 + ownGc.getFontMetrics().getHeight();
     // On OS X the overhead of GC create/dispose is huge; so reuse one GC
     if (!getOS().equals(OS_MACOSX)) {
       ownGc.dispose();
@@ -53,26 +54,31 @@ public class HistogramViewer implements PaintListener
   }
 
   void statsUpdate(Stats stats) {
+    final boolean printName = !this.stats.name.equals(stats.name);
     this.stats = stats;
-    final long now = Util.now();
+    final long now = now();
     numbersWillBePrinted = now-numbersLastPrinted > 200_000_000;
     try {
       gc = ownGc != null? ownGc : new GC(canvas);
+      if (printName) printChartName();
       drawStats();
     } finally { if (ownGc == null) gc.dispose(); }
     gc = null;
-    // OSX hack: under certain conditions the screen doesn't update until GC is disposed
     if (numbersWillBePrinted) {
       numbersLastPrinted = now;
+      // OSX hack: under certain conditions the screen doesn't update until GC is disposed
       if (ownGc != null) {
         ownGc.dispose();
         ownGc = new GC(canvas);
+        gc.setClipping(clipping);
       }
     }
   }
 
   @Override public void paintControl(PaintEvent e) {
     gc = e.gc;
+    printChartName();
+    gc.setClipping(clipping);
     final Rectangle area = canvas.getClientArea();
     paintRect(SWT.COLOR_WHITE, area.x, area.y, area.width, area.height);
     numbersWillBePrinted = true;
@@ -82,43 +88,29 @@ public class HistogramViewer implements PaintListener
   }
 
   void drawStats() {
-    if (ownGc != null) {
-      paintStuff();
-      printChartName();
-    }
-    else {
-      final Region r = new Region();
-      gc.getClipping(r);
-      r.subtract(printChartName());
-      gc.setClipping(r);
-      r.dispose();
-      paintStuff();
-    }
-  }
-
-  private void paintStuff() {
+    gc.setClipping(clipping);
     paintMeterBars();
     paintHistogram();
     paintTotalReqs();
   }
 
   void paintMeterBars() {
-    paintBar(SWT.COLOR_WHITE, 8, HIST_YOFFSET, 5, 0, Integer.MAX_VALUE);
+    paintBar(SWT.COLOR_WHITE, 8, histYoffset, 5, 0, Integer.MAX_VALUE);
     final Point maxReqsPerSecExtent = gc.stringExtent("9999");
     if (numbersWillBePrinted) {
       paintRect(SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
       printString(String.valueOf(stats.reqsPerSec), 2, 0);
     }
     int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
-    paintBar(SWT.COLOR_DARK_BLUE, 0, HIST_YOFFSET, 5, a, Integer.MAX_VALUE);
+    paintBar(SWT.COLOR_DARK_BLUE, 0, histYoffset, 5, a, Integer.MAX_VALUE);
     final int color;
     if (b < a) {
       int tmp = a; a = b; b = tmp;
       color = SWT.COLOR_RED;
     } else color = SWT.COLOR_DARK_GREEN;
-    paintBar(color, 8, HIST_YOFFSET+a, 5, b-a, b-a);
+    paintBar(color, 8, histYoffset+a, 5, b-a, b-a);
     final int failsHeight = toMeter(stats.failsPerSec);
-    paintBar(SWT.COLOR_RED, 8, HIST_YOFFSET, 5, failsHeight, failsHeight);
+    paintBar(SWT.COLOR_RED, 8, histYoffset, 5, failsHeight, failsHeight);
   }
 
   void paintHistogram() {
@@ -142,23 +134,23 @@ public class HistogramViewer implements PaintListener
       final String s = String.valueOf(stats.pendingReqs);
       final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
       final Point ext = gc.stringExtent(s);
-      final int labelBase = HIST_YOFFSET+FULL_TOTAL_BAR_HEIGHT+5;
+      final int labelBase = histYoffset+FULL_TOTAL_BAR_HEIGHT+5;
       paintRect(SWT.COLOR_WHITE,
           TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
       printString(s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
     }
   }
 
-  Rectangle printChartName() {
+  void printChartName() {
     final Point ext = gc.stringExtent(stats.name);
     final Point p = printString(stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
         5 + tickMarkY(3, 2), true);
-    return new Rectangle(p.x, p.y, ext.x, ext.y);
-  }
-
-  static <T> T spy(String msg, T x) {
-    System.out.println(msg + ": " + x); return x;
+    clipping.dispose();
+    clipping = new Region();
+    gc.getClipping(clipping);
+    clipping.subtract(new Rectangle(p.x, p.y, ext.x, ext.y));
+    gc.setClipping(clipping);
   }
 
   void drawStaticStuff(int xOffset) {
@@ -168,7 +160,7 @@ public class HistogramViewer implements PaintListener
       for (int i = 2; i <= 10; i += 2) {
         final int label = (int)pow(10, exp)*i;
         if (label >= 3000) break loop;
-        final int y = HIST_YOFFSET + tickMarkY(exp, i);
+        final int y = histYoffset + tickMarkY(exp, i);
         drawHorLine(SWT.COLOR_BLACK, xOffset, y, 5);
         if (i == 2 || i == 10)
           printString(String.valueOf(label), 8+xOffset, y-labelOffset);
@@ -220,11 +212,11 @@ public class HistogramViewer implements PaintListener
     paintRect(SWT.COLOR_WHITE, x, y+height, width, maxHeight-height);
   }
   void histBar(int color, int pos, int barCount, int barHeight) {
-    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, HIST_YOFFSET,
+    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
         barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE, Integer.MAX_VALUE);
   }
   void totalBar(int color, int pos, int barCount, int barHeight) {
-    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, HIST_YOFFSET,
+    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
         barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE,
         FULL_TOTAL_BAR_HEIGHT*HIST_HEIGHT_SCALE);
   }
