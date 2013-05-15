@@ -9,7 +9,6 @@ import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
-import static java.lang.Math.min;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -63,7 +62,6 @@ public class StressTester implements Runnable
   final Channel channel;
   final AsyncHttpClient client;
   volatile int intensity = 1, updateDivisor = 1;
-  volatile long lastReqFire, periodCorrection;
   volatile ScheduledFuture<?> nettyReportingTask;
 
   public StressTester(Script script) {
@@ -92,7 +90,7 @@ public class StressTester implements Runnable
             final Message msg = (Message)e.getMessage();
             switch (msg.type) {
             case DIVISOR: updateDivisor = (Integer) msg.value; break;
-            case INTENSITY: intensity = (Integer) msg.value; System.out.println("Intensity " + intensity); break;
+            case INTENSITY: intensity = (Integer) msg.value; break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
@@ -113,7 +111,6 @@ public class StressTester implements Runnable
   public void runTest() throws Exception {
     nettySend(channel, new Message(INIT, script.getInit()), true);
     warmup();
-    lastReqFire = now();
     run();
     sched.scheduleAtFixedRate(new Runnable() {
       public void run() {
@@ -156,16 +153,7 @@ public class StressTester implements Runnable
           si.result(null, false);
         }
       };
-      final long
-        idealPeriod = 1_000_000_000L/intensity,
-        actualPeriod = start-lastReqFire,
-        deviation = actualPeriod - idealPeriod;
-      lastReqFire = start;
-      periodCorrection =
-          deviation < 0? periodCorrection/2
-          : deviation > 0? min(2 * min(periodCorrection, -1), -idealPeriod)
-          : 0;
-      final long delay = idealPeriod + periodCorrection - (now()-start);
+      final long delay = 1000_000_000L/intensity - (now()-start);
       if (!sched.isShutdown()) sched.schedule(this, delay, NANOSECONDS);
     } catch (Throwable t) {
       System.err.println("Error in request firing task.");

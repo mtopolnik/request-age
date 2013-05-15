@@ -43,7 +43,7 @@ public class RequestAgeView extends ViewPart
     p.setLayout(l);
     throttle = new Scale(p, SWT.VERTICAL);
     throttle.setMinimum(MIN_THROTTLE);
-    throttle.setMaximum(333);
+    throttle.setMaximum(370);
     throttle.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
     });
