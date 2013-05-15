@@ -69,7 +69,7 @@ public class Parser
     switch(m.group(1)) {
     case "CONFIG": parseConfig(section); break;
     case "REQUEST":
-      if (currReqs == null) currReqs = initReqs;
+      if (currReqs == null) currReqs = testReqs;
       final RequestProvider rp = parseReqProvider(reqProviderIndex, m.group(2), section);
       currReqProvider = rp;
       currReqs.add(rp);

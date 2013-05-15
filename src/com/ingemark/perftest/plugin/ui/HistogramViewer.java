@@ -6,6 +6,8 @@ import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
+import static org.eclipse.core.runtime.Platform.OS_MACOSX;
+import static org.eclipse.core.runtime.Platform.getOS;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
@@ -15,6 +17,7 @@ import org.eclipse.swt.graphics.FontMetrics;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.graphics.Region;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -42,25 +45,36 @@ public class HistogramViewer implements PaintListener
     canvas.addPaintListener(this);
     ownGc = new GC(canvas);
     HIST_YOFFSET = 10 + ownGc.getFontMetrics().getHeight();
+    // On OS X the overhead of GC create/dispose is huge; so reuse one GC
+    if (!getOS().equals(OS_MACOSX)) {
+      ownGc.dispose();
+      ownGc = null;
+    }
   }
 
   void statsUpdate(Stats stats) {
     this.stats = stats;
     final long now = Util.now();
     numbersWillBePrinted = now-numbersLastPrinted > 200_000_000;
-    gc = ownGc;
-    drawStats();
+    try {
+      gc = ownGc != null? ownGc : new GC(canvas);
+      drawStats();
+    } finally { if (ownGc == null) gc.dispose(); }
     gc = null;
+    // OSX hack: under certain conditions the screen doesn't update until GC is disposed
     if (numbersWillBePrinted) {
-      ownGc.dispose();
-      ownGc = new GC(canvas);
       numbersLastPrinted = now;
+      if (ownGc != null) {
+        ownGc.dispose();
+        ownGc = new GC(canvas);
+      }
     }
   }
 
   @Override public void paintControl(PaintEvent e) {
     gc = e.gc;
-    paintRect(SWT.COLOR_WHITE, 0, 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    final Rectangle area = canvas.getClientArea();
+    paintRect(SWT.COLOR_WHITE, area.x, area.y, area.width, area.height);
     numbersWillBePrinted = true;
     drawStaticStuff(15);
     drawStats();
@@ -68,10 +82,24 @@ public class HistogramViewer implements PaintListener
   }
 
   void drawStats() {
+    if (ownGc != null) {
+      paintStuff();
+      printChartName();
+    }
+    else {
+      final Region r = new Region();
+      gc.getClipping(r);
+      r.subtract(printChartName());
+      gc.setClipping(r);
+      r.dispose();
+      paintStuff();
+    }
+  }
+
+  private void paintStuff() {
     paintMeterBars();
     paintHistogram();
     paintTotalReqs();
-    printChartName();
   }
 
   void paintMeterBars() {
@@ -102,7 +130,7 @@ public class HistogramViewer implements PaintListener
 
   void paintTotalReqs() {
     final int
-    maxTotalBars = 1 +
+      maxTotalBars = 1 +
         (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
     fullTotalBars = min(stats.pendingReqs/FULL_TOTAL_BAR_HEIGHT, maxTotalBars),
     lastTotalBarHeight = stats.pendingReqs%FULL_TOTAL_BAR_HEIGHT;
@@ -121,10 +149,16 @@ public class HistogramViewer implements PaintListener
     }
   }
 
-  void printChartName() {
+  Rectangle printChartName() {
     final Point ext = gc.stringExtent(stats.name);
-    printString(stats.name,
-        HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0), 5 + tickMarkY(3, 2), true);
+    final Point p = printString(stats.name,
+        HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
+        5 + tickMarkY(3, 2), true);
+    return new Rectangle(p.x, p.y, ext.x, ext.y);
+  }
+
+  static <T> T spy(String msg, T x) {
+    System.out.println(msg + ": " + x); return x;
   }
 
   void drawStaticStuff(int xOffset) {
@@ -150,16 +184,17 @@ public class HistogramViewer implements PaintListener
     }
   }
 
-  void printString(String s, int x, int y) {
-    printString(s, x, y, false);
+  Point printString(String s, int x, int y) {
+    return printString(s, x, y, false);
   }
-  void printString(String s, int x, int y, boolean fitHeight) {
+  Point printString(String s, int x, int y, boolean fitHeight) {
     gc.setForeground(color(SWT.COLOR_BLACK));
     gc.setBackground(color(SWT.COLOR_WHITE));
     final FontMetrics m = gc.getFontMetrics();
     y = canvas.getClientArea().height-m.getLeading()-m.getAscent()-y;
     if (fitHeight) y = max(y, 0);
     gc.drawString(s, x, y);
+    return new Point(x, y);
   }
   void drawHorLine(int color, int x, int y, int len) {
     gc.setForeground(color(color));
@@ -169,16 +204,16 @@ public class HistogramViewer implements PaintListener
   void drawVerLine(int color, int x, int y, int len) {
     gc.setForeground(color(color));
     final int height = canvas.getClientArea().height;
-    gc.drawLine(x, height-y-1, x, height-y-len);
+    gc.drawLine(x, max(0, height-y-1), x, max(0, height-y-len));
   }
   void paintRect(int color, int x, int y, int width, int height) {
     if (height == 0 || width == 0) return;
     if (width == 1) {drawVerLine(color, x, y, height); return;}
     if (height == 1) {drawHorLine(color, x, y, width); return;}
-    final Rectangle all = canvas.getClientArea();
+    final Rectangle area = canvas.getClientArea();
     gc.setBackground(color(color));
-    height = min(height, all.height-y);
-    gc.fillRectangle(x, max(0, all.height-y-height), width, height);
+    height = min(height, area.height-y);
+    gc.fillRectangle(x, max(0, area.height-y-height), width, height);
   }
   void paintBar(int color, int x, int y, int width, int height, int maxHeight) {
     paintRect(color, x, y, width, height);
