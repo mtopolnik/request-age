@@ -70,7 +70,7 @@ public class HistogramViewer implements PaintListener
       if (ownGc != null) {
         ownGc.dispose();
         ownGc = new GC(canvas);
-        gc.setClipping(clipping);
+        ownGc.setClipping(clipping);
       }
     }
   }
