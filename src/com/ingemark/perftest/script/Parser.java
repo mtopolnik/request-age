@@ -89,7 +89,7 @@ public class Parser
   void parseConfig(List<Line> lines) {
     for (Line l : skipBlankLines(lines.subList(1, lines.size()))) {
       final Matcher m = rxKv.matcher(l.line);
-      if (m.matches()) throw new RuntimeException("Malformed configuration line at " + l);
+      if (!m.matches()) throw new RuntimeException("Malformed configuration line at " + l);
       config.put(m.group(1), m.group(2));
     }
   }

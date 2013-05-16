@@ -202,16 +202,14 @@ public class StressTester implements Runnable
     }
     return "java";
   }
-
   public static Process launchTester(String scriptFile) {
     try {
       final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
       System.out.println("Classpath " + cp);
-      return new ProcessBuilder(java(),
-          "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp, StressTester.class.getName(), scriptFile
-      ) .inheritIO().start();
+      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
+          StressTester.class.getName(), scriptFile).inheritIO().start();
     } catch (IOException e) { throw new RuntimeException(e); }
   }
 

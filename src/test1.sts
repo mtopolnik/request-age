@@ -1,2 +1,5 @@
-REQUEST siemens.at
-GET http://www.siemens.at
+CONFIG
+system.proxy=10.50.130.205:5555
+---
+REQUEST SA
+GET http://10.80.0.20:8080/cmt_u/ott_v2/checkAuthentication?region=ind&u_id=testuser10000&pw_hash=8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92&d_id=Dev1c310000&d_type=iphone&lang=en&swipe_type=receiver
