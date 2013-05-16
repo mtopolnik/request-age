@@ -39,8 +39,7 @@ public class RequestAgeView extends ViewPart
   public void createPartControl(final Composite p) {
     instance = this;
     disp = Display.getDefault();
-    final GridLayout l = new GridLayout(2, false);
-    p.setLayout(l);
+    p.setLayout(new GridLayout(2, false));
     throttle = new Scale(p, SWT.VERTICAL);
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(400);
@@ -73,6 +72,7 @@ public class RequestAgeView extends ViewPart
                 });
               }
               p.layout(true);
+              p.notifyListeners(SWT.Paint, new Event());
           }});
           testServer = new StressTestServer(statsParent);
           subprocess = StressTester.launchTester((String)event.data);
@@ -106,7 +106,7 @@ public class RequestAgeView extends ViewPart
 
   @Override public void dispose() { shutdown(); }
 
-  @Override public void setFocus() { }
+  @Override public void setFocus() { throttle.setFocus(); }
 
   private void applyThrottle() {
     testServer.intensity(pow(throttle.getSelection()));
