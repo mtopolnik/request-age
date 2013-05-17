@@ -7,8 +7,6 @@ import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
-import static org.eclipse.core.runtime.Platform.OS_MACOSX;
-import static org.eclipse.core.runtime.Platform.getOS;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
@@ -16,12 +14,15 @@ import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.FontMetrics;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.graphics.Region;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 
 import com.ingemark.perftest.Stats;
 
@@ -34,57 +35,54 @@ public class HistogramViewer implements PaintListener
   final int histYoffset;
   Stats stats = new Stats();
   final Canvas canvas;
-  GC ownGc;
   GC gc;
   Region clipping = new Region();
-  boolean numbersWillBePrinted;
+  Image backdrop;
+  boolean printNumbers = true, printName = true;
   long numbersLastPrinted;
 
   HistogramViewer(Composite parent) {
     canvas = new Canvas(parent, SWT.NONE);
     canvas.setBackground(color(SWT.COLOR_WHITE));
     canvas.addPaintListener(this);
-    ownGc = new GC(canvas);
-    histYoffset = 10 + ownGc.getFontMetrics().getHeight();
-    // On OS X the overhead of GC create/dispose is huge; so reuse one GC
-    if (!getOS().equals(OS_MACOSX)) {
-      ownGc.dispose();
-      ownGc = null;
-    }
+    canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
+      recreateBackdrop();
+      printName = printNumbers = true;
+      canvas.redraw();
+    }});
+    gc = new GC(canvas);
+    histYoffset = 10 + gc.getFontMetrics().getHeight();
+    gc.dispose();
+    gc = null;
+  }
+
+  void recreateBackdrop() {
+    final Rectangle area = canvas.getClientArea();
+    if (backdrop != null) backdrop.dispose();
+    backdrop = new Image(Display.getCurrent(), area);
+    gc = new GC(backdrop);
+    paintRect(SWT.COLOR_WHITE, area.x, area.y, area.width, area.height);
+    drawStaticStuff(15);
+    gc.dispose();
+    gc = null;
   }
 
   void statsUpdate(Stats stats) {
-    final boolean printName = !this.stats.name.equals(stats.name);
+    printName = printName || !this.stats.name.equals(stats.name);
     this.stats = stats;
     final long now = now();
-    numbersWillBePrinted = now-numbersLastPrinted > 200_000_000;
-    try {
-      gc = ownGc != null? ownGc : new GC(canvas);
-      if (printName) printChartName();
-      drawStats();
-    } finally { if (ownGc == null) gc.dispose(); }
-    gc = null;
-    if (numbersWillBePrinted) {
-      numbersLastPrinted = now;
-      // OSX hack: under certain conditions the screen doesn't update until GC is disposed
-      if (ownGc != null) {
-        ownGc.dispose();
-        ownGc = new GC(canvas);
-        ownGc.setClipping(clipping);
-      }
-    }
+    printNumbers = printNumbers || now-numbersLastPrinted > 200_000_000;
+    if (printNumbers) numbersLastPrinted = now;
+    canvas.redraw();
   }
 
   @Override public void paintControl(PaintEvent e) {
     gc = e.gc;
+    gc.drawImage(backdrop, 0, 0);
     printChartName();
-    gc.setClipping(clipping);
-    final Rectangle area = canvas.getClientArea();
-    paintRect(SWT.COLOR_WHITE, area.x, area.y, area.width, area.height);
-    numbersWillBePrinted = true;
-    drawStaticStuff(15);
     drawStats();
     gc = null;
+    printNumbers = false;
   }
 
   void drawStats() {
@@ -97,7 +95,7 @@ public class HistogramViewer implements PaintListener
   void paintMeterBars() {
     paintBar(SWT.COLOR_WHITE, 8, histYoffset, 5, 0, Integer.MAX_VALUE);
     final Point maxReqsPerSecExtent = gc.stringExtent("9999");
-    if (numbersWillBePrinted) {
+    if (printNumbers) {
       paintRect(SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
       printString(String.valueOf(stats.reqsPerSec), 2, 0);
     }
@@ -105,7 +103,7 @@ public class HistogramViewer implements PaintListener
     paintBar(SWT.COLOR_DARK_BLUE, 0, histYoffset, 5, a, Integer.MAX_VALUE);
     final int color;
     if (b < a) {
-      int tmp = a; a = b; b = tmp;
+      final int tmp = a; a = b; b = tmp;
       color = SWT.COLOR_RED;
     } else color = SWT.COLOR_DARK_GREEN;
     paintBar(color, 8, histYoffset+a, 5, b-a, b-a);
@@ -130,7 +128,7 @@ public class HistogramViewer implements PaintListener
     totalBar(totalBarColor, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
     totalBar(totalBarColor, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
     totalBar(totalBarColor, HIST_SIZE+ fullTotalBars+ 1, maxTotalBars-fullTotalBars-1, 0);
-    if (numbersWillBePrinted) {
+    if (printNumbers) {
       final String s = String.valueOf(stats.pendingReqs);
       final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
       final Point ext = gc.stringExtent(s);
@@ -142,15 +140,18 @@ public class HistogramViewer implements PaintListener
   }
 
   void printChartName() {
-    final Point ext = gc.stringExtent(stats.name);
-    final Point p = printString(stats.name,
-        HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
-        5 + tickMarkY(3, 2), true);
-    clipping.dispose();
-    clipping = new Region();
-    gc.getClipping(clipping);
-    clipping.subtract(new Rectangle(p.x, p.y, ext.x, ext.y));
-    gc.setClipping(clipping);
+    if (printName) {
+      final Point ext = gc.stringExtent(stats.name);
+      final Point p = printString(stats.name,
+          HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
+          5 + tickMarkY(3, 2), true);
+      clipping.dispose();
+      clipping = new Region();
+      gc.getClipping(clipping);
+      clipping.subtract(new Rectangle(p.x, p.y, ext.x, ext.y));
+      gc.setClipping(clipping);
+    }
+    printName = false;
   }
 
   void drawStaticStuff(int xOffset) {

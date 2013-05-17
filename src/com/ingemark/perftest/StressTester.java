@@ -133,7 +133,7 @@ public class StressTester implements Runnable
 
   @Override public void run() {
     final long start = now();
-    final Script.Instance si = script.newInstance(client);
+    final Script.Instance si = script.testInstance();
     try {
       new AsyncCompletionHandlerBase() {
         volatile RequestProvider rp;
@@ -142,7 +142,7 @@ public class StressTester implements Runnable
           rp = si.nextRequestProvider();
           if (rp == null) return;
           startSlot = rp.liveStats.registerReq();
-          client.executeRequest(rp.request(si), this);
+          client.executeRequest(rp.request(client, si), this);
         }
         {newRequest();}
         @Override public Response onCompleted(Response resp) throws IOException {
