@@ -17,7 +17,6 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
-import org.eclipse.swt.graphics.Region;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -33,20 +32,26 @@ public class HistogramViewer implements PaintListener
     HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 1, HIST_XOFFSET = 50, METER_SCALE = 50,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH;
   final int histYoffset;
-  Stats stats = new Stats();
   final Canvas canvas;
+  final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
   GC gc;
-  Region clipping = new Region();
   Image backdrop;
-  boolean printNumbers = true, printName = true;
-  long numbersLastPrinted;
+  Stats stats = new Stats();
+  long numbersLastUpdated;
+  int printedReqsPerSec, printedPendingReqs;
 
   HistogramViewer(Composite parent) {
-    canvas = new Canvas(parent, SWT.NO_BACKGROUND | SWT.DOUBLE_BUFFERED);
+    final Display d = Display.getCurrent();
+    colReqBar = new Color(d, 12, 12, 240);
+    colRespPlusBar = new Color(d, 0, 170, 12);
+    colRespMinusBar = new Color(d, 255, 140, 0);
+    colFailBar = color(SWT.COLOR_RED);
+    colHist = color(SWT.COLOR_BLUE);
+    colTotalReq = new Color(d, 200, 170, 170);
+    canvas = new Canvas(parent, SWT.NO_BACKGROUND);
     canvas.addPaintListener(this);
     canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
       recreateBackdrop();
-      printName = printNumbers = true;
       canvas.redraw();
     }});
     gc = new GC(canvas);
@@ -60,61 +65,76 @@ public class HistogramViewer implements PaintListener
     if (backdrop != null) backdrop.dispose();
     backdrop = new Image(Display.getCurrent(), area);
     gc = new GC(backdrop);
-    paintRect(SWT.COLOR_WHITE, area.x, area.y, area.width, area.height);
-    drawStaticStuff(15);
+    paintRect(color(SWT.COLOR_WHITE), area.x, area.y, area.width, area.height);
+    final FontMetrics m = gc.getFontMetrics();
+    final int labelOffset = m.getAscent()/2 - 1;
+    loop: for (int exp = 0;; exp++)
+      for (int i = 2; i <= 10; i += 2) {
+        final int label = (int)pow(10, exp)*i;
+        if (label >= 3000) break loop;
+        final int y = histYoffset + tickMarkY(exp, i);
+        drawHorLine(color(SWT.COLOR_BLACK), 15, y, 5);
+        if (i == 2 || i == 10)
+          printString(String.valueOf(label), 8+15, y-labelOffset);
+      }
+    for (int i = 0;; i++) {
+      final int barIndex = i*TIMESLOTS_PER_SEC;
+      final int xPos = HIST_XOFFSET + barIndex*HIST_BAR_WIDTH;
+      drawVerLine(color(SWT.COLOR_BLACK), xPos, m.getHeight()+3, 5);
+      final String label = String.valueOf(i);
+      final Point ext = gc.stringExtent(label);
+      printString(label, xPos - ext.x/2, 2);
+      if (barIndex >= HIST_SIZE) break;
+    }
     gc.dispose();
     gc = null;
   }
 
   void statsUpdate(Stats stats) {
-    printName = printName || !this.stats.name.equals(stats.name);
-    this.stats = stats;
     final long now = now();
-    printNumbers = printNumbers || now-numbersLastPrinted > 200_000_000;
-    if (printNumbers) numbersLastPrinted = now;
-    canvas.redraw();
+    if (now-numbersLastUpdated > 200_000_000) {
+      numbersLastUpdated = now;
+      printedReqsPerSec = stats.reqsPerSec;
+      printedPendingReqs = stats.pendingReqs;
+    }
+    this.stats = stats;
   }
 
   @Override public void paintControl(PaintEvent e) {
     gc = e.gc;
     gc.drawImage(backdrop, 0, 0);
-    printChartName();
-    drawStats();
-    gc = null;
-//    printNumbers = false;
-  }
-
-  void drawStats() {
-    gc.setClipping(clipping);
     paintMeterBars();
     paintHistogram();
     paintTotalReqs();
+    printChartName();
+    gc = null;
   }
 
-  void paintMeterBars() {
-    final Point maxReqsPerSecExtent = gc.stringExtent("9999");
-    if (printNumbers) {
-      paintRect(SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
-      printString(String.valueOf(stats.reqsPerSec), 2, 0);
-    }
-    int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
-    paintBar(SWT.COLOR_DARK_BLUE, 0, histYoffset, 5, a, Integer.MAX_VALUE);
-    final int color;
-    if (b < a) {
-      final int tmp = a; a = b; b = tmp;
-      color = SWT.COLOR_DARK_YELLOW;
-    } else color = SWT.COLOR_DARK_GREEN;
-    paintBar(SWT.COLOR_WHITE, 8, histYoffset, 5, 0, Integer.MAX_VALUE);
-    paintBar(color, 8, histYoffset+a, 5, b-a, b-a);
-    final int failsHeight = toMeter(stats.failsPerSec);
-    paintBar(SWT.COLOR_RED, 8, histYoffset, 5, failsHeight, failsHeight);
+  void printChartName() {
+    final Point ext = gc.stringExtent(stats.name);
+    printString(stats.name,
+        HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
+        5 + tickMarkY(3, 2), true);
   }
 
   void paintHistogram() {
     final char[] hist = stats.histogram;
     int i;
-    for (i = 0; i < hist.length; i++) histBar(SWT.COLOR_BLUE, i, 1, hist[i]);
-    histBar(SWT.COLOR_BLUE, i, (HIST_SIZE-i), 0);
+    for (i = 0; i < hist.length; i++) paintBar(colHist, i, 1, hist[i]);
+  }
+
+  void paintMeterBars() {
+    printString(String.valueOf(printedReqsPerSec), 2, 0);
+    int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
+    paintRect(colReqBar, 0, histYoffset, 5, a);
+    final Color color;
+    if (b < a) {
+      final int tmp = a; a = b; b = tmp;
+      color = colRespMinusBar;
+    } else color = colRespPlusBar;
+    paintRect(color, 8, histYoffset+a, 5, b-a);
+    final int failsHeight = toMeter(stats.failsPerSec);
+    paintRect(colFailBar, 8, histYoffset, 5, failsHeight);
   }
 
   void paintTotalReqs() {
@@ -123,57 +143,13 @@ public class HistogramViewer implements PaintListener
         (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
     fullTotalBars = min(stats.pendingReqs/FULL_TOTAL_BAR_HEIGHT, maxTotalBars),
     lastTotalBarHeight = stats.pendingReqs%FULL_TOTAL_BAR_HEIGHT;
-    final int totalBarColor = SWT.COLOR_GRAY;
-    totalBar(totalBarColor, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
-    totalBar(totalBarColor, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
-    totalBar(totalBarColor, HIST_SIZE+ fullTotalBars+ 1, maxTotalBars-fullTotalBars-1, 0);
-    if (printNumbers) {
-      final String s = String.valueOf(stats.pendingReqs);
-      final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
-      final Point ext = gc.stringExtent(s);
-      final int labelBase = histYoffset+FULL_TOTAL_BAR_HEIGHT+5;
-      paintRect(SWT.COLOR_WHITE,
-          TOTAL_REQS_OFFSET, labelBase, maxTotalBars*HIST_BAR_WIDTH, ext.y);
-      printString(s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
-    }
-  }
-
-  void printChartName() {
-    if (printName) {
-      final Point ext = gc.stringExtent(stats.name);
-      final Point p = printString(stats.name,
-          HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
-          5 + tickMarkY(3, 2), true);
-      clipping.dispose();
-      clipping = new Region();
-      gc.getClipping(clipping);
-      clipping.subtract(new Rectangle(p.x, p.y, ext.x, ext.y));
-      gc.setClipping(clipping);
-    }
-    printName = false;
-  }
-
-  void drawStaticStuff(int xOffset) {
-    final FontMetrics m = gc.getFontMetrics();
-    final int labelOffset = m.getAscent()/2 - 1;
-    loop: for (int exp = 0;; exp++)
-      for (int i = 2; i <= 10; i += 2) {
-        final int label = (int)pow(10, exp)*i;
-        if (label >= 3000) break loop;
-        final int y = histYoffset + tickMarkY(exp, i);
-        drawHorLine(SWT.COLOR_BLACK, xOffset, y, 5);
-        if (i == 2 || i == 10)
-          printString(String.valueOf(label), 8+xOffset, y-labelOffset);
-      }
-    for (int i = 0;; i++) {
-      final int barIndex = i*TIMESLOTS_PER_SEC;
-      final int xPos = HIST_XOFFSET + barIndex*HIST_BAR_WIDTH;
-      drawVerLine(SWT.COLOR_BLACK, xPos, m.getHeight()+3, 5);
-      final String label = String.valueOf(i);
-      final Point ext = gc.stringExtent(label);
-      printString(label, xPos - ext.x/2, 2);
-      if (barIndex >= HIST_SIZE) break;
-    }
+    paintBar(colTotalReq, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
+    paintBar(colTotalReq, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
+    final String s = String.valueOf(printedPendingReqs);
+    final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
+    final Point ext = gc.stringExtent(s);
+    final int labelBase = histYoffset+FULL_TOTAL_BAR_HEIGHT+5;
+    printString(s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
   }
 
   Point printString(String s, int x, int y) {
@@ -188,38 +164,30 @@ public class HistogramViewer implements PaintListener
     gc.drawString(s, x, y);
     return new Point(x, y);
   }
-  void drawHorLine(int color, int x, int y, int len) {
-    gc.setForeground(color(color));
+  void drawHorLine(Color color, int x, int y, int len) {
+    gc.setForeground(color);
     final int height = canvas.getClientArea().height;
     gc.drawLine(x, height-y, x+len-1, height-y);
   }
-  void drawVerLine(int color, int x, int y, int len) {
-    gc.setForeground(color(color));
+  void drawVerLine(Color color, int x, int y, int len) {
+    gc.setForeground(color);
     final int height = canvas.getClientArea().height;
     gc.drawLine(x, max(0, height-y-1), x, max(0, height-y-len));
   }
-  void paintRect(int color, int x, int y, int width, int height) {
+  void paintRect(Color color, int x, int y, int width, int height) {
     if (height == 0 || width == 0) return;
     if (width == 1) {drawVerLine(color, x, y, height); return;}
     if (height == 1) {drawHorLine(color, x, y, width); return;}
     final Rectangle area = canvas.getClientArea();
-    gc.setBackground(color(color));
+    gc.setBackground(color);
     height = min(height, area.height-y);
     gc.fillRectangle(x, max(0, area.height-y-height), width, height);
   }
-  void paintBar(int color, int x, int y, int width, int height, int maxHeight) {
-    paintRect(color, x, y, width, height);
-    paintRect(SWT.COLOR_WHITE, x, y+height, width, maxHeight-height);
+  void paintBar(Color color, int pos, int barCount, int barHeight) {
+    paintRect(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
+        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE);
   }
-  void histBar(int color, int pos, int barCount, int barHeight) {
-    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
-        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE, Integer.MAX_VALUE);
-  }
-  void totalBar(int color, int pos, int barCount, int barHeight) {
-    paintBar(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
-        barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE,
-        FULL_TOTAL_BAR_HEIGHT*HIST_HEIGHT_SCALE);
-  }
+
   Color color(int id) { return Display.getCurrent().getSystemColor(id); }
 
   static int toMeter(int in) { return (int) (METER_SCALE * max(0d, log10(in))); }

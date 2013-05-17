@@ -19,7 +19,7 @@ import static org.eclipse.core.runtime.FileLocator.getBundleFile;
 import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
-import static org.jboss.netty.handler.codec.serialization.ClassResolvers.cacheDisabled;
+import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -87,7 +87,7 @@ public class StressTester implements Runnable
     final ClientBootstrap b = new ClientBootstrap(
         new NioClientSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
-      new ObjectDecoder(cacheDisabled(getClass().getClassLoader())),
+      new ObjectDecoder(softCachingResolver(getClass().getClassLoader())),
       new SimpleChannelHandler() {
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           try {

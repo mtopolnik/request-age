@@ -15,7 +15,7 @@ import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
-import static org.jboss.netty.handler.codec.serialization.ClassResolvers.cacheDisabled;
+import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
 
 import java.net.InetSocketAddress;
 
@@ -71,7 +71,7 @@ public class StressTestServer implements IStressTestServer
     final ServerBootstrap b = new ServerBootstrap(
         new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
-      new ObjectDecoder(cacheDisabled(getClass().getClassLoader())),
+      new ObjectDecoder(softCachingResolver(getClass().getClassLoader())),
       new SimpleChannelHandler() {
         @Override public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
           final Message msg = (Message)e.getMessage();
@@ -118,6 +118,7 @@ public class StressTestServer implements IStressTestServer
           e.data = s;
           eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
         }
+        eventReceiver.redraw();
         final long end = now()/NS_TO_MS;
         final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
         refreshTimes[toIndex(refreshTimes, refreshTimeslot++)] = elapsed;
