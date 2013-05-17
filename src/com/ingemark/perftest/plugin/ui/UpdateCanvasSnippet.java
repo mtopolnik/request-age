@@ -23,6 +23,8 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
 import org.eclipse.swt.widgets.Shell;
 
@@ -33,6 +35,7 @@ public class UpdateCanvasSnippet extends Composite
   double phi, phase;
   boolean rectDrawn;
   Image drawable = new Image(display,1,1);
+  long numbersLastPrinted;
   private Canvas canvas;
 
   public UpdateCanvasSnippet(Composite parent, int style) {
@@ -44,13 +47,11 @@ public class UpdateCanvasSnippet extends Composite
     scale.setMinimum(100);
     scale.setMaximum(600);
     canvas = new Canvas(this, SWT.NO_BACKGROUND | SWT.DOUBLE_BUFFERED);
-    // canvas.setBackground(display.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(canvas);
     sched.scheduleAtFixedRate(new Runnable() { public void run() {
       display.asyncExec(new Runnable() { public void run() {
         if (canvas.isDisposed()) return;
         phi = System.currentTimeMillis();
-        paintImage(canvas);
         canvas.redraw();
       }
       });}
@@ -58,26 +59,24 @@ public class UpdateCanvasSnippet extends Composite
     scale.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) {
         phase = scale.getSelection();
+        canvas.redraw();
       }
     });
     canvas.addPaintListener(new PaintListener() {
       public void paintControl(PaintEvent e) { draw(e.gc); } });
+    canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
+      paintImage(canvas);
+    }});
   }
 
-  private void paintImage(Canvas canvas) {
-    if (rectDrawn) return;
+  void paintImage(Canvas canvas) {
     drawable.dispose();
     drawable = new Image(display, canvas.getBounds().width, canvas.getBounds().height);
     final GC gc = new GC(drawable);
-    drawRect(gc);
-    gc.dispose();
-    rectDrawn = true;
-  }
-
-  void drawRect(GC gc) {
     gc.setForeground(display.getSystemColor(SWT.COLOR_BLUE));
     final Rectangle area = gc.getClipping();
     gc.drawRectangle(0, area.height - 51, 50, 50);
+    gc.dispose();
   }
 
   void draw(GC gc) {
@@ -109,6 +108,5 @@ public class UpdateCanvasSnippet extends Composite
     return GridDataFactory.fillDefaults();
   }
 
-  @Override
-  protected void checkSubclass() { }
+  @Override protected void checkSubclass() { }
 }

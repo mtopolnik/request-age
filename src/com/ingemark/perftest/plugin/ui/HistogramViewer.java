@@ -42,8 +42,7 @@ public class HistogramViewer implements PaintListener
   long numbersLastPrinted;
 
   HistogramViewer(Composite parent) {
-    canvas = new Canvas(parent, SWT.NONE);
-    canvas.setBackground(color(SWT.COLOR_WHITE));
+    canvas = new Canvas(parent, SWT.NO_BACKGROUND | SWT.DOUBLE_BUFFERED);
     canvas.addPaintListener(this);
     canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
       recreateBackdrop();
@@ -82,7 +81,7 @@ public class HistogramViewer implements PaintListener
     printChartName();
     drawStats();
     gc = null;
-    printNumbers = false;
+//    printNumbers = false;
   }
 
   void drawStats() {
@@ -93,7 +92,6 @@ public class HistogramViewer implements PaintListener
   }
 
   void paintMeterBars() {
-    paintBar(SWT.COLOR_WHITE, 8, histYoffset, 5, 0, Integer.MAX_VALUE);
     final Point maxReqsPerSecExtent = gc.stringExtent("9999");
     if (printNumbers) {
       paintRect(SWT.COLOR_WHITE, 0, 0, maxReqsPerSecExtent.x, 2+maxReqsPerSecExtent.y);
@@ -104,8 +102,9 @@ public class HistogramViewer implements PaintListener
     final int color;
     if (b < a) {
       final int tmp = a; a = b; b = tmp;
-      color = SWT.COLOR_RED;
+      color = SWT.COLOR_DARK_YELLOW;
     } else color = SWT.COLOR_DARK_GREEN;
+    paintBar(SWT.COLOR_WHITE, 8, histYoffset, 5, 0, Integer.MAX_VALUE);
     paintBar(color, 8, histYoffset+a, 5, b-a, b-a);
     final int failsHeight = toMeter(stats.failsPerSec);
     paintBar(SWT.COLOR_RED, 8, histYoffset, 5, failsHeight, failsHeight);
