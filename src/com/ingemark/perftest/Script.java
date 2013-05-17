@@ -1,12 +1,13 @@
 package com.ingemark.perftest;
 
+import static com.google.common.collect.Iterators.concat;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.Response;
 
 public class Script
@@ -15,20 +16,25 @@ public class Script
   final Map<String, String> initEnv;
 
   public Script(List<RequestProvider> initReqs, List<RequestProvider> testReqs,
-      Map<String, String> initEnv) {
+      Map<String, String> initEnv)
+  {
     this.initReqs = initReqs;
     this.testReqs = testReqs;
     this.initEnv = initEnv;
   }
 
-  public Instance newInstance(AsyncHttpClient client) { return new Instance(client); }
+  public Instance warmupInstance() { return new Instance(true); }
+
+  public Instance testInstance() { return new Instance(false); }
 
   public class Instance {
-    final Iterator<RequestProvider> reqIterator = testReqs.iterator();
+    final Iterator<RequestProvider> reqIterator;
     final Map<String, Object> env = new HashMap<String, Object>(initEnv);
-    final AsyncHttpClient client;
 
-    Instance(AsyncHttpClient client) { this.client = client; }
+    Instance(boolean warmup) {
+      reqIterator = warmup?
+          concat(initReqs.iterator(), testReqs.iterator()) : testReqs.iterator();
+    }
 
     public RequestProvider nextRequestProvider() {
       return reqIterator.hasNext()? reqIterator.next() : null;

@@ -5,6 +5,7 @@ import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.Request;
 
@@ -15,8 +16,8 @@ public class RequestProvider {
     this.liveStats = new LiveStats(index);
     this.name = name; this.method = method; this.url = url; this.body = body;
   }
-  public Request request(Script.Instance si) {
-    final BoundRequestBuilder b = si.client.prepareConnect(url).setMethod(method);
+  public Request request(AsyncHttpClient client, Script.Instance si) {
+    final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
     return (body != null? b.setBody(body) : b).build();
   }
 
