@@ -97,11 +97,9 @@ public class HistogramViewer implements PaintListener
       printedPendingReqs = stats.pendingReqs;
     }
     this.stats = stats;
-    canvas.redraw();
   }
 
   @Override public void paintControl(PaintEvent e) {
-    System.out.println("PaintControl");
     gc = e.gc;
     gc.drawImage(backdrop, 0, 0);
     paintMeterBars();
