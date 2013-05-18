@@ -1,12 +1,11 @@
 package com.ingemark.perftest;
 
-import static com.google.common.collect.Iterators.concat;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import com.ning.http.client.Response;
 
@@ -49,5 +48,21 @@ public class Script
     final ArrayList<Integer> ret = new ArrayList<>();
     for (RequestProvider rp : testReqs) ret.add(rp.liveStats.index);
     return ret;
+  }
+
+  static <T> Iterator<T> concat(final Iterator<T> it1, final Iterator<T> it2) {
+    return new Iterator<T>() {
+      Iterator<T> it = it1;
+      @Override public boolean hasNext() {
+        if (it.hasNext()) return true;
+        it = it2;
+        return it.hasNext();
+      }
+      @Override public T next() {
+        if (hasNext()) return it.next();
+        throw new NoSuchElementException();
+      }
+      @Override public void remove() { throw new UnsupportedOperationException(); }
+    };
   }
 }

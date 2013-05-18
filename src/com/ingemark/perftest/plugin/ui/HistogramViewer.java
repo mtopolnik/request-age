@@ -48,11 +48,10 @@ public class HistogramViewer implements PaintListener
     colFailBar = color(SWT.COLOR_RED);
     colHist = color(SWT.COLOR_BLUE);
     colTotalReq = new Color(d, 200, 170, 170);
-    canvas = new Canvas(parent, SWT.NO_BACKGROUND);
+    canvas = new Canvas(parent, SWT.NO_BACKGROUND | SWT.DOUBLE_BUFFERED);
     canvas.addPaintListener(this);
     canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
       recreateBackdrop();
-      canvas.redraw();
     }});
     gc = new GC(canvas);
     histYoffset = 10 + gc.getFontMetrics().getHeight();
@@ -98,9 +97,11 @@ public class HistogramViewer implements PaintListener
       printedPendingReqs = stats.pendingReqs;
     }
     this.stats = stats;
+    canvas.redraw();
   }
 
   @Override public void paintControl(PaintEvent e) {
+    System.out.println("PaintControl");
     gc = e.gc;
     gc.drawImage(backdrop, 0, 0);
     paintMeterBars();

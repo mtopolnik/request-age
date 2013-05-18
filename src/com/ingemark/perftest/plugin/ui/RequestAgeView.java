@@ -52,7 +52,7 @@ public class RequestAgeView extends ViewPart
   void newStatsParent(final Composite p) {
     statsParent = new Composite(p, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
-    statsParent.setLayout(new GridLayout(2, true));
+    statsParent.setLayout(new GridLayout(2, false));
     statsParent.addListener(RUN_SCRIPT_EVTYPE, new Listener() {
       public void handleEvent(Event event) {
         try {
