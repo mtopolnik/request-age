@@ -5,7 +5,6 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.eclipse.swt.layout.GridData.FILL;
-import static org.eclipse.swt.layout.GridData.FILL_HORIZONTAL;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -32,7 +31,7 @@ public class UpdateCanvasSnippet extends Composite
 {
   static final Display display = new Display();
   static final ScheduledExecutorService sched = newSingleThreadScheduledExecutor();
-  double phi, phase;
+  static double phi, phase;
   boolean rectDrawn;
   Image drawable = new Image(display,1,1);
   long numbersLastPrinted;
@@ -41,27 +40,8 @@ public class UpdateCanvasSnippet extends Composite
   public UpdateCanvasSnippet(Composite parent, int style) {
     super(parent, style);
     setLayout(new GridLayout(1, false));
-    final Scale scale = new Scale(this, SWT.NONE);
-    final GridData gd_scale = new GridData(FILL_HORIZONTAL);
-    scale.setLayoutData(gd_scale);
-    scale.setMinimum(100);
-    scale.setMaximum(600);
     canvas = new Canvas(this, SWT.NO_BACKGROUND | SWT.DOUBLE_BUFFERED);
     gridData().align(FILL, FILL).grab(true, true).applyTo(canvas);
-    sched.scheduleAtFixedRate(new Runnable() { public void run() {
-      display.asyncExec(new Runnable() { public void run() {
-        if (canvas.isDisposed()) return;
-        phi = System.currentTimeMillis();
-        canvas.redraw();
-      }
-      });}
-    }, 0, 10, MILLISECONDS);
-    scale.addSelectionListener(new SelectionAdapter() {
-      @Override public void widgetSelected(SelectionEvent e) {
-        phase = scale.getSelection();
-        canvas.redraw();
-      }
-    });
     canvas.addPaintListener(new PaintListener() {
       public void paintControl(PaintEvent e) { draw(e.gc); } });
     canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
@@ -92,11 +72,29 @@ public class UpdateCanvasSnippet extends Composite
   public static void main(String[] args) throws InterruptedException {
     final Shell shell = new Shell(display, SWT.SHELL_TRIM | SWT.DOUBLE_BUFFERED);
     shell.setLayout(new GridLayout(3, false));
-    for (int i = 0; i < 9; i++) {
+    final Scale scale = new Scale(shell, SWT.NONE);
+    gridData().align(GridData.FILL, GridData.BEGINNING).grab(true, false).applyTo(scale);
+    scale.setMinimum(100);
+    scale.setMaximum(600);
+    scale.addSelectionListener(new SelectionAdapter() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        phase = scale.getSelection();
+      }
+    });
+    for (int i = 0; i < 8; i++) {
       final Composite c = new UpdateCanvasSnippet(shell, SWT.None);
       gridData().grab(true, true).applyTo(c);
     }
-    shell.setSize(1000, 800);
+    sched.scheduleAtFixedRate(new Runnable() { public void run() {
+      display.asyncExec(new Runnable() { public void run() {
+        if (shell.isDisposed()) return;
+        phi = System.currentTimeMillis();
+        shell.redraw();
+        shell.update();
+      }
+      });}
+    }, 0, 10, MILLISECONDS);
+   shell.setSize(1000, 800);
     shell.open();
     while (!shell.isDisposed()) if (!display.readAndDispatch()) display.sleep();
     sched.shutdown();

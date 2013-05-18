@@ -118,7 +118,6 @@ public class StressTestServer implements IStressTestServer
           e.data = s;
           eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
         }
-        eventReceiver.redraw();
         eventReceiver.update();
         final long end = now()/NS_TO_MS;
         final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
