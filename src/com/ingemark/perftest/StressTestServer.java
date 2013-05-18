@@ -16,6 +16,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import java.net.InetSocketAddress;
 
@@ -31,12 +32,14 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
+import org.slf4j.Logger;
 
 import com.ingemark.perftest.plugin.StressTestActivator;
 import com.ingemark.perftest.plugin.ui.RequestAgeView;
 
 public class StressTestServer implements IStressTestServer
 {
+  static final Logger log = getLogger(StressTestServer.class);
   public static final int NETTY_PORT = 49131;
   private static final int NS_TO_MS = 1_000_000;
   final Control eventReceiver;
@@ -67,7 +70,7 @@ public class StressTestServer implements IStressTestServer
   }
 
   ServerBootstrap netty() {
-    System.out.println("StressTestServer starting Netty");
+    log.info("Starting Server Netty");
     final ServerBootstrap b = new ServerBootstrap(
         new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
@@ -91,13 +94,12 @@ public class StressTestServer implements IStressTestServer
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.err.println("Server netty error");
-          e.getCause().printStackTrace();
+          log.error("Netty error", e);
         }}
       , new ObjectEncoder()
       )));
     b.bind(new InetSocketAddress("localhost", NETTY_PORT));
-    System.out.println("StressTestServer listening on " + NETTY_PORT);
+    log.info("Listening on " + NETTY_PORT);
     return b;
   }
 
@@ -126,7 +128,7 @@ public class StressTestServer implements IStressTestServer
         if (!adjustSlowGui(end, avgRefresh, timeInQueue))
           adjustFastGui(end, avgRefresh, timeInQueue);
         if (refreshTimeslot % ((5*TIMESLOTS_PER_SEC)/refreshDivisor) == 0)
-          System.out.format("timeInQueue %d avgRefresh %d refreshDivisor %d\n",
+          log.debug("timeInQueue {} avgRefresh {} refreshDivisor {}",
               timeInQueue, avgRefresh, refreshDivisor);
       }
       boolean adjustSlowGui(long now, int avgRefresh, int timeInQueue) {
@@ -137,7 +139,7 @@ public class StressTestServer implements IStressTestServer
           guiSlowSince = 0;
           refreshDivisor = max(refreshDivisor+1, (avgRefresh*TIMESLOTS_PER_SEC)/1000);
           refreshDivisorChanged();
-          System.out.println("Reducing refresh rate");
+          log.debug("Reducing refresh rate");
         }
         return true;
       }
@@ -152,7 +154,7 @@ public class StressTestServer implements IStressTestServer
           guiFastSince = 0;
           refreshDivisor--;
           refreshDivisorChanged();
-          System.out.println("Increasing refresh rate");
+          log.debug("Increasing refresh rate");
         }
       }
     });

@@ -20,6 +20,7 @@ import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,6 +43,7 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
+import org.slf4j.Logger;
 
 import com.ingemark.perftest.script.Parser;
 import com.ning.http.client.AsyncCompletionHandlerBase;
@@ -52,6 +54,7 @@ import com.ning.http.client.Response;
 
 public class StressTester implements Runnable
 {
+  static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   final ScheduledExecutorService sched = newScheduledThreadPool(2, new ThreadFactory(){
     volatile int i; public Thread newThread(Runnable r) {
@@ -71,9 +74,9 @@ public class StressTester implements Runnable
     this.client = new AsyncHttpClient();
     this.script = script;
     this.netty = netty();
-    System.out.println("Stress tester connecting to server");
+    log.debug("Connecting to server");
     this.channel = channel(netty);
-    System.out.println("Stress tester connected");
+    log.debug("Connected");
   }
 
   Channel channel(ClientBootstrap netty) {
@@ -83,7 +86,7 @@ public class StressTester implements Runnable
   }
 
   ClientBootstrap netty() {
-    System.out.println("StressTester initializing Netty");
+    log.debug("Starting Client Netty");
     final ClientBootstrap b = new ClientBootstrap(
         new NioClientSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
     b.setPipelineFactory(pipelineFactory(pipeline(
@@ -103,8 +106,7 @@ public class StressTester implements Runnable
         }
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          System.err.println("StressTester netty error");
-          e.getCause().printStackTrace();
+          log.error("Netty error", e);
         }
       }
       , new ObjectEncoder()
@@ -160,8 +162,7 @@ public class StressTester implements Runnable
       final long delay = 1000_000_000L/intensity - (now()-start);
       if (!sched.isShutdown()) sched.schedule(this, delay, NANOSECONDS);
     } catch (Throwable t) {
-      System.err.println("Error in request firing task.");
-      t.printStackTrace();
+      log.error("Error in request firing task", t);
     }
   }
 
@@ -179,9 +180,9 @@ public class StressTester implements Runnable
       sched.shutdown();
       sched.awaitTermination(5, SECONDS);
       client.close();
-      System.out.println("HTTP Client shut down");
+      log.debug("HTTP Client shut down");
       netty.shutdown();
-      System.out.println("Netty client shut down");
+      log.debug("Netty client shut down");
     } catch (InterruptedException e) { }
   }
 
@@ -207,7 +208,7 @@ public class StressTester implements Runnable
       final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
-      System.out.println("Classpath " + cp);
+      log.debug("Classpath {}", cp);
       return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
           StressTester.class.getName(), scriptFile).inheritIO().start();
     } catch (IOException e) { throw new RuntimeException(e); }
@@ -223,11 +224,8 @@ public class StressTester implements Runnable
   }
   public static void main(String[] args) {
     try {
-      System.out.println("Loading script " + args[0]);
+      log.info("Loading script {}", args[0]);
       new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
-    } catch (Throwable t) {
-      System.err.println("StressTester.main failed");
-      t.printStackTrace();
-    }
+    } catch (Throwable t) { log.error("", t); }
   }
 }
