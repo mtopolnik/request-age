@@ -16,7 +16,7 @@ public class RequestProvider {
     this.liveStats = new LiveStats(index);
     this.name = name; this.method = method; this.url = url; this.body = body;
   }
-  public Request request(AsyncHttpClient client, Script.Instance si) {
+  public Request request(AsyncHttpClient client) {
     final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
     return (body != null? b.setBody(body) : b).build();
   }

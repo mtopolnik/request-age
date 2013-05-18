@@ -39,15 +39,17 @@ public class Script
       return reqIterator.hasNext()? reqIterator.next() : null;
     }
 
-    public void result(Response resp, boolean isSuccess) {
-
-    }
+    public boolean result(Response resp) { return isSuccessResponse(resp); }
   }
 
   public ArrayList<Integer> getInit() {
     final ArrayList<Integer> ret = new ArrayList<>();
     for (RequestProvider rp : testReqs) ret.add(rp.liveStats.index);
     return ret;
+  }
+
+  static boolean isSuccessResponse(Response r) {
+    return r != null && r.getStatusCode() >= 200 && r.getStatusCode() < 400;
   }
 
   static <T> Iterator<T> concat(final Iterator<T> it1, final Iterator<T> it2) {

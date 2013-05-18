@@ -1,6 +1,7 @@
 package com.ingemark.perftest;
 
 import static com.ingemark.perftest.Message.DIVISOR;
+import static com.ingemark.perftest.Message.ERROR;
 import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
@@ -9,8 +10,10 @@ import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.perftest.Util.arraySum;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
+import static com.ingemark.perftest.Util.swtSend;
 import static com.ingemark.perftest.Util.toIndex;
-import static com.ingemark.perftest.plugin.StressTestActivator.INIT_HIST_EVTYPE;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.jboss.netty.channel.Channels.pipeline;
@@ -35,7 +38,6 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
 import com.ingemark.perftest.plugin.StressTestActivator;
-import com.ingemark.perftest.plugin.ui.RequestAgeView;
 
 public class StressTestServer implements IStressTestServer
 {
@@ -63,12 +65,6 @@ public class StressTestServer implements IStressTestServer
     netty.shutdown();
   };
 
-  Event swtEvent(Object data) {
-    final Event e = new Event();
-    e.data = data;
-    return e;
-  }
-
   ServerBootstrap netty() {
     log.info("Starting Server Netty");
     final ServerBootstrap b = new ServerBootstrap(
@@ -82,10 +78,10 @@ public class StressTestServer implements IStressTestServer
           case INIT:
             channel = ctx.getChannel();
             refreshDivisorChanged();
-            Display.getDefault().asyncExec(new Runnable() { public void run() {
-              RequestAgeView.instance.statsParent.notifyListeners(INIT_HIST_EVTYPE,
-                  swtEvent(msg.value));
-            }});
+            swtSend(EVT_INIT_HIST, msg.value);
+            break;
+          case ERROR:
+            swtSend(EVT_ERROR, msg.value);
             break;
           case STATS:
             receivedStats((Stats[])msg.value);

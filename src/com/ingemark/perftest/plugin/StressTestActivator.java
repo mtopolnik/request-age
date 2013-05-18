@@ -9,8 +9,9 @@ public class StressTestActivator implements BundleActivator
   public static final String
     STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
   public static final int
-    RUN_SCRIPT_EVTYPE = 1024,
-    INIT_HIST_EVTYPE = 1025,
+    EVT_RUN_SCRIPT = 1024,
+    EVT_INIT_HIST = 1025,
+    EVT_ERROR = 1026,
     STATS_EVTYPE_BASE = 2048;
   static StressTestActivator instance;
   private Bundle bundle;

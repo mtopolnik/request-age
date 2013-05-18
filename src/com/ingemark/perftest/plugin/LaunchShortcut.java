@@ -1,6 +1,6 @@
 package com.ingemark.perftest.plugin;
 
-import static com.ingemark.perftest.plugin.StressTestActivator.RUN_SCRIPT_EVTYPE;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
 
@@ -29,7 +29,7 @@ public class LaunchShortcut implements ILaunchShortcut
       final RequestAgeView view = RequestAgeView.instance;
       final Event e = new Event();
       e.data = in.getLocation().toOSString();
-      view.statsParent.notifyListeners(RUN_SCRIPT_EVTYPE, e);
+      view.statsParent.notifyListeners(EVT_RUN_SCRIPT, e);
     } catch (CoreException e) { throw new RuntimeException(e); }
   }
 }

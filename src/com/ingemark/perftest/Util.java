@@ -1,11 +1,20 @@
 package com.ingemark.perftest;
 
+import java.io.Serializable;
+
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ingemark.perftest.plugin.ui.RequestAgeView;
 
 public class Util
 {
+  static final Logger log = LoggerFactory.getLogger(Util.class);
   public static int toIndex(int[] array, int timeSlot) {
     return toIndex(array.length, timeSlot);
   }
@@ -29,17 +38,15 @@ public class Util
     for (String part : parts) { b.append(sep).append(part); sep = separator; }
     return b.toString();
   }
-  public static void nettySend(Channel channel, Message msg, boolean sync) {
+  public static void nettySend(Channel channel, final Message msg, boolean sync) {
     if (channel == null) {
-      System.err.println("Attempt to send message without connected peer: " + msg);
+      log.error("Attempt to send message without connected peer: " + msg);
       return;
     }
     final ChannelFuture fut = channel.write(msg);
     fut.addListener(new ChannelFutureListener() {
       @Override public void operationComplete(ChannelFuture f) {
-        if (f.isSuccess()) return;
-        System.err.println("Failed to send message");
-        f.getCause().printStackTrace();
+        if (!f.isSuccess()) log.error("Failed to send message {}", msg, f.getCause());
       }
     });
     if (sync)
@@ -50,5 +57,12 @@ public class Util
   }
   public static <T> T spy(String msg, T x) {
     System.out.println(msg + ": " + x); return x;
+  }
+  static void swtSend(final int evtype, final Serializable value) {
+    Display.getDefault().asyncExec(new Runnable() { public void run() {
+      final Event e = new Event();
+      e.data = value;
+      RequestAgeView.instance.statsParent.notifyListeners(evtype, e);
+    }});
   }
 }

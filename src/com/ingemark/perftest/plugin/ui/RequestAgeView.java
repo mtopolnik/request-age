@@ -1,9 +1,11 @@
 package com.ingemark.perftest.plugin.ui;
 
-import static com.ingemark.perftest.plugin.StressTestActivator.INIT_HIST_EVTYPE;
-import static com.ingemark.perftest.plugin.StressTestActivator.RUN_SCRIPT_EVTYPE;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
+import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.List;
 
@@ -18,6 +20,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
 import org.eclipse.ui.part.ViewPart;
+import org.slf4j.Logger;
 
 import com.ingemark.perftest.IStressTestServer;
 import com.ingemark.perftest.Stats;
@@ -26,6 +29,7 @@ import com.ingemark.perftest.StressTester;
 
 public class RequestAgeView extends ViewPart
 {
+  static final Logger log = getLogger(RequestAgeView.class);
   private static final int MIN_THROTTLE = 50;
   public static RequestAgeView instance;
   public Composite statsParent;
@@ -53,15 +57,15 @@ public class RequestAgeView extends ViewPart
     statsParent = new Composite(p, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
     statsParent.setLayout(new GridLayout(2, false));
-    statsParent.addListener(RUN_SCRIPT_EVTYPE, new Listener() {
+    statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(Event event) {
         try {
           shutdown();
           statsParent.dispose();
           newStatsParent(p);
-          statsParent.addListener(INIT_HIST_EVTYPE, new Listener() {
+          statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
-              System.out.println("Init histogram");
+              log.debug("Init histogram");
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
               for (int i : (List<Integer>)event.data) {
@@ -74,9 +78,15 @@ public class RequestAgeView extends ViewPart
               p.layout(true);
               p.notifyListeners(SWT.Paint, new Event());
           }});
+          statsParent.addListener(EVT_ERROR, new Listener() {
+            @Override public void handleEvent(Event e) {
+              final Throwable t = ((Throwable)e.data);
+              openError(statsParent.getShell(), "Stress testing error",
+                  t.getClass().getSimpleName() + ": " + t.getMessage());
+            }
+          });
           testServer = new StressTestServer(statsParent);
           subprocess = StressTester.launchTester((String)event.data);
-          System.out.println("Subprocess running");
         }
         catch (Throwable t) {
           openError(null, "Stress test init error", String.format(

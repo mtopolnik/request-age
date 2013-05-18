@@ -1,6 +1,7 @@
 package com.ingemark.perftest;
 
 import static com.ingemark.perftest.Message.DIVISOR;
+import static com.ingemark.perftest.Message.ERROR;
 import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
@@ -29,6 +30,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -116,21 +118,38 @@ public class StressTester implements Runnable
 
   public void runTest() throws Exception {
     nettySend(channel, new Message(INIT, script.getInit()), true);
-    warmup();
-    run();
-    sched.scheduleAtFixedRate(new Runnable() {
-      public void run() {
-        final List<Stats> stats = stats();
-        if (stats.isEmpty()) return;
-        nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
-    }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
+    try {
+      warmup();
+      sched.scheduleAtFixedRate(new Runnable() {
+        public void run() {
+          final List<Stats> stats = stats();
+          if (stats.isEmpty()) return;
+          nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
+        }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
+      run();
+    }
+    catch (Throwable t) {
+      nettySend(channel, new Message(ERROR, t));
+      shutdown();
+    }
   }
 
   void warmup() throws Exception {
-    System.out.print("Warming up"); System.out.flush();
-    try {
-      System.out.println(" done.");
-    } catch (Throwable t) { shutdown(); }
+    log.debug("Warming up");
+    final Script.Instance si = script.warmupInstance();
+    for (RequestProvider rp; (rp = si.nextRequestProvider()) != null;) {
+      try {
+        final Response r = client.executeRequest(rp.request(client)).get();
+        if (!si.result(r))
+          throw new RuntimeException("Stage " + rp.name + " failed with response: " + r);
+      } catch (ExecutionException e) {
+        throw new RuntimeException(
+            "Stage " + rp.name + " failed to send request: " +
+                e.getCause().getClass().getSimpleName() + " " +
+                e.getCause().getMessage());
+      }
+    }
+    log.debug("Warmup done");
   }
 
   @Override public void run() {
@@ -144,19 +163,18 @@ public class StressTester implements Runnable
           rp = si.nextRequestProvider();
           if (rp == null) return;
           startSlot = rp.liveStats.registerReq();
-          client.executeRequest(rp.request(client, si), this);
+          client.executeRequest(rp.request(client), this);
         }
         {newRequest();}
         @Override public Response onCompleted(Response resp) throws IOException {
-          final boolean succ = isSuccessResponse(resp);
+          final boolean succ = si.result(resp);
           rp.liveStats.deregisterReq(startSlot, succ);
-          si.result(resp, succ);
           newRequest();
           return resp;
         }
         @Override public void onThrowable(Throwable t) {
           rp.liveStats.deregisterReq(startSlot, false);
-          si.result(null, false);
+          si.result(null);
         }
       };
       final long delay = 1000_000_000L/intensity - (now()-start);
@@ -208,15 +226,12 @@ public class StressTester implements Runnable
       final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
-      log.debug("Classpath {}", cp);
+      log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);
       return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
           StressTester.class.getName(), scriptFile).inheritIO().start();
     } catch (IOException e) { throw new RuntimeException(e); }
   }
 
-  static boolean isSuccessResponse(Response r) {
-    return r.getStatusCode() >= 200 && r.getStatusCode() < 400;
-  }
   static ProxyServer toProxyServer(String proxyString) {
     if (proxyString == null) return null;
     final String[] parts = proxyString.split(":");
