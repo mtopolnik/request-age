@@ -9,7 +9,7 @@ import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.now;
+import static com.ingemark.perftest.Util.toProxyServer;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -21,15 +21,20 @@ import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
+import static org.mozilla.javascript.Context.javaToJS;
+import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
+import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -45,40 +50,102 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ContextAction;
+import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.script.Parser;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
-import com.ning.http.client.ProxyServer;
+import com.ning.http.client.Request;
 import com.ning.http.client.Response;
 
 public class StressTester implements Runnable
 {
   static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
+  static final ContextFactory fac = ContextFactory.getGlobal();
   final ScheduledExecutorService sched = newScheduledThreadPool(2, new ThreadFactory(){
     volatile int i; public Thread newThread(Runnable r) {
       return new Thread(r, "StressTester scheduler #"+i++);
   }});
-  final Script script;
-  final Random rnd = new Random();
-  final ClientBootstrap netty;
-  final Channel channel;
-  final AsyncHttpClient client;
-  volatile int intensity = 1, updateDivisor = 1;
-  volatile ScheduledFuture<?> nettyReportingTask;
+  private final ScriptableObject jsScope;
+  private final ClientBootstrap netty;
+  private final Channel channel;
+  private final AsyncHttpClient client;
+  private volatile int intensity, updateDivisor = 1;
+  private final Map<String, LiveStats> lsmap = new HashMap<>();
+  private ScheduledFuture<?> testTask;
 
-  public StressTester(Script script) {
+  public StressTester(String fname) {
+    this.jsScope = initJsScope(fname);
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    b.setProxyServer(toProxyServer(script.initEnv.get("system.proxy")));
-    this.client = new AsyncHttpClient();
-    this.script = script;
+    jsCall("configure", b);
+    this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
     this.channel = channel(netty);
     log.debug("Connected");
+  }
+
+  ScriptableObject initJsScope(final String fname) {
+    return (ScriptableObject) fac.call(new ContextAction() {
+      public Object run(Context cx) {
+        try {
+          final Reader js = new FileReader(fname);
+          final ScriptableObject scope = cx.initStandardObjects(null, true);
+          cx.evaluateString(scope,
+              "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
+          cx.evaluateReader(scope, js, "<here>", 1, null);
+        }
+        catch (IOException e) { throw new RuntimeException(e); }
+        putProperty(jsScope, "$", javaToJS(new JsHelper(), jsScope));
+        return jsScope;
+      }
+    });
+  }
+
+  class JsHelper {
+    int index;
+    public void proxy(AsyncHttpClientConfig.Builder b, String proxyStr) {
+      b.setProxyServer(toProxyServer(proxyStr));
+    }
+    public Response initHttp(String reqName, String method, String url, String body)
+    throws Exception
+    {
+      final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
+      final Request request = (body != null? b.setBody(body) : b).build();
+      lsmap.put(reqName, new LiveStats(index++, reqName));
+      return client.executeRequest(request).get();
+    }
+    public boolean http(String reqName, String method, String url, String body, final Function f) {
+      final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
+      final Request request = (body != null? b.setBody(body) : b).build();
+      final LiveStats liveStats = lsmap.get(reqName);
+      final int startSlot = liveStats.registerReq();
+      try {
+        client.executeRequest(request, new AsyncCompletionHandlerBase() {
+          @Override public Response onCompleted(final Response resp) throws IOException {
+            fac.call(new ContextAction() {
+              @Override public Object run(Context cx) {
+                final Object res = f.call(cx, jsScope, null, new Object[] {resp});
+                liveStats.deregisterReq(startSlot, res != null && !res.equals(Boolean.FALSE));
+                return null;
+              }
+            });
+            return resp;
+          }
+          @Override public void onThrowable(Throwable t) {
+            liveStats.deregisterReq(startSlot, false);
+          }
+        });
+        return true;
+      } catch (IOException e) { throw new RuntimeException(e); }
+    }
   }
 
   Channel channel(ClientBootstrap netty) {
@@ -99,7 +166,9 @@ public class StressTester implements Runnable
             final Message msg = (Message)e.getMessage();
             switch (msg.type) {
             case DIVISOR: updateDivisor = (Integer) msg.value; break;
-            case INTENSITY: intensity = (Integer) msg.value; break;
+            case INTENSITY:
+              scheduleTest((Integer) msg.value);
+              break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
@@ -116,17 +185,17 @@ public class StressTester implements Runnable
     return b;
   }
 
-  public void runTest() throws Exception {
-    nettySend(channel, new Message(INIT, script.getInit()), true);
+  void runTest() throws Exception {
+    warmup();
+    nettySend(channel, new Message(INIT, collectIndices()), true);
     try {
-      warmup();
-      sched.scheduleAtFixedRate(new Runnable() {
-        public void run() {
-          final List<Stats> stats = stats();
-          if (stats.isEmpty()) return;
-          nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
-        }}, 100, 1_000_000/TIMESLOTS_PER_SEC, MICROSECONDS);
-      run();
+      scheduleTest(1);
+      sched.scheduleAtFixedRate(new Runnable() { public void run() {
+        final List<Stats> stats = stats();
+        if (stats.isEmpty()) return;
+        nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
+      }}, 100, SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
+
     }
     catch (Throwable t) {
       nettySend(channel, new Message(ERROR, t));
@@ -136,64 +205,55 @@ public class StressTester implements Runnable
 
   void warmup() throws Exception {
     log.debug("Warming up");
-    final Script.Instance si = script.warmupInstance();
-    for (RequestProvider rp; (rp = si.nextRequestProvider()) != null;) {
-      try {
-        final Response r = client.executeRequest(rp.request(client)).get();
-        if (!si.result(r))
-          throw new RuntimeException("Stage " + rp.name + " failed with response: " + r);
-      } catch (ExecutionException e) {
-        throw new RuntimeException(
-            "Stage " + rp.name + " failed to send request: " +
-                e.getCause().getClass().getSimpleName() + " " +
-                e.getCause().getMessage());
-      }
-    }
+    jsCall("init");
+    jsScope.sealObject();
     log.debug("Warmup done");
   }
 
-  @Override public void run() {
-    final long start = now();
-    final Script.Instance si = script.testInstance();
-    try {
-      new AsyncCompletionHandlerBase() {
-        volatile RequestProvider rp;
-        volatile int startSlot;
-        void newRequest() throws IOException {
-          rp = si.nextRequestProvider();
-          if (rp == null) return;
-          startSlot = rp.liveStats.registerReq();
-          client.executeRequest(rp.request(client), this);
-        }
-        {newRequest();}
-        @Override public Response onCompleted(Response resp) throws IOException {
-          final boolean succ = si.result(resp);
-          rp.liveStats.deregisterReq(startSlot, succ);
-          newRequest();
-          return resp;
-        }
-        @Override public void onThrowable(Throwable t) {
-          rp.liveStats.deregisterReq(startSlot, false);
-          si.result(null);
-        }
-      };
-      final long delay = 1000_000_000L/intensity - (now()-start);
-      if (!sched.isShutdown()) sched.schedule(this, delay, NANOSECONDS);
-    } catch (Throwable t) {
-      log.error("Error in request firing task", t);
-    }
+  synchronized void scheduleTest(int newIntensity) {
+    if (intensity == newIntensity) return;
+    intensity = newIntensity;
+    if (testTask != null) testTask.cancel(false);
+    try { testTask.get(); }
+    catch (InterruptedException | ExecutionException e) { throw new RuntimeException(e); }
+    testTask = intensity > 0?
+      sched.scheduleAtFixedRate(this, 0, SECONDS.toNanos(1)/intensity, NANOSECONDS)
+      : null;
+  }
+
+  @Override public void run() { jsCall("test"); }
+
+  ArrayList<Integer> collectIndices() {
+    final ArrayList<Integer> ret = new ArrayList<>();
+    for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
+    return ret;
+  }
+
+  Object jsCall(final String fn, final Object... args) {
+    return fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      return getTypedProperty(jsScope, fn, Function.class).call(cx, jsScope, null, args);
+    }});
+  }
+
+  LiveStats livestats(String name) {
+    final LiveStats liveStats = lsmap.get(name);
+    return liveStats != null? liveStats : new LiveStats(0, name) {
+      @Override synchronized int registerReq() {
+        return super.registerReq();
+      }
+    };
   }
 
   List<Stats> stats() {
-    final List<Stats> ret = new ArrayList<>(script.testReqs.size());
-    for (RequestProvider p : script.testReqs) {
-      final Stats stats = p.liveStats.stats(updateDivisor);
+    final List<Stats> ret = new ArrayList<>(lsmap.size());
+    for (LiveStats ls : lsmap.values()) {
+      final Stats stats = ls.stats(updateDivisor);
       if (stats != null) ret.add(stats);
     }
     return ret;
   }
 
-  public void shutdown() {
+  void shutdown() {
     try {
       sched.shutdown();
       sched.awaitTermination(5, SECONDS);
@@ -221,6 +281,7 @@ public class StressTester implements Runnable
     }
     return "java";
   }
+
   public static Process launchTester(String scriptFile) {
     try {
       final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
@@ -232,15 +293,11 @@ public class StressTester implements Runnable
     } catch (IOException e) { throw new RuntimeException(e); }
   }
 
-  static ProxyServer toProxyServer(String proxyString) {
-    if (proxyString == null) return null;
-    final String[] parts = proxyString.split(":");
-    return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
-  }
   public static void main(String[] args) {
+    args[0] = "src/test.js";
     try {
       log.info("Loading script {}", args[0]);
-      new StressTester(new Parser(new FileInputStream(args[0])).parse()).runTest();
+      new StressTester(args[0]).runTest();
     } catch (Throwable t) { log.error("", t); }
   }
 }

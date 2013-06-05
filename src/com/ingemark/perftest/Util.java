@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ingemark.perftest.plugin.ui.RequestAgeView;
+import com.ning.http.client.ProxyServer;
+import com.ning.http.client.Response;
 
 public class Util
 {
@@ -37,6 +39,14 @@ public class Util
     String sep = "";
     for (String part : parts) { b.append(sep).append(part); sep = separator; }
     return b.toString();
+  }
+  public static ProxyServer toProxyServer(String proxyString) {
+    if (proxyString == null) return null;
+    final String[] parts = proxyString.split(":");
+    return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
+  }
+  public static boolean isSuccessResponse(Response r) {
+    return r != null && r.getStatusCode() >= 200 && r.getStatusCode() < 400;
   }
   public static void nettySend(Channel channel, final Message msg, boolean sync) {
     if (channel == null) {
