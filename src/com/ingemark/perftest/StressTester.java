@@ -83,10 +83,13 @@ public class StressTester implements Runnable
 
   public StressTester(String fname) {
     this.jsScope = initJsScope(fname);
-    setJsHelper(new JsInitHelper());
-    final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    jsCall("configure", b);
-    this.client = new AsyncHttpClient(b.build());
+    this.client = (AsyncHttpClient) fac.call(new ContextAction() {
+      @Override public Object run(Context cx) {
+        setJsHelper(new JsInitHelper());
+        final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
+        jsCall("configure", b);
+        return new AsyncHttpClient(b.build());
+    }});
     this.netty = netty();
     log.debug("Connecting to server");
     this.channel = channel(netty);
@@ -134,6 +137,7 @@ public class StressTester implements Runnable
     return (ScriptableObject) fac.call(new ContextAction() {
       public Object run(Context cx) {
         try {
+          cx.setOptimizationLevel(9);
           final Reader js = new FileReader(fname);
           final ScriptableObject scope = cx.initStandardObjects(null, true);
           cx.evaluateString(scope,
@@ -147,18 +151,18 @@ public class StressTester implements Runnable
   }
 
   public class JsHelper {
-    public boolean nHttp(String method, String url) {
-      return nHttp(method, url, null, null);
-    }
+//    public boolean nHttp(String method, String url) {
+//      return nHttp(method, url, null, null);
+//    }
     public boolean nHttp(String method, String url, Function f) {
-      return nHttp(method, url, null, f);
+      return http(null, method, url, null, f);
     }
-    public boolean nHttp(String method, String url, String body) {
-      return nHttp(method, url, body, null);
-    }
-    public boolean nHttp(String method, String url, String body, Function f) {
-      return http(null, method, url, body, f);
-    }
+//    public boolean nHttp(String method, String url, String body) {
+//      return nHttp(method, url, body, null);
+//    }
+//    public boolean nHttp(String method, String url, String body, Function f) {
+//      return http(null, method, url, body, f);
+//    }
     public boolean http(String reqName, String method, String url) {
       return http(reqName, method, url, null, null);
     }
@@ -179,7 +183,7 @@ public class StressTester implements Runnable
             fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
                 final Object res = f != null? jsCall(f, resp) : null;
-                liveStats.deregisterReq(startSlot, Boolean.FALSE.equals(res));
+                liveStats.deregisterReq(startSlot, !Boolean.FALSE.equals(res));
                 return null;
               }
             });
@@ -206,20 +210,21 @@ public class StressTester implements Runnable
       lsmap.put(reqName, new LiveStats(index++, reqName));
       try {
         final Response resp = client.executeRequest(request).get();
-        if (f != null && Boolean.FALSE.equals(jsCall(f, resp))) return false;
+        return f == null || !Boolean.FALSE.equals(jsCall(f, resp));
       } catch (InterruptedException | ExecutionException | IOException e) {
         throw new RuntimeException("Error during test initialization", e);
       }
-      return true;
     }
   }
 
   void runTest() throws Exception {
-    log.debug("Initializing test");
-    jsCall("init");
-    log.debug("Initialized");
-    setJsHelper(new JsHelper());
-    jsScope.sealObject();
+    fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      log.debug("Initializing test");
+      jsCall("init");
+      log.debug("Initialized");
+      setJsHelper(new JsHelper());
+      jsScope.sealObject(); return null;
+    }});
     nettySend(channel, new Message(INIT, collectIndices()), true);
     try {
       scheduleTest(1);
@@ -246,9 +251,7 @@ public class StressTester implements Runnable
   synchronized void scheduleTest(int newIntensity) {
     if (intensity == newIntensity) return;
     intensity = newIntensity;
-    if (testTask != null) testTask.cancel(false);
-    try { testTask.get(); }
-    catch (InterruptedException | ExecutionException e) { throw new RuntimeException(e); }
+    if (testTask != null) testTask.cancel(true);
     testTask = intensity > 0?
       sched.scheduleAtFixedRate(this, 0, SECONDS.toNanos(1)/intensity, NANOSECONDS)
       : null;
