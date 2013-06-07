@@ -21,6 +21,7 @@ import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
+import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -184,7 +185,7 @@ public class StressTester implements Runnable
 
   void setJsHelper(final JsHelper helper) {
     fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      jsScope.defineProperty("$", helper, ScriptableObject.READONLY);
+      putProperty(jsScope, "$", helper);
       return null;
     }});
   }
