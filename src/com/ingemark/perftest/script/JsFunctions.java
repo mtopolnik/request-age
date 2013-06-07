@@ -1,4 +1,4 @@
-package com.ingemark.perftest;
+package com.ingemark.perftest.script;
 
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static org.jdom2.Namespace.getNamespace;
@@ -19,7 +19,7 @@ import com.fasterxml.aalto.in.ReaderConfig;
 import com.fasterxml.aalto.stax.StreamReaderImpl;
 
 public class JsFunctions {
-  static final String[] JS_METHODS = new String[] {
+  public static final String[] JS_METHODS = new String[] {
     "ns", "xml", "parseXml"
   };
   private static final ReaderConfig readerCfg = new ReaderConfig();

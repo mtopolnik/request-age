@@ -57,6 +57,7 @@ import org.mozilla.javascript.Function;
 import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 
+import com.ingemark.perftest.script.JsFunctions;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 

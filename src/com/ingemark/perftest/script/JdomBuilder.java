@@ -1,4 +1,4 @@
-package com.ingemark.perftest;
+package com.ingemark.perftest.script;
 
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static org.jdom2.Namespace.NO_NAMESPACE;
