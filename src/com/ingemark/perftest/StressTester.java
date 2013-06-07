@@ -9,7 +9,6 @@ import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.toProxyServer;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -21,9 +20,7 @@ import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
-import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
-import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -35,7 +32,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -50,6 +46,7 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
+import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
@@ -57,12 +54,8 @@ import org.mozilla.javascript.Function;
 import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 
-import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient;
-import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
-import com.ning.http.client.Request;
-import com.ning.http.client.Response;
 
 public class StressTester implements Runnable
 {
@@ -73,27 +66,59 @@ public class StressTester implements Runnable
     volatile int i; public Thread newThread(Runnable r) {
       return new Thread(r, "StressTester scheduler #"+i++);
   }});
-  private final ScriptableObject jsScope;
+  final AsyncHttpClient client;
+  final Map<String, LiveStats> lsmap = new HashMap<>();
+  final ScriptableObject jsScope;
   private final ClientBootstrap netty;
   private final Channel channel;
-  private final AsyncHttpClient client;
-  private volatile int intensity, updateDivisor = 1;
-  private final Map<String, LiveStats> lsmap = new HashMap<>();
+  private volatile int intensity = 1, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
   public StressTester(String fname) {
     this.jsScope = initJsScope(fname);
-    this.client = (AsyncHttpClient) fac.call(new ContextAction() {
-      @Override public Object run(Context cx) {
-        setJsHelper(new JsInitHelper());
-        final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-        jsCall("configure", b);
-        return new AsyncHttpClient(b.build());
-    }});
+    final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
+    setJsHelper(new JsInitHelper(this));
+    jsCall("configure", b);
+    this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
     this.channel = channel(netty);
     log.debug("Connected");
+  }
+
+  ScriptableObject initJsScope(final String fname) {
+    return (ScriptableObject) fac.call(new ContextAction() {
+      public Object run(Context cx) {
+        try {
+          cx.setOptimizationLevel(9);
+          final Reader js = new FileReader(fname);
+          final ScriptableObject scope = cx.initStandardObjects(null, true);
+          cx.evaluateString(scope,
+              "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
+          cx.evaluateReader(scope, js, fname, 1, null);
+          return scope;
+        }
+        catch (RuntimeException e) { throw e; }
+        catch (Exception e) { throw new RuntimeException(e); }
+      }
+    });
+  }
+  Object jsCall(final Callable fn, final Object... args) {
+    return fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      return fn.call(cx, jsScope, null, args);
+    }});
+  }
+  Object jsCall(String fn, Object... args) {
+    return jsCall(getTypedProperty(jsScope, fn, Function.class), args);
+  }
+
+  LiveStats livestats(String name) {
+    final LiveStats liveStats = lsmap.get(name);
+    return liveStats != null? liveStats : new LiveStats(0, name) {
+      @Override synchronized int registerReq() {
+        return super.registerReq();
+      }
+    };
   }
 
   Channel channel(ClientBootstrap netty) {
@@ -133,96 +158,13 @@ public class StressTester implements Runnable
     return b;
   }
 
-  ScriptableObject initJsScope(final String fname) {
-    return (ScriptableObject) fac.call(new ContextAction() {
-      public Object run(Context cx) {
-        try {
-          cx.setOptimizationLevel(9);
-          final Reader js = new FileReader(fname);
-          final ScriptableObject scope = cx.initStandardObjects(null, true);
-          cx.evaluateString(scope,
-              "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
-          cx.evaluateReader(scope, js, fname, 1, null);
-          return scope;
-        }
-        catch (IOException e) { throw new RuntimeException(e); }
-      }
-    });
-  }
-
-  public class JsHelper {
-//    public boolean nHttp(String method, String url) {
-//      return nHttp(method, url, null, null);
-//    }
-    public boolean nHttp(String method, String url, Function f) {
-      return http(null, method, url, null, f);
-    }
-//    public boolean nHttp(String method, String url, String body) {
-//      return nHttp(method, url, body, null);
-//    }
-//    public boolean nHttp(String method, String url, String body, Function f) {
-//      return http(null, method, url, body, f);
-//    }
-    public boolean http(String reqName, String method, String url) {
-      return http(reqName, method, url, null, null);
-    }
-    public boolean http(String reqName, String method, String url, Function f) {
-      return http(reqName, method, url, null, f);
-    }
-    public boolean http(String reqName, String method, String url, String body) {
-      return http(reqName, method, url, body, null);
-    }
-    public boolean http(String reqName, String method, String url, String body, final Function f) {
-      final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
-      final Request request = (body != null? b.setBody(body) : b).build();
-      final LiveStats liveStats = lsmap.get(reqName);
-      final int startSlot = liveStats.registerReq();
-      try {
-        client.executeRequest(request, new AsyncCompletionHandlerBase() {
-          @Override public Response onCompleted(final Response resp) throws IOException {
-            fac.call(new ContextAction() {
-              @Override public Object run(Context cx) {
-                final Object res = f != null? jsCall(f, resp) : null;
-                liveStats.deregisterReq(startSlot, !Boolean.FALSE.equals(res));
-                return null;
-              }
-            });
-            return resp;
-          }
-          @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, false);
-          }
-        });
-        return true;
-      } catch (IOException e) { throw new RuntimeException(e); }
-    }
-  }
-  public class JsInitHelper extends JsHelper {
-    int index;
-    public void proxy(AsyncHttpClientConfig.Builder b, String proxyStr) {
-      b.setProxyServer(toProxyServer(proxyStr));
-    }
-    @Override public boolean http(
-        String reqName, String method, String url, String body, Function f)
-    {
-      final BoundRequestBuilder b = client.prepareConnect(url).setMethod(method);
-      final Request request = (body != null? b.setBody(body) : b).build();
-      lsmap.put(reqName, new LiveStats(index++, reqName));
-      try {
-        final Response resp = client.executeRequest(request).get();
-        return f == null || !Boolean.FALSE.equals(jsCall(f, resp));
-      } catch (InterruptedException | ExecutionException | IOException e) {
-        throw new RuntimeException("Error during test initialization", e);
-      }
-    }
-  }
 
   void runTest() throws Exception {
     fac.call(new ContextAction() { @Override public Object run(Context cx) {
       log.debug("Initializing test");
       jsCall("init");
       log.debug("Initialized");
-      setJsHelper(new JsHelper());
+      setJsHelper(new JsHelper(StressTester.this));
       jsScope.sealObject(); return null;
     }});
     nettySend(channel, new Message(INIT, collectIndices()), true);
@@ -233,7 +175,6 @@ public class StressTester implements Runnable
         if (stats.isEmpty()) return;
         nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
       }}, 100, SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
-
     }
     catch (Throwable t) {
       nettySend(channel, new Message(ERROR, t));
@@ -243,7 +184,7 @@ public class StressTester implements Runnable
 
   void setJsHelper(final JsHelper helper) {
     fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      putProperty(jsScope, "$", javaToJS(helper, jsScope));
+      jsScope.defineProperty("$", helper, ScriptableObject.READONLY);
       return null;
     }});
   }
@@ -261,26 +202,11 @@ public class StressTester implements Runnable
 
   ArrayList<Integer> collectIndices() {
     final ArrayList<Integer> ret = new ArrayList<>();
-    for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
+    for (LiveStats ls : lsmap.values()) if (ls.name != null) {
+      System.out.println("name " + ls.name + " index " + ls.index);
+      ret.add(ls.index);
+    }
     return ret;
-  }
-
-  Object jsCall(final Function fn, final Object... args) {
-    return fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      return fn.call(cx, jsScope, null, args);
-    }});
-  }
-  Object jsCall(String fn, Object... args) {
-    return jsCall(getTypedProperty(jsScope, fn, Function.class), args);
-  }
-
-  LiveStats livestats(String name) {
-    final LiveStats liveStats = lsmap.get(name);
-    return liveStats != null? liveStats : new LiveStats(0, name) {
-      @Override synchronized int registerReq() {
-        return super.registerReq();
-      }
-    };
   }
 
   List<Stats> stats() {

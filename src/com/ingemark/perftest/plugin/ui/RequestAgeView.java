@@ -7,6 +7,7 @@ import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE
 import static org.eclipse.jface.dialogs.MessageDialog.openError;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.jface.layout.GridDataFactory;
@@ -68,7 +69,9 @@ public class RequestAgeView extends ViewPart
               log.debug("Init histogram");
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
-              for (int i : (List<Integer>)event.data) {
+              final List<Integer> indices = (List<Integer>)event.data;
+              Collections.sort(indices);
+              for (int i : indices) {
                 final HistogramViewer histogram = new HistogramViewer(statsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
