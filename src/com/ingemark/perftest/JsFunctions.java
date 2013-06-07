@@ -11,6 +11,8 @@ import org.jdom2.Document;
 import org.jdom2.JDOMException;
 import org.jdom2.Namespace;
 import org.jdom2.input.StAXStreamBuilder;
+import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.Undefined;
 
 import com.fasterxml.aalto.in.CharSourceBootstrapper;
 import com.fasterxml.aalto.in.ReaderConfig;
@@ -18,19 +20,25 @@ import com.fasterxml.aalto.stax.StreamReaderImpl;
 
 public class JsFunctions {
   static final String[] JS_METHODS = new String[] {
-    "ns", "nxml", "xml", "parseXml"
+    "ns", "xml", "parseXml"
   };
+  private static final ReaderConfig readerCfg = new ReaderConfig();
+  static { readerCfg.configureForSpeed(); }
+
   public static Namespace ns(String prefix, String uri) { return getNamespace(prefix, uri); }
-  public static JdomBuilder xml(String root) { return new JdomBuilder(root, null); }
-  public static JdomBuilder nxml(String root, String prefix, String uri) {
-    return new JdomBuilder(root, ns(prefix, uri));
+  public static JdomBuilder xml(String root, Object ns) {
+    return new JdomBuilder(root, cast(ns, Namespace.class));
   }
   public static Document parseXml(String in) {
     try {
-      final ReaderConfig cfg = new ReaderConfig();
-      cfg.configureForSpeed();
       return new StAXStreamBuilder().build(StreamReaderImpl.construct(
-          CharSourceBootstrapper.construct(cfg, new StringReader(in))));
+          CharSourceBootstrapper.construct(readerCfg, new StringReader(in))));
     } catch (JDOMException | XMLStreamException e) { return sneakyThrow(e); }
+  }
+
+  private static <T> T cast(Object o, Class<T> c) {
+    return o == Undefined.instance? null
+           : o instanceof NativeJavaObject? (T)((NativeJavaObject)o).unwrap()
+           : (T)o;
   }
 }

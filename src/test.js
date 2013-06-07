@@ -6,7 +6,7 @@ function init() {
 	$.get("http://www.siemens.com").go(function(resp) {
 		out.println("Response from siemens.com " + resp.getStatusText())
 	});
-	$.post("http://www.siemens.de").body(xml("root").att("xa","ax"))
+	$.post("http://www.siemens.de").body(xml("root", ns("x", "http://xaxa")).att("xa","ax"))
 	.go(function(resp) {
 	   out.println("Response from siemens.de " + resp.getStatusText());
 	});
