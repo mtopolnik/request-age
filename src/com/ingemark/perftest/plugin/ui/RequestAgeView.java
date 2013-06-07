@@ -1,5 +1,6 @@
 package com.ingemark.perftest.plugin.ui;
 
+import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
@@ -105,7 +106,7 @@ public class RequestAgeView extends ViewPart
         subprocess.destroy();
         subprocess.waitFor();
       }
-    } catch (InterruptedException e) { throw new RuntimeException(e); }
+    } catch (InterruptedException e) { sneakyThrow(e); }
   }
 
   static String joinPath(String[] ps) {

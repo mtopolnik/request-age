@@ -1,13 +1,14 @@
-function configure(b) {
+function conf(b) {
 	out = java.lang.System.out;
 }
 
 function init() {
 	$.get("http://www.siemens.com").go(function(resp) {
-		out.println("Response received!!!!!!!")
+		out.println("Response from siemens.com " + resp.getStatusText())
 	});
-	$.post("http://www.siemens.de").go(function(resp) {
-	   out.println("Response received! AGAIN!!!!!!")
+	$.post("http://www.siemens.de").body(xml("root").att("xa","ax"))
+	.go(function(resp) {
+	   out.println("Response from siemens.de " + resp.getStatusText());
 	});
 	test();
 }

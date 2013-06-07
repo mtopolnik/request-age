@@ -1,5 +1,6 @@
 package com.ingemark.perftest.plugin;
 
+import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
@@ -30,6 +31,6 @@ public class LaunchShortcut implements ILaunchShortcut
       final Event e = new Event();
       e.data = in.getLocation().toOSString();
       view.statsParent.notifyListeners(EVT_RUN_SCRIPT, e);
-    } catch (CoreException e) { throw new RuntimeException(e); }
+    } catch (CoreException e) { sneakyThrow(e); }
   }
 }

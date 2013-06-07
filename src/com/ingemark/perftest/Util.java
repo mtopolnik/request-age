@@ -60,7 +60,7 @@ public class Util
       }
     });
     if (sync)
-      try { fut.await(); } catch (InterruptedException e) { throw new RuntimeException(e); }
+      try { fut.await(); } catch (InterruptedException e) { sneakyThrow(e); }
   }
   public static void nettySend(Channel channel, Message msg) {
     nettySend(channel, msg, false);
@@ -75,4 +75,9 @@ public class Util
       RequestAgeView.instance.statsParent.notifyListeners(evtype, e);
     }});
   }
+  public static <R> R sneakyThrow(Throwable t) {
+    return Util.<RuntimeException, R>sneakyThrow0(t);
+  }
+  @SuppressWarnings("unchecked")
+  private static <E extends Throwable, R> R sneakyThrow0(Throwable t) throws E { throw (E)t; }
 }

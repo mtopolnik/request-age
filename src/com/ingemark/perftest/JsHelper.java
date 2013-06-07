@@ -1,6 +1,7 @@
 package com.ingemark.perftest;
 
 import static com.ingemark.perftest.StressTester.fac;
+import static com.ingemark.perftest.Util.sneakyThrow;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -51,7 +52,7 @@ public class JsHelper extends BaseFunction
     public ReqBuilder head(String url) { return brb("HEAD", url); }
     public ReqBuilder options(String url) { return brb("OPTIONS", url); }
 
-    public ReqBuilder body(String body) { brb.setBody(body); return this; }
+    public ReqBuilder body(Object body) { brb.setBody(body.toString()); return this; }
 
     public boolean go(Callable f) { return http(this, f); }
 
@@ -81,7 +82,7 @@ public class JsHelper extends BaseFunction
         }
       });
       return true;
-    } catch (IOException e) { throw new RuntimeException(e); }
+    } catch (IOException e) { return sneakyThrow(e); }
   }
 
   private final Map<String, Callable> httpMethods(String... methods) {

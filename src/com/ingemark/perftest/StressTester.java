@@ -9,6 +9,7 @@ import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
+import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -20,6 +21,7 @@ import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
+import static org.mozilla.javascript.ScriptableObject.DONTENUM;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -75,11 +77,19 @@ public class StressTester implements Runnable
   private volatile int intensity = 1, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
-  public StressTester(String fname) {
-    this.jsScope = initJsScope(fname);
+  public StressTester(final String fname) {
+    this.jsScope = initJsScope();
+    fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      cx.setOptimizationLevel(9);
+      try {
+        setJsHelper(new JsInitHelper(StressTester.this));
+        final Reader js = new FileReader(fname);
+        cx.evaluateReader(jsScope, js, fname, 1, null);
+        return null;
+      } catch (IOException e) { return sneakyThrow(e); }
+    }});
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    setJsHelper(new JsInitHelper(this));
-    jsCall("configure", b);
+    jsCall("conf", b);
     this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
@@ -87,27 +97,28 @@ public class StressTester implements Runnable
     log.debug("Connected");
   }
 
-  ScriptableObject initJsScope(final String fname) {
+  ScriptableObject initJsScope() {
     return (ScriptableObject) fac.call(new ContextAction() {
       public Object run(Context cx) {
-        try {
-          cx.setOptimizationLevel(9);
-          final Reader js = new FileReader(fname);
-          final ScriptableObject scope = cx.initStandardObjects(null, true);
-          cx.evaluateString(scope,
-              "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
-          cx.evaluateReader(scope, js, fname, 1, null);
-          return scope;
-        }
-        catch (RuntimeException e) { throw e; }
-        catch (Exception e) { throw new RuntimeException(e); }
-      }
-    });
+        cx.setOptimizationLevel(9);
+        final ScriptableObject scope = cx.initStandardObjects(null, true);
+        cx.evaluateString(scope,
+            "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
+        scope.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
+        return scope;
+      }});
+  }
+  void setJsHelper(final JsHelper helper) {
+    fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      putProperty(jsScope, "$", helper);
+      return null;
+    }});
   }
   Object jsCall(final Callable fn, final Object... args) {
-    return fac.call(new ContextAction() { @Override public Object run(Context cx) {
+    return fn != null? fac.call(new ContextAction() { @Override public Object run(Context cx) {
       return fn.call(cx, jsScope, null, args);
-    }});
+    }})
+    : null;
   }
   Object jsCall(String fn, Object... args) {
     return jsCall(getTypedProperty(jsScope, fn, Function.class), args);
@@ -183,13 +194,6 @@ public class StressTester implements Runnable
     }
   }
 
-  void setJsHelper(final JsHelper helper) {
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      putProperty(jsScope, "$", helper);
-      return null;
-    }});
-  }
-
   synchronized void scheduleTest(int newIntensity) {
     if (intensity == newIntensity) return;
     intensity = newIntensity;
@@ -256,7 +260,7 @@ public class StressTester implements Runnable
       log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);
       return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
           StressTester.class.getName(), scriptFile).inheritIO().start();
-    } catch (IOException e) { throw new RuntimeException(e); }
+    } catch (IOException e) { return sneakyThrow(e); }
   }
 
   public static void main(String[] args) {
