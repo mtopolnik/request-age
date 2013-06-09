@@ -17,11 +17,11 @@ import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.Response;
 
-public class JsHelper extends BaseFunction
+public class JsHttp extends BaseFunction
 {
   StressTester tester;
-  JsHelper(StressTester tester) {
-    super(tester.jsScope, getFunctionPrototype(tester.jsScope));
+  JsHttp(StressTester tester) {
+    super(tester.jsScope.global, getFunctionPrototype(tester.jsScope.global));
     this.tester = tester;
   }
   private final Map<String, Callable> httpMethods = httpMethods(
@@ -54,7 +54,7 @@ public class JsHelper extends BaseFunction
 
     public ReqBuilder body(Object body) { brb.setBody(body.toString()); return this; }
 
-    public boolean go(Callable f) { return http(this, f); }
+    public boolean go(Callable f) { return execute(this, f); }
 
     private ReqBuilder brb(String method, String url) {
       brb = tester.client.prepareConnect(url).setMethod(method);
@@ -62,7 +62,7 @@ public class JsHelper extends BaseFunction
     }
   }
 
-  boolean http(ReqBuilder reqBuilder, final Callable f) {
+  boolean execute(ReqBuilder reqBuilder, final Callable f) {
     final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
     final int startSlot = liveStats.registerReq();
     try {
@@ -71,7 +71,7 @@ public class JsHelper extends BaseFunction
           return (Response) fac.call(new ContextAction() {
             @Override public Object run(Context cx) {
               cx.setOptimizationLevel(9);
-              final Object res = f != null? tester.jsCall(f, resp) : null;
+              final Object res = f != null? tester.jsScope.call(f, resp) : null;
               liveStats.deregisterReq(startSlot, !Boolean.FALSE.equals(res));
               return resp;
             }

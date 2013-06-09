@@ -1,12 +1,20 @@
 package com.ingemark.perftest;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
+import org.ringojs.wrappers.ScriptableList;
+import org.ringojs.wrappers.ScriptableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +25,7 @@ import com.ning.http.client.Response;
 public class Util
 {
   static final Logger log = LoggerFactory.getLogger(Util.class);
+
   public static int toIndex(int[] array, int timeSlot) {
     return toIndex(array.length, timeSlot);
   }
@@ -80,4 +89,21 @@ public class Util
   }
   @SuppressWarnings("unchecked")
   private static <E extends Throwable, R> R sneakyThrow0(Throwable t) throws E { throw (E)t; }
+
+  public static Object javaToJS(Object obj, Scriptable scope) {
+    if (obj instanceof Scriptable) {
+      if (obj instanceof ScriptableObject
+          && ((Scriptable) obj).getParentScope() == null
+          && ((Scriptable) obj).getPrototype() == null) {
+        ScriptRuntime.setObjectProtoAndParent((ScriptableObject) obj, scope);
+      }
+      return obj;
+    } else if (obj instanceof List) {
+      return new ScriptableList(scope, (List) obj);
+    } else if (obj instanceof Map) {
+      return new ScriptableMap(scope, (Map) obj);
+    } else {
+      return Context.javaToJS(obj, scope);
+    }
+  }
 }

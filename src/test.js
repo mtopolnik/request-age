@@ -1,25 +1,17 @@
 function conf(b) {
 	out = java.lang.System.out;
+	nsdecl("a", "http://www.w3.org/2005/Atom");
 }
 
-function init() {
-	$.get("http://www.siemens.com").go(function(resp) {
-		out.println("Response from siemens.com " + resp.getStatusText())
-	});
-	$.post("http://www.siemens.de").body(xml("root", ns("x", "http://xaxa")).att("xa","ax"))
-	.go(function(resp) {
-	   out.println("Response from siemens.de " + resp.getStatusText());
-	});
-	test();
-}
+function init() { test(); }
 
 function test() {
-   $("siemens.com").get("http://www.siemens.com").go(function(resp) {
-      $("siemens.de").post("http://www.siemens.de").go(function(resp) {
-         $("siemens.hr").post("http://www.siemens.hr").go(function(resp) {
-            $("siemens.at").post("http://www.siemens.at").go(function(resp) {
-            });
-         });
-      });
-   });
+	req("feeds").get("http://stackoverflow.com/feeds").go(function(resp) {
+	   var body = parseXml(resp);
+	   var id = xpath("/a:feed/a:entry[1]/a:id/text()").evaluateFirst(body);
+//	   out.println("id " + id);
+	   req("first entry").get(id).go(function(resp2) {
+//		   out.println(resp2.getResponseBody().substring(0, 80))
+	   })
+	});
 }

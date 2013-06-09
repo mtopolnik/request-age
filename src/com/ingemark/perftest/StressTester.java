@@ -21,15 +21,10 @@ import static org.eclipse.jdt.launching.JavaRuntime.getDefaultVMInstall;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
-import static org.mozilla.javascript.ScriptableObject.DONTENUM;
-import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
-import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.Reader;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,15 +44,10 @@ import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
-import org.mozilla.javascript.Callable;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
-import org.mozilla.javascript.Function;
-import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.script.JsFunctions;
+import com.ingemark.perftest.script.JsScope;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 
@@ -72,57 +62,23 @@ public class StressTester implements Runnable
   }});
   final AsyncHttpClient client;
   final Map<String, LiveStats> lsmap = new HashMap<>();
-  final ScriptableObject jsScope;
+  final JsScope jsScope;
   private final ClientBootstrap netty;
   private final Channel channel;
   private volatile int intensity = 1, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
   public StressTester(final String fname) {
-    this.jsScope = initJsScope();
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      cx.setOptimizationLevel(9);
-      try {
-        setJsHelper(new JsInitHelper(StressTester.this));
-        final Reader js = new FileReader(fname);
-        cx.evaluateReader(jsScope, js, fname, 1, null);
-        return null;
-      } catch (IOException e) { return sneakyThrow(e); }
-    }});
+    this.jsScope = new JsScope();
+    jsScope.setJsHttp(new JsInitHttp(this));
+    jsScope.evaluateFile(fname);
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    jsCall("conf", b);
+    jsScope.call("conf", b);
     this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
     this.channel = channel(netty);
     log.debug("Connected");
-  }
-
-  ScriptableObject initJsScope() {
-    return (ScriptableObject) fac.call(new ContextAction() {
-      public Object run(Context cx) {
-        cx.setOptimizationLevel(9);
-        final ScriptableObject scope = cx.initStandardObjects(null, true);
-        cx.evaluateString(scope,
-            "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
-        scope.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
-        return scope;
-      }});
-  }
-  void setJsHelper(final JsHelper helper) {
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      putProperty(jsScope, "$", helper);
-      return null;
-    }});
-  }
-  Object jsCall(final Callable fn, final Object... args) {
-    return fn != null? fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      return fn.call(cx, jsScope, null, args);
-    }})
-    : null;
-  }
-  Object jsCall(String fn, Object... args) {
-    return jsCall(getTypedProperty(jsScope, fn, Function.class), args);
   }
 
   LiveStats livestats(String name) {
@@ -171,15 +127,12 @@ public class StressTester implements Runnable
     return b;
   }
 
-
   void runTest() throws Exception {
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      log.debug("Initializing test");
-      jsCall("init");
-      log.debug("Initialized");
-      setJsHelper(new JsHelper(StressTester.this));
-      jsScope.sealObject(); return null;
-    }});
+    log.debug("Initializing test");
+    jsScope.call("init");
+    log.debug("Initialized");
+    jsScope.setJsHttp(new JsHttp(this));
+    jsScope.seal();
     nettySend(channel, new Message(INIT, collectIndices()), true);
     try {
       scheduleTest(1);
@@ -204,7 +157,7 @@ public class StressTester implements Runnable
       : null;
   }
 
-  @Override public void run() { jsCall("test"); }
+  @Override public void run() { jsScope.call("test"); }
 
   ArrayList<Integer> collectIndices() {
     final ArrayList<Integer> ret = new ArrayList<>();

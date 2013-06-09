@@ -1,0 +1,93 @@
+package com.ingemark.perftest.script;
+
+import static com.ingemark.perftest.Util.sneakyThrow;
+import static org.mozilla.javascript.ScriptableObject.DONTENUM;
+import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
+import static org.mozilla.javascript.ScriptableObject.putProperty;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.List;
+import java.util.Map;
+
+import org.jdom2.Text;
+import org.mozilla.javascript.Callable;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ContextAction;
+import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.ContextFactory.Listener;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.WrapFactory;
+import org.ringojs.wrappers.ScriptableList;
+import org.ringojs.wrappers.ScriptableMap;
+
+import com.ingemark.perftest.JsHttp;
+
+public class JsScope {
+  private static final ContextFactory fac = ContextFactory.getGlobal();
+  private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
+  public final ScriptableObject global;
+
+  public JsScope() {
+    fac.addListener(new Listener() {
+      @Override public void contextCreated(Context cx) {
+        cx.setOptimizationLevel(9);
+        cx.setWrapFactory(betterWrapFactory);
+      }
+      @Override public void contextReleased(Context cx) {}
+    });
+    this.global = (ScriptableObject) fac.call(new ContextAction() {
+      public Object run(Context cx) {
+        final ScriptableObject scope = cx.initStandardObjects(null, true);
+        cx.evaluateString(scope,
+            "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
+        scope.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
+        return scope;
+      }});
+  }
+  public void seal() {
+    fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      global.sealObject();
+      return null;
+    }});
+  }
+  public void setJsHttp(final JsHttp http) {
+    fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      putProperty(global, "req", http);
+      return null;
+    }});
+  }
+  public Object call(final Callable fn, final Object... args) {
+    return fn != null? fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      return fn.call(cx, global, null, args);
+    }})
+    : null;
+  }
+  public Object call(String fn, Object... args) {
+    return call(getTypedProperty(global, fn, Function.class), args);
+  }
+  public void evaluateFile(final String fname) {
+    fac.call(new ContextAction() {
+      @Override public Object run(Context cx) {
+        try {
+          final Reader js = new FileReader(fname);
+          cx.evaluateReader(global, js, fname, 1, null);
+          return null;
+        } catch (IOException e) { return sneakyThrow(e); }
+      }
+    });
+
+  }
+
+  static class BetterWrapFactory extends WrapFactory {
+    @Override public Object wrap(Context cx, Scriptable scope, Object obj, Class<?> staticType) {
+      return obj instanceof List? new ScriptableList(scope, (List) obj)
+      : obj instanceof Map? new ScriptableMap(scope, (Map) obj)
+      : obj instanceof Text? ((Text)obj).getValue()
+      : super.wrap(cx, scope, obj, staticType);
+    }
+  }
+}
