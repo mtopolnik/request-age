@@ -3,10 +3,13 @@ function conf(b) {
 	nsdecl("a", "http://www.w3.org/2005/Atom");
 }
 
-function init() { test(); }
+function init() {
+   req.accept("success");
+   test(); 
+}
 
 function test() {
-	req("feeds").get("http://stackoverflow.com/feeds").go(function(resp) {
+	req("feeds").accept("ok").get("http://stackoverflow.com/feeds").go(function(resp) {
 	   var body = parseXml(resp);
 	   var id = xpath("/a:feed/a:entry[1]/a:id/text()").evaluateFirst(body);
 //	   out.println("id " + id);

@@ -22,19 +22,19 @@ import com.ning.http.client.Response;
 public class JsHttp extends BaseFunction
 {
   private final StressTester tester;
-  private volatile int index;
-  private volatile Acceptor acceptor;
   private final Map<String, Acceptor> acceptors = hashMap(
-      "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
-      "success", new Acceptor() { public boolean acceptable(Response r) {
-        final int st = r.getStatusCode();
-        return st >= 200 && st < 400;
-      }},
-      "ok", new Acceptor() { public boolean acceptable(Response r) {
-        final int st = r.getStatusCode();
-        return st >= 200 && st < 300;
-      }}
+    "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
+    "success", new Acceptor() { public boolean acceptable(Response r) {
+      final int st = r.getStatusCode();
+      return st >= 200 && st < 400;
+    }},
+    "ok", new Acceptor() { public boolean acceptable(Response r) {
+      final int st = r.getStatusCode();
+      return st >= 200 && st < 300;
+    }}
   );
+  volatile int index;
+  volatile Acceptor acceptor = acceptors.get("all");
   private final Map<String, Callable> methods = httpMethods(
       "get", "put", "post", "delete", "head", "options"
   );
@@ -47,12 +47,6 @@ public class JsHttp extends BaseFunction
         return acceptor = acceptors.get(args[0]);
       }
     });
-  }
-
-  private Map<String, Acceptor> hashMap(Object... kvs) {
-    final Map<String, Acceptor> r = new HashMap<>();
-    for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
-    return r;
   }
 
   public void initDone() { index = -1; }
@@ -69,6 +63,7 @@ public class JsHttp extends BaseFunction
   public class ReqBuilder {
     final String name;
     BoundRequestBuilder brb;
+    private Acceptor acceptor = JsHttp.this.acceptor;
 
     public ReqBuilder() { this(null); }
     public ReqBuilder(String name) { this.name = name; }
@@ -83,53 +78,61 @@ public class JsHttp extends BaseFunction
 
     public ReqBuilder body(Object body) { brb.setBody(body.toString()); return this; }
 
-    public boolean go(Callable f) { return execute(this, f); }
+    public ReqBuilder accept(String qualifier) {
+      acceptor = acceptors.get(qualifier);
+      return this;
+    }
+    public boolean go(Callable f) {
+      return index == -1? executeTest(this, f) : executeInit(this, f);
+    }
 
     private ReqBuilder brb(String method, String url) {
       brb = tester.client.prepareConnect(url).setMethod(method);
       return this;
     }
-  }
-
-  boolean execute(ReqBuilder reqBuilder, Callable f) {
-    return index == -1? executeTest(reqBuilder, f) : executeInit(reqBuilder, f);
-  }
-
-  boolean executeInit(ReqBuilder reqBuilder, Callable f) {
-    if (reqBuilder.name != null) {
-      System.out.println("Adding " + reqBuilder.name + " under " + index);
-      tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+    private boolean executeInit(ReqBuilder reqBuilder, Callable f) {
+      if (reqBuilder.name != null) {
+        System.out.println("Adding " + reqBuilder.name + " under " + index);
+        tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+      }
+      try {
+        final Response resp = tester.client.executeRequest(reqBuilder.brb.build()).get();
+        return isRespSuccess(f, resp);
+      } catch (InterruptedException | ExecutionException | IOException e) {
+        throw new RuntimeException("Error during test initialization", e);
+      }
     }
-    try {
-      final Response resp = tester.client.executeRequest(reqBuilder.brb.build()).get();
+    private boolean executeTest(ReqBuilder reqBuilder, final Callable f) {
+      final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
+      final int startSlot = liveStats.registerReq();
+      try {
+        tester.client.executeRequest(reqBuilder.brb.build(), new AsyncCompletionHandlerBase() {
+          @Override public Response onCompleted(final Response resp) throws IOException {
+            return (Response) fac.call(new ContextAction() {
+              @Override public Object run(Context cx) {
+                cx.setOptimizationLevel(9);
+                liveStats.deregisterReq(startSlot, isRespSuccess(f, resp));
+                return resp;
+              }
+            });
+          }
+          @Override public void onThrowable(Throwable t) {
+            liveStats.deregisterReq(startSlot, false);
+          }
+        });
+        return true;
+      } catch (IOException e) { return sneakyThrow(e); }
+    }
+    private boolean isRespSuccess(Callable f, Response resp) {
       return acceptor.acceptable(resp) &&
           (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, resp)));
-    } catch (InterruptedException | ExecutionException | IOException e) {
-      throw new RuntimeException("Error during test initialization", e);
     }
   }
-  boolean executeTest(ReqBuilder reqBuilder, final Callable f) {
-    final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
-    final int startSlot = liveStats.registerReq();
-    try {
-      tester.client.executeRequest(reqBuilder.brb.build(), new AsyncCompletionHandlerBase() {
-        @Override public Response onCompleted(final Response resp) throws IOException {
-          return (Response) fac.call(new ContextAction() {
-            @Override public Object run(Context cx) {
-              cx.setOptimizationLevel(9);
-              final Object res = acceptor.acceptable(resp) && f != null?
-                  tester.jsScope.call(f, resp) : null;
-              liveStats.deregisterReq(startSlot, !Boolean.FALSE.equals(res));
-              return resp;
-            }
-          });
-        }
-        @Override public void onThrowable(Throwable t) {
-          liveStats.deregisterReq(startSlot, false);
-        }
-      });
-      return true;
-    } catch (IOException e) { return sneakyThrow(e); }
+
+  private static Map<String, Acceptor> hashMap(Object... kvs) {
+    final Map<String, Acceptor> r = new HashMap<>();
+    for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
+    return r;
   }
 
   private final Map<String, Callable> httpMethods(String... methods) {
