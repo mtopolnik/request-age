@@ -6,12 +6,14 @@ import static com.ingemark.perftest.Util.sneakyThrow;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
@@ -19,17 +21,44 @@ import com.ning.http.client.Response;
 
 public class JsHttp extends BaseFunction
 {
-  StressTester tester;
-  JsHttp(StressTester tester) {
-    super(tester.jsScope.global, getFunctionPrototype(tester.jsScope.global));
-    this.tester = tester;
-  }
-  private final Map<String, Callable> httpMethods = httpMethods(
+  private final StressTester tester;
+  private volatile int index;
+  private volatile Acceptor acceptor;
+  private final Map<String, Acceptor> acceptors = hashMap(
+      "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
+      "success", new Acceptor() { public boolean acceptable(Response r) {
+        final int st = r.getStatusCode();
+        return st >= 200 && st < 400;
+      }},
+      "ok", new Acceptor() { public boolean acceptable(Response r) {
+        final int st = r.getStatusCode();
+        return st >= 200 && st < 300;
+      }}
+  );
+  private final Map<String, Callable> methods = httpMethods(
       "get", "put", "post", "delete", "head", "options"
   );
 
+  public JsHttp(ScriptableObject global, StressTester tester) {
+    super(global, getFunctionPrototype(global));
+    this.tester = tester;
+    methods.put("accept", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        return acceptor = acceptors.get(args[0]);
+      }
+    });
+  }
+
+  private Map<String, Acceptor> hashMap(Object... kvs) {
+    final Map<String, Acceptor> r = new HashMap<>();
+    for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
+    return r;
+  }
+
+  public void initDone() { index = -1; }
+
   @Override public Object get(final String name, Scriptable start) {
-    final Callable c = httpMethods.get(name);
+    final Callable c = methods.get(name);
     return c != null? c : super.get(name, start);
   }
   @Override public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
@@ -62,7 +91,24 @@ public class JsHttp extends BaseFunction
     }
   }
 
-  boolean execute(ReqBuilder reqBuilder, final Callable f) {
+  boolean execute(ReqBuilder reqBuilder, Callable f) {
+    return index == -1? executeTest(reqBuilder, f) : executeInit(reqBuilder, f);
+  }
+
+  boolean executeInit(ReqBuilder reqBuilder, Callable f) {
+    if (reqBuilder.name != null) {
+      System.out.println("Adding " + reqBuilder.name + " under " + index);
+      tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+    }
+    try {
+      final Response resp = tester.client.executeRequest(reqBuilder.brb.build()).get();
+      return acceptor.acceptable(resp) &&
+          (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, resp)));
+    } catch (InterruptedException | ExecutionException | IOException e) {
+      throw new RuntimeException("Error during test initialization", e);
+    }
+  }
+  boolean executeTest(ReqBuilder reqBuilder, final Callable f) {
     final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
     final int startSlot = liveStats.registerReq();
     try {
@@ -71,7 +117,8 @@ public class JsHttp extends BaseFunction
           return (Response) fac.call(new ContextAction() {
             @Override public Object run(Context cx) {
               cx.setOptimizationLevel(9);
-              final Object res = f != null? tester.jsScope.call(f, resp) : null;
+              final Object res = acceptor.acceptable(resp) && f != null?
+                  tester.jsScope.call(f, resp) : null;
               liveStats.deregisterReq(startSlot, !Boolean.FALSE.equals(res));
               return resp;
             }
@@ -94,4 +141,5 @@ public class JsHttp extends BaseFunction
     });
     return ret;
   }
+  interface Acceptor { boolean acceptable(Response r); }
 }

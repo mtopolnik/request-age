@@ -69,8 +69,7 @@ public class StressTester implements Runnable
   private ScheduledFuture<?> testTask;
 
   public StressTester(final String fname) {
-    this.jsScope = new JsScope();
-    jsScope.setJsHttp(new JsInitHttp(this));
+    this.jsScope = new JsScope(this);
     jsScope.evaluateFile(fname);
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
     jsScope.call("conf", b);
@@ -131,8 +130,7 @@ public class StressTester implements Runnable
     log.debug("Initializing test");
     jsScope.call("init");
     log.debug("Initialized");
-    jsScope.setJsHttp(new JsHttp(this));
-    jsScope.seal();
+    jsScope.initDone();
     nettySend(channel, new Message(INIT, collectIndices()), true);
     try {
       scheduleTest(1);

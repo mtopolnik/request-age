@@ -25,13 +25,14 @@ import org.ringojs.wrappers.ScriptableList;
 import org.ringojs.wrappers.ScriptableMap;
 
 import com.ingemark.perftest.JsHttp;
+import com.ingemark.perftest.StressTester;
 
 public class JsScope {
   private static final ContextFactory fac = ContextFactory.getGlobal();
   private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
   public final ScriptableObject global;
 
-  public JsScope() {
+  public JsScope(final StressTester tester) {
     fac.addListener(new Listener() {
       @Override public void contextCreated(Context cx) {
         cx.setOptimizationLevel(9);
@@ -41,22 +42,18 @@ public class JsScope {
     });
     this.global = (ScriptableObject) fac.call(new ContextAction() {
       public Object run(Context cx) {
-        final ScriptableObject scope = cx.initStandardObjects(null, true);
-        cx.evaluateString(scope,
+        final ScriptableObject global = cx.initStandardObjects(null, true);
+        cx.evaluateString(global,
             "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
-        scope.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
-        return scope;
+        global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
+        putProperty(global, "req", new JsHttp(global, tester));
+        return global;
       }});
   }
-  public void seal() {
+  public void initDone() {
     fac.call(new ContextAction() { @Override public Object run(Context cx) {
+      ((JsHttp)global.get("req")).initDone();
       global.sealObject();
-      return null;
-    }});
-  }
-  public void setJsHttp(final JsHttp http) {
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      putProperty(global, "req", http);
       return null;
     }});
   }

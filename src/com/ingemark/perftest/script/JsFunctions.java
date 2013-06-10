@@ -24,17 +24,22 @@ import com.fasterxml.aalto.in.ByteSourceBootstrapper;
 import com.fasterxml.aalto.in.CharSourceBootstrapper;
 import com.fasterxml.aalto.in.ReaderConfig;
 import com.fasterxml.aalto.stax.StreamReaderImpl;
+import com.ning.http.client.AsyncHttpClientConfig;
+import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
 public class JsFunctions {
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "xpath"
+    "proxy", "nsdecl", "ns", "xml", "parseXml", "xpath"
   };
   private static final ReaderConfig readerCfg = new ReaderConfig();
   static { readerCfg.configureForSpeed(); }
   static final Map<String, Namespace> nsmap = new HashMap<>();
   static final Map<String, XPathExpression<Object>> xpathmap = new HashMap<>();
 
+  public static void proxy(Object b, String proxyStr) {
+    cast(b, AsyncHttpClientConfig.Builder.class).setProxyServer(toProxyServer(proxyStr));
+  }
   public static Namespace nsdecl(String prefix, String url) {
     final Namespace ns = ns(prefix, url);
     nsmap.put(prefix, ns);
@@ -69,5 +74,10 @@ public class JsFunctions {
     return o == Undefined.instance? null
            : o instanceof NativeJavaObject? (T)((NativeJavaObject)o).unwrap()
            : (T)o;
+  }
+  private static ProxyServer toProxyServer(String proxyString) {
+    if (proxyString == null) return null;
+    final String[] parts = proxyString.split(":");
+    return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
 }
