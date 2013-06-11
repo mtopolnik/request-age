@@ -1,9 +1,11 @@
 package com.ingemark.perftest.script;
 
 import static com.ingemark.perftest.Util.sneakyThrow;
+import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptableObject.DONTENUM;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -47,6 +49,7 @@ public class JsScope {
             "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
         putProperty(global, "req", new JsHttp(global, tester));
+        putProperty(global, "log", javaToJS(getLogger("js"), global));
         return global;
       }});
   }

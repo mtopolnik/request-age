@@ -14,6 +14,8 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
@@ -21,6 +23,7 @@ import com.ning.http.client.Response;
 
 public class JsHttp extends BaseFunction
 {
+  private static final Logger log = LoggerFactory.getLogger(JsHttp.class);
   private final StressTester tester;
   private final Map<String, Acceptor> acceptors = hashMap(
     "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
@@ -35,14 +38,12 @@ public class JsHttp extends BaseFunction
   );
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("all");
-  private final Map<String, Callable> methods = httpMethods(
-      "get", "put", "post", "delete", "head", "options"
-  );
 
   public JsHttp(ScriptableObject global, StressTester tester) {
     super(global, getFunctionPrototype(global));
     this.tester = tester;
-    methods.put("accept", new Callable() {
+    defineHttpMethods("get", "put", "post", "delete", "head", "options");
+    putProperty(this, "accept", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return acceptor = acceptors.get(args[0]);
       }
@@ -51,10 +52,6 @@ public class JsHttp extends BaseFunction
 
   public void initDone() { index = -1; }
 
-  @Override public Object get(final String name, Scriptable start) {
-    final Callable c = methods.get(name);
-    return c != null? c : super.get(name, start);
-  }
   @Override public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
     return new ReqBuilder((String)args[0]);
   }
@@ -85,6 +82,7 @@ public class JsHttp extends BaseFunction
     public boolean go(Callable f) {
       return index == -1? executeTest(this, f) : executeInit(this, f);
     }
+    public boolean go() { return go(null); }
 
     private ReqBuilder brb(String method, String url) {
       brb = tester.client.prepareConnect(url).setMethod(method);
@@ -92,7 +90,7 @@ public class JsHttp extends BaseFunction
     }
     private boolean executeInit(ReqBuilder reqBuilder, Callable f) {
       if (reqBuilder.name != null) {
-        System.out.println("Adding " + reqBuilder.name + " under " + index);
+        log.debug("Adding " + reqBuilder.name + " under " + index);
         tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
       }
       try {
@@ -135,14 +133,13 @@ public class JsHttp extends BaseFunction
     return r;
   }
 
-  private final Map<String, Callable> httpMethods(String... methods) {
-    final Map<String, Callable> ret = new HashMap<>();
-    for (final String m : methods) ret.put(m, new Callable() {
+  private void defineHttpMethods(String... methods) {
+    for (final String m : methods) putProperty(this, m, new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return new ReqBuilder(m, (String)args[0]);
       }
     });
-    return ret;
   }
+
   interface Acceptor { boolean acceptable(Response r); }
 }
