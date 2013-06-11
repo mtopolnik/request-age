@@ -2,7 +2,8 @@ function conf(b) {
 }
 
 function init() {
-   req.accept("ok");
+   req.acceptableStatus("ok");
+   req.responseDefault("json");
    test(); 
 }
 
@@ -11,8 +12,7 @@ function test() {
 //      log.debug("get response {}", r.getResponseBody());
       req("post").post(r.getResponseBody()).body({root:{child:{txt:"g"}}})
       .go(function(r) {
-    	  req("get2").get("http://localhost:8080/"
-    			  + JSON.parse(r.getResponseBody()).root.child.txt)
+    	  req("get2").get("http://localhost:8080/" + r.body().root.child.txt)
     	  .go(null);
       })
    });

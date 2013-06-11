@@ -2,6 +2,8 @@ package com.ingemark.perftest;
 
 import static com.ingemark.perftest.StressTester.fac;
 import static com.ingemark.perftest.Util.sneakyThrow;
+import static com.ingemark.perftest.script.JsFunctions.parseXml;
+import static org.mozilla.javascript.Context.javaToJS;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -28,9 +30,9 @@ public class JsHttp extends BaseFunction
   private static final Logger log = LoggerFactory.getLogger(JsHttp.class);
   private final StressTester tester;
   private final ScriptableObject JSON;
-  private final Callable stringify;
+  private final Callable stringify, parse;
   private final Map<String, Acceptor> acceptors = hashMap(
-    "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
+    "any", new Acceptor() { public boolean acceptable(Response r) { return true; } },
     "success", new Acceptor() { public boolean acceptable(Response r) {
       final int st = r.getStatusCode();
       return st >= 200 && st < 400;
@@ -49,8 +51,9 @@ public class JsHttp extends BaseFunction
     this.tester = tester;
     JSON = (ScriptableObject)parentScope.get("JSON");
     stringify = (Callable)JSON.get("stringify");
+    parse = (Callable)JSON.get("parse");
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
-    putProperty(this, "accept", new Callable() {
+    putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return acceptor = acceptors.get(args[0]);
     }});
@@ -72,7 +75,6 @@ public class JsHttp extends BaseFunction
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
-    public ReqBuilder() { this(null); }
     public ReqBuilder(String name) { this.name = name; }
     public ReqBuilder(String method, String url) { this(null); brb(method, url); }
 
@@ -92,8 +94,7 @@ public class JsHttp extends BaseFunction
         fac.call(new ContextAction() { @Override public Object run(Context cx) {
           brb.setBody((String)stringify.call(cx, getParentScope(), JSON, new Object[] {body}));
           return null;
-          }
-        });
+        }});
       }
       else brb.setBody(body.toString());
       return this;
@@ -132,7 +133,6 @@ public class JsHttp extends BaseFunction
           @Override public Response onCompleted(final Response resp) throws IOException {
             return (Response) fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
-                cx.setOptimizationLevel(9);
                 liveStats.deregisterReq(startSlot, isRespSuccess(f, resp));
                 return resp;
               }
@@ -147,8 +147,40 @@ public class JsHttp extends BaseFunction
     }
     private boolean isRespSuccess(Callable f, Response resp) {
       return acceptor.acceptable(resp) &&
-          (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, resp)));
+          (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, toJsResponse(resp))));
     }
+  }
+
+  Scriptable toJsResponse(final Response r) {
+    final Scriptable s = (Scriptable) javaToJS(r, getParentScope());
+    final NativeObject prototype = new NativeObject();
+    final String ct = r.getContentType();
+    final Callable
+      xmlBody = new Callable() {
+        @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] _4) {
+          return parseXml(r);
+        }},
+      jsonBody = new Callable() {
+        @Override public Object call(Context cx, Scriptable _2, Scriptable _3, Object[] _4) {
+          return parse.call(cx, getParentScope(), JSON, new Object[] { responseBody(r) });
+        }},
+      stringBody = new Callable() {
+        @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] _4) {
+          return responseBody(r);
+        }};
+    prototype.put("body",
+      ct.startsWith("text/xml")? xmlBody :
+      ct.startsWith("application/json")? jsonBody :
+      responseDefault.equals("xml")? xmlBody :
+      responseDefault.equals("json")? jsonBody :
+      stringBody
+    );
+    s.setPrototype(prototype);
+    return s;
+  }
+
+  private static String responseBody(Response r) {
+    try { return r.getResponseBody(); } catch (IOException e) { return sneakyThrow(e); }
   }
 
   private static Map<String, Acceptor> hashMap(Object... kvs) {
