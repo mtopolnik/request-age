@@ -14,7 +14,7 @@ function test() {
             xml("root", ns("a")).el("child").textel("txt", "g")
       ).go(function(r) {
     	  req("get2").get("http://localhost:8080/"
-    			  + xpath("/a:root/a:child/a:txt/text()").evaluateFirst(parseXml(r)))
+    			  + xpath("/a:root/a:child/a:txt/text()").evaluate(parseXml(r))[0])
     	  .go(null);
       })
    });
