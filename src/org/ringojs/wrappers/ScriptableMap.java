@@ -15,6 +15,8 @@
  */
 package org.ringojs.wrappers;
 
+import static org.mozilla.javascript.TopLevel.getBuiltinPrototype;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,6 +27,7 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.Wrapper;
 
@@ -91,15 +94,11 @@ public class ScriptableMap extends NativeJavaObject {
     initPrototype(scope);
   }
   /**
-   * Set the prototype to the Array prototype so we can use array methds such as push, pop, shift,
-   * slice etc.
-   * @param scope the global scope for looking up the Array constructor
+   * Set the prototype to the Object prototype so we can use object methods.
+   * @param scope the global scope for looking up the Object constructor
    */
   protected void initPrototype(Scriptable scope) {
-    Scriptable arrayProto = ScriptableObject.getClassPrototype(scope, "Object");
-    if (arrayProto != null) {
-      this.setPrototype(arrayProto);
-    }
+    this.setPrototype(getBuiltinPrototype(scope, TopLevel.Builtins.Object));
   }
   public Object get(String name, Scriptable start) {
     if (map == null || (reflect && super.has(name, start))) { return super.get(name, start); }

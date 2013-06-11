@@ -15,6 +15,8 @@
  */
 package org.ringojs.wrappers;
 
+import static org.mozilla.javascript.TopLevel.getBuiltinPrototype;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.Wrapper;
 
@@ -94,10 +97,7 @@ public class ScriptableList extends NativeJavaObject {
    * @param scope the global scope for looking up the Array constructor
    */
   protected void initPrototype(Scriptable scope) {
-    Scriptable arrayProto = ScriptableObject.getClassPrototype(scope, "Array");
-    if (arrayProto != null) {
-      this.setPrototype(arrayProto);
-    }
+    this.setPrototype(getBuiltinPrototype(scope, TopLevel.Builtins.Array));
   }
   public void delete(int index) {
     if (list != null) {
