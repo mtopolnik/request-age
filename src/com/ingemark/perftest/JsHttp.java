@@ -12,11 +12,13 @@ import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.ingemark.perftest.script.JdomBuilder;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.Response;
@@ -25,6 +27,8 @@ public class JsHttp extends BaseFunction
 {
   private static final Logger log = LoggerFactory.getLogger(JsHttp.class);
   private final StressTester tester;
+  private final ScriptableObject JSON;
+  private final Callable stringify;
   private final Map<String, Acceptor> acceptors = hashMap(
     "all", new Acceptor() { public boolean acceptable(Response r) { return true; } },
     "success", new Acceptor() { public boolean acceptable(Response r) {
@@ -38,16 +42,22 @@ public class JsHttp extends BaseFunction
   );
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("all");
+  volatile String responseDefault = "none";
 
-  public JsHttp(ScriptableObject global, StressTester tester) {
-    super(global, getFunctionPrototype(global));
+  public JsHttp(ScriptableObject parentScope, StressTester tester) {
+    super(parentScope, getFunctionPrototype(parentScope));
     this.tester = tester;
+    JSON = (ScriptableObject)parentScope.get("JSON");
+    stringify = (Callable)JSON.get("stringify");
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
     putProperty(this, "accept", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return acceptor = acceptors.get(args[0]);
-      }
-    });
+    }});
+    putProperty(this, "responseDefault", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        return responseDefault = (String)args[0];
+    }});
   }
 
   public void initDone() { index = -1; }
@@ -59,7 +69,7 @@ public class JsHttp extends BaseFunction
 
   public class ReqBuilder {
     final String name;
-    BoundRequestBuilder brb;
+    public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
     public ReqBuilder() { this(null); }
@@ -73,7 +83,21 @@ public class JsHttp extends BaseFunction
     public ReqBuilder head(String url) { return brb("HEAD", url); }
     public ReqBuilder options(String url) { return brb("OPTIONS", url); }
 
-    public ReqBuilder body(Object body) { brb.setBody(body.toString()); return this; }
+    public ReqBuilder body(final Object body) {
+      if (body instanceof JdomBuilder) {
+        brb.addHeader("Content-Type", "text/xml;charset=UTF-8");
+        brb.setBody(body.toString());
+      } else if (body instanceof NativeObject) {
+        brb.addHeader("Content-Type", "application/json;charset=UTF-8");
+        fac.call(new ContextAction() { @Override public Object run(Context cx) {
+          brb.setBody((String)stringify.call(cx, getParentScope(), JSON, new Object[] {body}));
+          return null;
+          }
+        });
+      }
+      else brb.setBody(body.toString());
+      return this;
+    }
 
     public ReqBuilder accept(String qualifier) {
       acceptor = acceptors.get(qualifier);
