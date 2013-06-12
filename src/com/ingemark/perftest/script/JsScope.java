@@ -32,7 +32,6 @@ import com.ingemark.perftest.StressTester;
 public class JsScope {
   private static final ContextFactory fac = ContextFactory.getGlobal();
   private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
-  public static final String FAILED_RESPONSE = "FAILED_RESPONSE";
   public final ScriptableObject global;
 
   public JsScope(final StressTester tester) {
@@ -51,7 +50,6 @@ public class JsScope {
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
         putProperty(global, "req", new JsHttp(global, tester));
         putProperty(global, "log", javaToJS(getLogger("js"), global));
-        putProperty(global, "FAILED_RESPONSE", FAILED_RESPONSE);
         return global;
       }});
   }

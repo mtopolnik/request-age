@@ -3,7 +3,6 @@ package com.ingemark.perftest;
 import static com.ingemark.perftest.StressTester.fac;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.script.JsFunctions.parseXml;
-import static com.ingemark.perftest.script.JsScope.FAILED_RESPONSE;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
 
@@ -15,7 +14,6 @@ import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
-import org.mozilla.javascript.JavaScriptException;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -117,9 +115,10 @@ public class JsHttp extends BaseFunction
       }
       try {
         final Response resp = tester.client.executeRequest(reqBuilder.brb.build()).get();
-        return isRespSuccess(f, resp);
+        return isRespSuccess(resp, f);
       } catch (Exception e) { return sneakyThrow(e); }
     }
+
     private boolean executeTest(ReqBuilder reqBuilder, final Callable f) {
       final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
       final int startSlot = liveStats.registerReq();
@@ -128,7 +127,10 @@ public class JsHttp extends BaseFunction
           @Override public Response onCompleted(final Response resp) throws IOException {
             return (Response) fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
-                liveStats.deregisterReq(startSlot, isRespSuccess(f, resp));
+                boolean succ;
+                try { succ = isRespSuccess(resp, f); }
+                catch (Exception e) { succ = false; }
+                liveStats.deregisterReq(startSlot, succ);
                 return resp;
               }
             });
@@ -140,16 +142,9 @@ public class JsHttp extends BaseFunction
         return true;
       } catch (IOException e) { return sneakyThrow(e); }
     }
-    private boolean isRespSuccess(Callable f, Response resp) {
-      try {
-        return acceptor.acceptable(resp) &&
-            (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, toJsResponse(resp))));
-      } catch (JavaScriptException e) {
-        final String m = e.getMessage();
-        log.debug("JavaScript Exception {}---\n{}", m, m.startsWith(FAILED_RESPONSE));
-        if (m != null && m.startsWith(FAILED_RESPONSE)) return false;
-        else throw e;
-      }
+    private boolean isRespSuccess(Response resp, Callable f) {
+      return acceptor.acceptable(resp) &&
+          (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, toJsResponse(resp))));
     }
   }
 
