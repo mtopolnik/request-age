@@ -3,6 +3,7 @@ package com.ingemark.perftest;
 import static com.ingemark.perftest.StressTester.fac;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.script.JsFunctions.parseXml;
+import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
 
 import java.io.IOException;
@@ -44,7 +45,6 @@ public class JsHttp extends BaseFunction
   );
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("all");
-  volatile String responseDefault = "none";
 
   public JsHttp(ScriptableObject parentScope, StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));
@@ -56,10 +56,6 @@ public class JsHttp extends BaseFunction
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return acceptor = acceptors.get(args[0]);
-    }});
-    putProperty(this, "responseDefault", new Callable() {
-      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return responseDefault = (String)args[0];
     }});
   }
 
@@ -151,35 +147,21 @@ public class JsHttp extends BaseFunction
     }
   }
 
-  Scriptable toJsResponse(final Response r) {
-    final Scriptable s = (Scriptable) javaToJS(r, getParentScope());
-    final NativeObject prototype = new NativeObject();
-    final String ct = r.getContentType();
-    final Callable
-      xmlBody = new Callable() {
-        @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] _4) {
-          return parseXml(r);
-        }},
-      jsonBody = new Callable() {
-        @Override public Object call(Context cx, Scriptable _2, Scriptable _3, Object[] _4) {
-          return parse.call(cx, getParentScope(), JSON, new Object[] { responseBody(r) });
-        }},
-      stringBody = new Callable() {
-        @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] _4) {
-          return responseBody(r);
-        }};
-    prototype.put("body",
-      ct.startsWith("text/xml")? xmlBody :
-      ct.startsWith("application/json")? jsonBody :
-      responseDefault.equals("xml")? xmlBody :
-      responseDefault.equals("json")? jsonBody :
-      stringBody
-    );
-    s.setPrototype(prototype);
-    return s;
+  Scriptable toJsResponse(Response r) {
+    final Scriptable br = (Scriptable) javaToJS(new BetterResponse(r), getParentScope());
+    br.setPrototype((Scriptable) javaToJS(r, getParentScope()));
+    return br;
+  }
+  public class BetterResponse {
+    private final Response r;
+    BetterResponse(Response r) { this.r = r; }
+    public Object xmlBody() { return parseXml(this.r); }
+    public Object jsonBody() { return parse.call(getCurrentContext(), getParentScope(),
+        JSON, new Object[] { responseBody(this.r) }); }
+    public String stringBody() { return responseBody(this.r); }
   }
 
-  private static String responseBody(Response r) {
+  static String responseBody(Response r) {
     try { return r.getResponseBody(); } catch (IOException e) { return sneakyThrow(e); }
   }
 
