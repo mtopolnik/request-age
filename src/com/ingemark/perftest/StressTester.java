@@ -128,7 +128,8 @@ public class StressTester implements Runnable
 
   void runTest() throws Exception {
     log.debug("Initializing test");
-    jsScope.call("init");
+    if (Boolean.FALSE.equals(jsScope.call("init")))
+      throw new RuntimeException("Initialization failed");
     log.debug("Initialized");
     jsScope.initDone();
     nettySend(channel, new Message(INIT, collectIndices()), true);
