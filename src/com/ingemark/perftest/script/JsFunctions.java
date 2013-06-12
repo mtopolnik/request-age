@@ -12,6 +12,7 @@ import java.util.Map;
 import javax.xml.stream.XMLStreamException;
 
 import org.jdom2.Document;
+import org.jdom2.Element;
 import org.jdom2.JDOMException;
 import org.jdom2.Namespace;
 import org.jdom2.input.StAXStreamBuilder;
@@ -49,8 +50,12 @@ public class JsFunctions {
     final String uri = cast(_uri, String.class);
     return uri != null? getNamespace(prefix, uri) : nsmap.get(prefix);
   }
-  public static JdomBuilder xml(String root, Object ns) {
-    return new JdomBuilder(root, cast(ns, Namespace.class));
+  public static JdomBuilder xml(Object root, Object ns) {
+    final String name = cast(root, String.class);
+    if (name != null)
+      return new JdomBuilder(name, cast(ns, Namespace.class));
+    final Element el = cast(root, Element.class);
+    return el != null? new JdomBuilder(el) : new JdomBuilder(cast(el, Document.class));
   }
   public static Document parseXml(Object _in) {
     _in = cast(_in, Object.class);

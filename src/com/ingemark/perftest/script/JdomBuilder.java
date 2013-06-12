@@ -23,6 +23,15 @@ public class JdomBuilder
     this.root = push(nsEl(root, ns));
     this.doc = new Document().setRootElement(this.root);
   }
+  public JdomBuilder(Document doc) {
+    if (doc == null) throw new NullPointerException("Document must not be null");
+    this.doc = doc;
+    this.root = doc.getRootElement();
+  }
+  public JdomBuilder(Element root) {
+    this.doc = root.getDocument();
+    this.root = root;
+  }
 
   public JdomBuilder el(String name) { return el(name, null); }
   public JdomBuilder el(String name, Namespace ns) { push(nsEl(name, ns)); return this; }
