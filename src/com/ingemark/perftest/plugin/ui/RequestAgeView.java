@@ -1,5 +1,6 @@
 package com.ingemark.perftest.plugin.ui;
 
+import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
@@ -13,11 +14,12 @@ import java.util.List;
 
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
@@ -25,6 +27,7 @@ import org.eclipse.ui.part.ViewPart;
 import org.slf4j.Logger;
 
 import com.ingemark.perftest.IStressTestServer;
+import com.ingemark.perftest.Message;
 import com.ingemark.perftest.Stats;
 import com.ingemark.perftest.StressTestServer;
 import com.ingemark.perftest.StressTester;
@@ -35,16 +38,12 @@ public class RequestAgeView extends ViewPart
   private static final int MIN_THROTTLE = 50;
   public static RequestAgeView instance;
   public Composite statsParent;
-  Process subprocess;
-  Scale throttle;
-  Display disp;
-  IStressTestServer testServer = StressTestServer.NULL;
-  Stats stats = new Stats();
-
+  private Process subprocess;
+  private Scale throttle;
+  private IStressTestServer testServer = StressTestServer.NULL;
 
   public void createPartControl(final Composite p) {
     instance = this;
-    disp = Display.getDefault();
     p.setLayout(new GridLayout(2, false));
     throttle = new Scale(p, SWT.VERTICAL);
     throttle.setMinimum(MIN_THROTTLE);
@@ -77,6 +76,13 @@ public class RequestAgeView extends ViewPart
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
                   public void handleEvent(Event e) { histogram.statsUpdate((Stats) e.data); }
+                });
+                histogram.canvas.addMouseListener(new MouseListener() {
+                  @Override public void mouseDoubleClick(MouseEvent e) {
+                    testServer.send(new Message(EXCEPTION, histogram.stats.name));
+                  }
+                  @Override public void mouseUp(MouseEvent e) {}
+                  @Override public void mouseDown(MouseEvent e) {}
                 });
               }
               p.layout(true);

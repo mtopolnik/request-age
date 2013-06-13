@@ -1,6 +1,8 @@
 package com.ingemark.perftest;
 
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
@@ -62,8 +64,7 @@ public class Util
         if (!f.isSuccess()) log.error("Failed to send message {}", msg, f.getCause());
       }
     });
-    if (sync)
-      try { fut.await(); } catch (InterruptedException e) { sneakyThrow(e); }
+    if (sync) try { fut.await(); } catch (InterruptedException e) { sneakyThrow(e); }
   }
   public static void nettySend(Channel channel, Message msg) {
     nettySend(channel, msg, false);
@@ -99,5 +100,11 @@ public class Util
     } else {
       return Context.javaToJS(obj, scope);
     }
+  }
+  public static String excToString(Throwable t) {
+    if (t == null) return "";
+    final StringWriter sw = new StringWriter(256);
+    t.printStackTrace(new PrintWriter(sw));
+    return sw.toString();
   }
 }

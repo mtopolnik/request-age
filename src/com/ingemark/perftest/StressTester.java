@@ -2,6 +2,7 @@ package com.ingemark.perftest;
 
 import static com.ingemark.perftest.Message.DIVISOR;
 import static com.ingemark.perftest.Message.ERROR;
+import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
@@ -110,6 +111,9 @@ public class StressTester implements Runnable
             case INTENSITY:
               scheduleTest((Integer) msg.value);
               break;
+            case EXCEPTION:
+              nettySend(channel, new Message(EXCEPTION, lsmap.get(msg.value).lastException));
+              break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
@@ -117,8 +121,8 @@ public class StressTester implements Runnable
           } catch (Throwable t) {t.printStackTrace();}
         }
         @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-          log.error("Netty error", e);
+        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+          log.error("Netty error", e.getCause());
         }
       }
       , new ObjectEncoder()
