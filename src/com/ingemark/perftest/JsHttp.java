@@ -14,6 +14,7 @@ import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
+import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -48,7 +49,7 @@ public class JsHttp extends BaseFunction
   public JsHttp(ScriptableObject parentScope, StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));
     this.tester = tester;
-    JSON = (ScriptableObject)parentScope.get("JSON");
+    JSON = (NativeJSON)parentScope.get("JSON");
     stringify = (Callable)JSON.get("stringify");
     parse = (Callable)JSON.get("parse");
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
@@ -95,31 +96,29 @@ public class JsHttp extends BaseFunction
       return this;
     }
 
-    public ReqBuilder accept(String qualifier) {
-      acceptor = acceptors.get(qualifier);
-      return this;
-    }
-    public boolean go(Callable f) {
-      return index == -1? executeTest(this, f) : executeInit(this, f);
-    }
-    public boolean go() { return go(null); }
-
     private ReqBuilder brb(String method, String url) {
       brb = tester.client.prepareConnect(url).setMethod(method);
       return this;
     }
-    private boolean executeInit(ReqBuilder reqBuilder, Callable f) {
+
+    public ReqBuilder accept(String qualifier) {
+      acceptor = acceptors.get(qualifier);
+      return this;
+    }
+    public void go() { go(null); }
+
+    public void go(Callable f) { if (index >= 0) executeInit(this, f); else executeTest(this, f); }
+
+    private void executeInit(ReqBuilder reqBuilder, Callable f) {
       if (reqBuilder.name != null) {
         log.debug("Adding " + reqBuilder.name + " under " + index);
         tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
       }
-      try {
-        final Response resp = tester.client.executeRequest(reqBuilder.brb.build()).get();
-        return isRespSuccess(resp, f);
-      } catch (Exception e) { return sneakyThrow(e); }
+      try { handleResponse(tester.client.executeRequest(reqBuilder.brb.build()).get(), f); }
+      catch (Exception e) { sneakyThrow(e); }
     }
 
-    private boolean executeTest(ReqBuilder reqBuilder, final Callable f) {
+    private void executeTest(ReqBuilder reqBuilder, final Callable f) {
       final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
       final int startSlot = liveStats.registerReq();
       try {
@@ -127,24 +126,26 @@ public class JsHttp extends BaseFunction
           @Override public Response onCompleted(final Response resp) throws IOException {
             return (Response) fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
-                boolean succ;
-                try { succ = isRespSuccess(resp, f); }
-                catch (Exception e) { succ = false; }
-                liveStats.deregisterReq(startSlot, succ);
+                Throwable failure = null;
+                try { handleResponse(resp, f); }
+                catch (Throwable t) { failure = t; }
+                finally { liveStats.deregisterReq(startSlot, failure); }
                 return resp;
               }
             });
           }
           @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, false);
+            liveStats.deregisterReq(startSlot, t);
           }
         });
-        return true;
-      } catch (IOException e) { return sneakyThrow(e); }
+      } catch (IOException e) { sneakyThrow(e); }
     }
-    private boolean isRespSuccess(Response resp, Callable f) {
-      return acceptor.acceptable(resp) &&
-          (f == null || !Boolean.FALSE.equals(tester.jsScope.call(f, toJsResponse(resp))));
+
+    private void handleResponse(Response resp, Callable f) {
+      if (!acceptor.acceptable(resp))
+        throw new RuntimeException(
+            "Failed response: " + resp.getStatusCode() + " " + resp.getStatusText());
+      if (f != null) tester.jsScope.call(f, toJsResponse(resp));
     }
   }
 
