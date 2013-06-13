@@ -33,6 +33,7 @@ public class JsScope {
   private static final ContextFactory fac = ContextFactory.getGlobal();
   private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
   public final ScriptableObject global;
+  public JsHttp jsHttp;
 
   public JsScope(final StressTester tester) {
     fac.addListener(new Listener() {
@@ -48,7 +49,8 @@ public class JsScope {
         cx.evaluateString(global,
             "RegExp; getClass; java; Packages; JavaAdapter;", "lazyLoad", 0, null);
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
-        putProperty(global, "req", new JsHttp(global, tester));
+        jsHttp = new JsHttp(global, tester);
+        putProperty(global, "req", jsHttp);
         putProperty(global, "log", javaToJS(getLogger("js"), global));
         return global;
       }});

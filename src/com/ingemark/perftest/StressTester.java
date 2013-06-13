@@ -73,7 +73,7 @@ public class StressTester implements Runnable
     this.jsScope = new JsScope(this);
     jsScope.evaluateFile(fname);
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    jsScope.call("conf", b);
+    jsScope.call("conf", jsScope.jsHttp.toJsAhccBuilder(b));
     this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
@@ -132,8 +132,7 @@ public class StressTester implements Runnable
 
   void runTest() throws Exception {
     log.debug("Initializing test");
-    if (Boolean.FALSE.equals(jsScope.call("init")))
-      throw new RuntimeException("Initialization failed");
+    jsScope.call("init");
     log.debug("Initialized");
     jsScope.initDone();
     nettySend(channel, new Message(INIT, collectIndices()), true);

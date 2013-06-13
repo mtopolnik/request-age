@@ -23,7 +23,10 @@ import org.slf4j.LoggerFactory;
 
 import com.ingemark.perftest.script.JdomBuilder;
 import com.ning.http.client.AsyncCompletionHandlerBase;
+import com.ning.http.client.ProxyServer;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
+import com.ning.http.client.AsyncHttpClientConfig;
+import com.ning.http.client.AsyncHttpClientConfig.Builder;
 import com.ning.http.client.Response;
 
 public class JsHttp extends BaseFunction
@@ -147,6 +150,25 @@ public class JsHttp extends BaseFunction
             "Failed response: " + resp.getStatusCode() + " " + resp.getStatusText());
       if (f != null) tester.jsScope.call(f, toJsResponse(resp));
     }
+  }
+
+  public Scriptable toJsAhccBuilder(AsyncHttpClientConfig.Builder b) {
+    final Scriptable bb = (Scriptable) javaToJS(new BetterAhccBuilder(b), getParentScope());
+    bb.setPrototype((Scriptable) javaToJS(b, getParentScope()));
+    return bb;
+  }
+  public class BetterAhccBuilder {
+    private final Builder b;
+    BetterAhccBuilder(Builder b) { this.b = b; }
+    public Object proxy(String proxyStr) {
+      b.setProxyServer(toProxyServer(proxyStr));
+      return this;
+    }
+  }
+  private static ProxyServer toProxyServer(String proxyString) {
+    if (proxyString == null) return null;
+    final String[] parts = proxyString.split(":");
+    return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
 
   Scriptable toJsResponse(Response r) {
