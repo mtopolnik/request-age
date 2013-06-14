@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.jdt.launching.IVMInstall;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -58,8 +59,9 @@ public class StressTester implements Runnable
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
   final ScheduledExecutorService sched = newScheduledThreadPool(2, new ThreadFactory(){
-    volatile int i; public Thread newThread(Runnable r) {
-      return new Thread(r, "StressTester scheduler #"+i++);
+    final AtomicInteger i = new AtomicInteger();
+    public Thread newThread(Runnable r) {
+      return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
   }});
   final AsyncHttpClient client;
   final Map<String, LiveStats> lsmap = new HashMap<>();
@@ -73,7 +75,7 @@ public class StressTester implements Runnable
     this.jsScope = new JsScope(this);
     jsScope.evaluateFile(fname);
     final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    jsScope.call("conf", jsScope.jsHttp.toJsAhccBuilder(b));
+    jsScope.call("conf", jsScope.jsHttp.betterAhccBuilder(b));
     this.client = new AsyncHttpClient(b.build());
     this.netty = netty();
     log.debug("Connecting to server");
@@ -112,7 +114,7 @@ public class StressTester implements Runnable
               scheduleTest((Integer) msg.value);
               break;
             case EXCEPTION:
-              nettySend(channel, new Message(EXCEPTION, lsmap.get(msg.value).lastException));
+              nettySend(channel, new Message(EXCEPTION, new ExceptionInfo(lsmap.get(msg.value))));
               break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
@@ -131,12 +133,12 @@ public class StressTester implements Runnable
   }
 
   void runTest() throws Exception {
-    log.debug("Initializing test");
-    jsScope.call("init");
-    log.debug("Initialized");
-    jsScope.initDone();
-    nettySend(channel, new Message(INIT, collectIndices()), true);
     try {
+      log.debug("Initializing test");
+      jsScope.call("init");
+      log.debug("Initialized");
+      jsScope.initDone();
+      nettySend(channel, new Message(INIT, collectIndices()), true);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
         final List<Stats> stats = stats();

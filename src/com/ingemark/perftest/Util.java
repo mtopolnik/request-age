@@ -1,11 +1,10 @@
 package com.ingemark.perftest;
 
-import java.io.PrintWriter;
 import java.io.Serializable;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.channel.Channel;
@@ -101,10 +100,5 @@ public class Util
       return Context.javaToJS(obj, scope);
     }
   }
-  public static String excToString(Throwable t) {
-    if (t == null) return "";
-    final StringWriter sw = new StringWriter(256);
-    t.printStackTrace(new PrintWriter(sw));
-    return sw.toString();
-  }
+  public static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 }

@@ -148,14 +148,18 @@ public class JsHttp extends BaseFunction
       if (!acceptor.acceptable(resp))
         throw new RuntimeException(
             "Failed response: " + resp.getStatusCode() + " " + resp.getStatusText());
-      if (f != null) tester.jsScope.call(f, toJsResponse(resp));
+      if (f != null) tester.jsScope.call(f, betterResponse(resp));
     }
   }
 
-  public Scriptable toJsAhccBuilder(AsyncHttpClientConfig.Builder b) {
-    final Scriptable bb = (Scriptable) javaToJS(new BetterAhccBuilder(b), getParentScope());
-    bb.setPrototype((Scriptable) javaToJS(b, getParentScope()));
-    return bb;
+  public Scriptable betterAhccBuilder(final AsyncHttpClientConfig.Builder b) {
+    return (Scriptable)fac.call(new ContextAction() {
+      @Override public Object run(Context cx) {
+        final Scriptable bb = (Scriptable) javaToJS(new BetterAhccBuilder(b), getParentScope());
+        bb.setPrototype((Scriptable) javaToJS(b, getParentScope()));
+        return bb;
+      }
+    });
   }
   public class BetterAhccBuilder {
     private final Builder b;
@@ -171,7 +175,7 @@ public class JsHttp extends BaseFunction
     return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
 
-  Scriptable toJsResponse(Response r) {
+  Scriptable betterResponse(Response r) {
     final Scriptable br = (Scriptable) javaToJS(new BetterResponse(r), getParentScope());
     br.setPrototype((Scriptable) javaToJS(r, getParentScope()));
     return br;

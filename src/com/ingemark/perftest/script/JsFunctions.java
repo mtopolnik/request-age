@@ -29,7 +29,7 @@ import com.ning.http.client.Response;
 
 public class JsFunctions {
   public static final String[] JS_METHODS = new String[] {
-    "proxy", "nsdecl", "ns", "xml", "parseXml", "xpath"
+    "nsdecl", "ns", "xml", "parseXml", "xpath"
   };
   private static final ReaderConfig readerCfg = new ReaderConfig();
   static { readerCfg.configureForSpeed(); }

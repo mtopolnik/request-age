@@ -1,7 +1,6 @@
 package com.ingemark.perftest;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 public class Message implements Serializable
@@ -10,11 +9,7 @@ public class Message implements Serializable
       EXCEPTION = 6;
   final int type;
   final Serializable value;
-  public Message(int type, int value) { this.type = type; this.value = value; }
-  public Message(int type, String value) { this.type = type; this.value = value; }
-  public Message(int type, Throwable value) { this.type = type; this.value = value; }
-  public Message(int type, ArrayList<Integer> value) { this.type = type; this.value = value; }
-  public Message(int type, Stats[] value) { this.type = type; this.value = value; }
+  public Message(int type, Serializable value) { this.type = type; this.value = value; }
   public String toString() {
     return String.format("Msg %d %s", type,
         value.getClass().isArray()? Arrays.toString((Object[])value) : value);

@@ -9,7 +9,6 @@ import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.perftest.Util.arraySum;
-import static com.ingemark.perftest.Util.excToString;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.Util.swtSend;
@@ -18,7 +17,6 @@ import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.eclipse.jface.dialogs.MessageDialog.openInformation;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
@@ -42,6 +40,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
 import com.ingemark.perftest.plugin.StressTestActivator;
+import com.ingemark.perftest.plugin.ui.ExceptionDialog;
 
 public class StressTestServer implements IStressTestServer
 {
@@ -90,10 +89,7 @@ public class StressTestServer implements IStressTestServer
             swtSend(EVT_ERROR, msg.value);
             break;
           case EXCEPTION:
-            Display.getDefault().asyncExec(new Runnable() { public void run() {
-              openInformation(null, "Last Reported Exception",
-                  excToString((Throwable)msg.value));
-            }});
+            ExceptionDialog.show((ExceptionInfo) msg.value);
             break;
           case STATS:
             receivedStats((Stats[])msg.value);
