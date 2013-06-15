@@ -1,7 +1,9 @@
 package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.Message.EXCEPTION;
+import static com.ingemark.perftest.Util.busyIndicator;
 import static com.ingemark.perftest.Util.gridData;
+import static com.ingemark.perftest.Util.nextBusyId;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
@@ -15,8 +17,10 @@ import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.dialogs.ProgressMonitorDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -71,11 +75,14 @@ public class RequestAgeView extends ViewPart
     gridData().grab(true, true).applyTo(statsParent);
     statsParent.setLayout(new GridLayout(2, false));
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
-      public void handleEvent(Event event) {
+      public void handleEvent(final Event event) {
         try {
           shutdown(p);
+          ProgressMonitorDialog d;
+          final Object busyId = nextBusyId();
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
+              busyIndicator(false, busyId);
               log.debug("Init histogram");
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
@@ -100,13 +107,19 @@ public class RequestAgeView extends ViewPart
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
+              busyIndicator(false, busyId);
               final Throwable t = ((Throwable)e.data);
               ExceptionDialog.show(new ExceptionInfo("Stress testing error", t));
             }
           });
-          testServer = new StressTestServer(statsParent);
-          subprocess = StressTester.launchTester((String)event.data);
-          stopAction.setEnabled(true);
+          BusyIndicator.showWhile(p.getDisplay(), new Runnable() {
+            @Override public void run() {
+              testServer = new StressTestServer(statsParent);
+              subprocess = StressTester.launchTester((String)event.data);
+              stopAction.setEnabled(true);
+            }
+          });
+          busyIndicator(true, busyId);
         }
         catch (Throwable t) {
           openError(null, "Stress test init error", String.format(

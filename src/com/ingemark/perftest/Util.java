@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jface.layout.GridDataFactory;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Shell;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -101,4 +104,17 @@ public class Util
     }
   }
   public static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
+
+  private static final String BUSYID_NAME = "SWT BusyIndicator";
+  private static int nextBusyId = Integer.MIN_VALUE;
+  public static Object nextBusyId() { return nextBusyId++; }
+  public static void busyIndicator(boolean state, Object busyId) {
+    final Display disp = Display.getCurrent();
+    final Cursor cursorToSet = state? disp.getSystemCursor(SWT.CURSOR_WAIT) : null;
+    for (Shell shell : disp.getShells())
+      if (shell.getData(BUSYID_NAME) == (state? null : busyId)) {
+        shell.setCursor(cursorToSet);
+        shell.setData(BUSYID_NAME, state? busyId : null);
+      }
+  }
 }
