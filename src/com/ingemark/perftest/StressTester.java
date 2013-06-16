@@ -114,7 +114,7 @@ public class StressTester implements Runnable
               scheduleTest((Integer) msg.value);
               break;
             case EXCEPTION:
-              nettySend(channel, new Message(EXCEPTION, new ExceptionInfo(lsmap.get(msg.value))));
+              nettySend(channel, new Message(EXCEPTION, new DialogInfo(lsmap.get(msg.value))));
               break;
             case SHUTDOWN:
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);

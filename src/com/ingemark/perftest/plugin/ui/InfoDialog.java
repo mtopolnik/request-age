@@ -16,10 +16,10 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchWindow;
 
-import com.ingemark.perftest.ExceptionInfo;
+import com.ingemark.perftest.DialogInfo;
 
-public class ExceptionDialog {
-  public static void show(final ExceptionInfo i) {
+public class InfoDialog {
+  public static void show(final DialogInfo i) {
     final Display disp = Display.getDefault();
     disp.asyncExec(new Runnable() { public void run() {
       final Shell top = new Shell(disp);
@@ -33,7 +33,7 @@ public class ExceptionDialog {
       top.setText(i.title);
       final Text t = new Text(top, SWT.H_SCROLL | SWT.V_SCROLL);
       gridData().align(SWT.FILL, SWT.FILL).grab(true, true).applyTo(t);
-      t.setText(i.excToString());
+      t.setText(i.msg);
       t.setEditable(false);
       final Button ok = new Button(top, SWT.NONE);
       top.setDefaultButton(ok);

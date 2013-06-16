@@ -4,22 +4,21 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
 
-public class ExceptionInfo implements Serializable {
-  public final String title;
-  public final Throwable exc;
+public class DialogInfo implements Serializable {
+  public final String title, msg;
 
-  public ExceptionInfo(LiveStats ls) {
+  public DialogInfo(LiveStats ls) {
     this.title = ls.name + " - Last Reported Exception";
-    this.exc = ls.lastException;
+    this.msg = excToString(ls.lastException);
   }
-  public ExceptionInfo(String title, Throwable exc) {
-    this.title = title; this.exc = exc;
+  public DialogInfo(String title, Throwable exc) {
+    this.title = title; this.msg = excToString(exc);
   }
 
-  public String excToString() {
-    if (exc == null) return "";
+  private static String excToString(Throwable t) {
+    if (t == null) return "";
     final StringWriter sw = new StringWriter(256);
-    exc.printStackTrace(new PrintWriter(sw));
+    t.printStackTrace(new PrintWriter(sw));
     return sw.toString();
   }
 }

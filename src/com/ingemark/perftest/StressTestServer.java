@@ -40,7 +40,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
 import com.ingemark.perftest.plugin.StressTestActivator;
-import com.ingemark.perftest.plugin.ui.ExceptionDialog;
+import com.ingemark.perftest.plugin.ui.InfoDialog;
 
 public class StressTestServer implements IStressTestServer
 {
@@ -89,7 +89,7 @@ public class StressTestServer implements IStressTestServer
             swtSend(EVT_ERROR, msg.value);
             break;
           case EXCEPTION:
-            ExceptionDialog.show((ExceptionInfo) msg.value);
+            InfoDialog.show((DialogInfo) msg.value);
             break;
           case STATS:
             receivedStats((Stats[])msg.value);
