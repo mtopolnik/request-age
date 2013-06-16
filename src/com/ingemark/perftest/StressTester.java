@@ -1,5 +1,6 @@
 package com.ingemark.perftest;
 
+import static ch.qos.logback.classic.Level.INFO;
 import static com.ingemark.perftest.Message.DIVISOR;
 import static com.ingemark.perftest.Message.ERROR;
 import static com.ingemark.perftest.Message.EXCEPTION;
@@ -12,6 +13,7 @@ import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -139,6 +141,7 @@ public class StressTester implements Runnable
       log.debug("Initialized");
       jsScope.initDone();
       nettySend(channel, new Message(INIT, collectIndices()), true);
+      ((ch.qos.logback.classic.Logger)getLogger(JS_LOGGER_NAME)).setLevel(INFO);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
         final List<Stats> stats = stats();
@@ -147,6 +150,7 @@ public class StressTester implements Runnable
       }}, 100, SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
     }
     catch (Throwable t) {
+      log.error("Error while initializing", t);
       nettySend(channel, new Message(ERROR, t));
       shutdown();
     }
@@ -165,10 +169,7 @@ public class StressTester implements Runnable
 
   ArrayList<Integer> collectIndices() {
     final ArrayList<Integer> ret = new ArrayList<>();
-    for (LiveStats ls : lsmap.values()) if (ls.name != null) {
-      System.out.println("name " + ls.name + " index " + ls.index);
-      ret.add(ls.index);
-    }
+    for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
     return ret;
   }
 
@@ -192,11 +193,11 @@ public class StressTester implements Runnable
     } catch (InterruptedException e) { }
   }
 
-  static final String[]
+  private static final String[]
     javaCandidates = {"javaw", "javaw.exe", "java", "java.exe", "j9w", "j9w.exe", "j9", "j9.exe"},
     javaDirCandidates = {"bin", "jre" + File.separator + "bin"};
 
-  static String java() {
+  private static String java() {
     final IVMInstall inst = getDefaultVMInstall();
     if (inst == null) return "java";
     final File loc = inst.getInstallLocation();
@@ -216,8 +217,9 @@ public class StressTester implements Runnable
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
       log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);
-      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC", "-cp", cp,
-          StressTester.class.getName(), scriptFile).inheritIO().start();
+      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC",
+          "-cp", cp, StressTester.class.getName(), scriptFile)
+      .start();
     } catch (IOException e) { return sneakyThrow(e); }
   }
 

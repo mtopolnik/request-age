@@ -30,6 +30,7 @@ import com.ingemark.perftest.JsHttp;
 import com.ingemark.perftest.StressTester;
 
 public class JsScope {
+  public static final String JS_LOGGER_NAME = "js";
   private static final ContextFactory fac = ContextFactory.getGlobal();
   private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
   public final ScriptableObject global;
@@ -51,7 +52,7 @@ public class JsScope {
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
         jsHttp = new JsHttp(global, tester);
         putProperty(global, "req", jsHttp);
-        putProperty(global, "log", javaToJS(getLogger("js"), global));
+        putProperty(global, "log", javaToJS(getLogger(JS_LOGGER_NAME), global));
         return global;
       }});
   }

@@ -71,7 +71,6 @@ public class Util
   public static void nettySend(Channel channel, Message msg) {
     nettySend(channel, msg, false);
   }
-  public static <T> T spy(String msg, T ret) { log.debug("{}: {}", msg, ret); return ret; }
 
   static void swtSend(final int evtype, final Serializable value) {
     Display.getDefault().asyncExec(new Runnable() { public void run() {
