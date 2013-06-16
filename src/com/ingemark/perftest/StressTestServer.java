@@ -8,6 +8,7 @@ import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.perftest.StressTester.launchTester;
 import static com.ingemark.perftest.Util.arraySum;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
@@ -17,13 +18,20 @@ import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.eclipse.debug.core.DebugPlugin.newProcess;
+import static org.eclipse.debug.core.ILaunchManager.RUN_MODE;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
+import org.eclipse.debug.core.DebugPlugin;
+import org.eclipse.debug.core.Launch;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -48,16 +56,22 @@ public class StressTestServer implements IStressTestServer
   public static final int NETTY_PORT = 49131;
   private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
+  private final ScheduledExecutorService sched = newSingleThreadScheduledExecutor();
   private volatile Channel channel;
   private final ServerBootstrap netty;
   private int refreshTimeslot = Integer.MIN_VALUE;
+  private Process subprocess;
   private volatile int[] refreshTimes;
   private volatile int maxRefreshTime, refreshDivisor = 1;
   private volatile long guiSlowSince, guiFastSince;
 
-  public StressTestServer(Control c) {
+  public StressTestServer(Control c, String filename) {
     this.eventReceiver = c;
     this.netty = netty();
+    subprocess = launchTester(filename);
+    final Launch launch = new Launch(null, RUN_MODE, null);
+    newProcess(launch, subprocess, "Stress Test");
+    DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
   }
 
   @Override public void send(Message msg) { nettySend(channel, msg); }
@@ -66,7 +80,12 @@ public class StressTestServer implements IStressTestServer
 
   @Override public void shutdown() {
     try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
-    catch (Throwable t) {}
+    catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
+    sched.schedule(new Runnable() { @Override public void run() {
+      try { subprocess.destroy(); }
+      catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+    }}, 15, TimeUnit.SECONDS);
+    try {subprocess.waitFor();} catch (InterruptedException e) {}
     netty.shutdown();
   };
 

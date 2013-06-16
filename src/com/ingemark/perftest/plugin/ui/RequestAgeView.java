@@ -2,21 +2,16 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Util.gridData;
-import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
-import static org.eclipse.debug.core.DebugPlugin.newProcess;
-import static org.eclipse.debug.core.ILaunchManager.RUN_MODE;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collections;
 import java.util.List;
 
-import org.eclipse.debug.core.DebugPlugin;
-import org.eclipse.debug.core.Launch;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
@@ -37,7 +32,6 @@ import com.ingemark.perftest.IStressTestServer;
 import com.ingemark.perftest.Message;
 import com.ingemark.perftest.Stats;
 import com.ingemark.perftest.StressTestServer;
-import com.ingemark.perftest.StressTester;
 
 public class RequestAgeView extends ViewPart
 {
@@ -45,7 +39,6 @@ public class RequestAgeView extends ViewPart
   private static final int MIN_THROTTLE = 50;
   public static RequestAgeView instance;
   public Composite statsParent;
-  private Process subprocess;
   private Scale throttle;
   private IStressTestServer testServer = StressTestServer.NULL;
   private Action stopAction;
@@ -103,18 +96,10 @@ public class RequestAgeView extends ViewPart
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
-              final Throwable t = ((Throwable)e.data);
-              InfoDialog.show(new DialogInfo("Stress testing error", t));
+              InfoDialog.show(new DialogInfo("Stress testing error", ((Throwable)e.data)));
             }
           });
-          testServer = new StressTestServer(statsParent);
-          subprocess = StressTester.launchTester((String)event.data);
-          try {
-            final Launch launch = new Launch(null, RUN_MODE, null);
-            newProcess(launch, subprocess, "Stress Test");
-            DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
-          }
-          catch (Exception e) { sneakyThrow(e); }
+          testServer = new StressTestServer(statsParent, (String)event.data);
           stopAction.setEnabled(true);
         }
         catch (Throwable t) {
@@ -124,17 +109,11 @@ public class RequestAgeView extends ViewPart
   }
 
   void shutdown(Composite parent) {
-    try {
-      testServer.shutdown();
-      testServer = StressTestServer.NULL;
-      if (subprocess != null) {
-        subprocess.destroy();
-        subprocess.waitFor();
-      }
-      statsParent.dispose();
-      if (parent != null) newStatsParent(parent);
-      stopAction.setEnabled(false);
-    } catch (InterruptedException e) { sneakyThrow(e); }
+    testServer.shutdown();
+    testServer = StressTestServer.NULL;
+    statsParent.dispose();
+    if (parent != null) newStatsParent(parent);
+    stopAction.setEnabled(false);
   }
 
   static String joinPath(String[] ps) {

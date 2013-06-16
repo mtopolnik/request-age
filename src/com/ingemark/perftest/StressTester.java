@@ -119,6 +119,7 @@ public class StressTester implements Runnable
               nettySend(channel, new Message(EXCEPTION, new DialogInfo(lsmap.get(msg.value))));
               break;
             case SHUTDOWN:
+              log.info("Received shutdown message");
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
             }
@@ -184,6 +185,7 @@ public class StressTester implements Runnable
 
   void shutdown() {
     try {
+      log.info("Shutting down");
       sched.shutdown();
       sched.awaitTermination(5, SECONDS);
       client.close();
