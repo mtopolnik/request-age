@@ -4,6 +4,7 @@ import static com.ingemark.perftest.Message.DIVISOR;
 import static com.ingemark.perftest.Message.ERROR;
 import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Message.INIT;
+import static com.ingemark.perftest.Message.INITED;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
@@ -19,6 +20,7 @@ import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.eclipse.debug.core.DebugPlugin.newProcess;
 import static org.eclipse.debug.core.ILaunchManager.RUN_MODE;
 import static org.jboss.netty.channel.Channels.pipeline;
@@ -51,6 +53,7 @@ import org.slf4j.Logger;
 
 import com.ingemark.perftest.plugin.StressTestActivator;
 import com.ingemark.perftest.plugin.ui.InfoDialog;
+import com.ingemark.perftest.plugin.ui.ProgressDialog.ProgressMonitor;
 
 public class StressTestServer implements IStressTestServer
 {
@@ -59,26 +62,38 @@ public class StressTestServer implements IStressTestServer
   private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
   private final String filename;
-  private ServerBootstrap netty;
+  private volatile ServerBootstrap netty;
   private int refreshTimeslot = Integer.MIN_VALUE;
   private Process subprocess;
   private volatile Channel channel;
   private volatile int[] refreshTimes;
   private volatile int maxRefreshTime, refreshDivisor = 1;
   private volatile long guiSlowSince, guiFastSince;
+  private ProgressMonitor pm;
+  private volatile int workIncrement = 256;
+  private Thread initThread;
 
   public StressTestServer(Control c, String filename) {
     this.eventReceiver = c;
     this.filename = filename;
   }
 
-  public StressTestServer init() {
-    this.netty = netty();
-    subprocess = launchTester(filename);
-    final Launch launch = new Launch(null, RUN_MODE, null);
-    newProcess(launch, subprocess, "Stress Test");
-    DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
-    return this;
+  @Override public Thread start(ProgressMonitor ipm) {
+    this.pm = ipm;
+    initThread = new Thread(new Runnable() { @Override public void run() {
+      pm.subTask("Starting netty");
+      netty = netty();
+      pm.worked(10);
+      pm.subTask("Launching subprocess");
+      subprocess = launchTester(filename);
+      final Launch launch = new Launch(null, RUN_MODE, null);
+      newProcess(launch, subprocess, "Stress Test");
+      DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
+      pm.worked(10);
+      pm.subTask("Listening for messages from the subprocess");
+    }});
+    initThread.start();
+    return initThread;
   }
 
   @Override public void send(Message msg) { nettySend(channel, msg); }
@@ -91,8 +106,16 @@ public class StressTestServer implements IStressTestServer
     catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
     final ScheduledFuture<?> normalShutdown = sched.schedule(new Runnable() { public void run() {
       try {
+        if (initThread != null) {
+          initThread.interrupt();
+          initThread.join(SECONDS.toMillis(5));
+        }
+      }
+      catch (Throwable t) { log.error("Joining init thread interrupted", t); }
+      try {
+        if (subprocess == null) return;
         log.debug("Waiting for the Stress Tester subprocess to end");
-        if (subprocess != null) subprocess.waitFor();
+        subprocess.waitFor();
       }
       catch (Throwable t) { log.error("Waiting for subprocess interrupted", t); }
       if (netty == null) return;
@@ -127,8 +150,13 @@ public class StressTestServer implements IStressTestServer
           final Message msg = (Message)e.getMessage();
           switch (msg.type) {
           case INIT:
+            pm.subTask("Awaiting response to " + msg.value.toString());
+            pm.worked((workIncrement >>= 1) == 128? 10 : workIncrement);
+            break;
+          case INITED:
             channel = ctx.getChannel();
             refreshDivisorChanged();
+            pm.done();
             swtSend(EVT_INIT_HIST, msg.value);
             break;
           case ERROR:
@@ -213,6 +241,7 @@ public class StressTestServer implements IStressTestServer
   }
 
   public static final IStressTestServer NULL = new IStressTestServer() {
+    @Override public Thread start(ProgressMonitor pm) { return null; }
     @Override public void intensity(int intensity) { }
     @Override public void shutdown() { }
     @Override public void send(Message msg) { }

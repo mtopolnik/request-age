@@ -1,6 +1,8 @@
 package com.ingemark.perftest;
 
+import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.StressTester.fac;
+import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.script.JsFunctions.parseXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
@@ -115,6 +117,7 @@ public class JsHttp extends BaseFunction
     private void executeInit(ReqBuilder reqBuilder, Callable f) {
       if (reqBuilder.name != null) {
         log.debug("Adding " + reqBuilder.name + " under " + index);
+        nettySend(tester.channel, new Message(INIT, reqBuilder.name));
         tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
       }
       try { handleResponse(tester.client.executeRequest(reqBuilder.brb.build()).get(), f); }

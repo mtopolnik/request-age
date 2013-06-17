@@ -2,9 +2,9 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.Util.gridData;
 
-import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IProgressMonitorWithBlocking;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.IconAndMessageDialog;
 import org.eclipse.jface.dialogs.ProgressIndicator;
@@ -16,6 +16,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
@@ -28,18 +29,20 @@ public class ProgressDialog extends IconAndMessageDialog
       JFaceResources.getString("ProgressMonitorDialog.message");
   private static int LABEL_DLUS = 21, BAR_DLUS = 9;
   private final ProgressMonitor progressMonitor = new ProgressMonitor();
+  private final RequestAgeView rav;
   private ProgressIndicator progressIndicator;
   private Label subTaskLabel;
   private Button cancel;
   private String task;
-  public ProgressDialog(Shell parent) {
-    super(parent);
+
+  public ProgressDialog(RequestAgeView rav, String taskName, int totalWork) {
+    super(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell());
+    this.rav = rav;
     setShellStyle(getDefaultOrientation() | SWT.BORDER | SWT.TITLE | SWT.APPLICATION_MODAL |
-                  (isResizable()? SWT.RESIZE | SWT.MAX : 0));
+        (isResizable()? SWT.RESIZE | SWT.MAX : 0));
     setBlockOnOpen(false);
-  }
-  public ProgressDialog() {
-    this(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell());
+    pm().beginTask(taskName, totalWork);
+    open();
   }
 
   @Override public int open() {
@@ -48,7 +51,7 @@ public class ProgressDialog extends IconAndMessageDialog
     return result;
   }
 
-  public IProgressMonitor pm() { return progressMonitor; }
+  public ProgressMonitor pm() { return progressMonitor; }
 
   @Override protected void cancelPressed() {
     cancel.setEnabled(false);
@@ -77,11 +80,11 @@ public class ProgressDialog extends IconAndMessageDialog
     createMessageArea(parent);
     progressIndicator = new ProgressIndicator(parent);
     gridData().hint(SWT.DEFAULT, convertVerticalDLUsToPixels(BAR_DLUS)).
-       align(GridData.FILL, SWT.DEFAULT).grab(true, false).span(2, 1)
+       align(GridData.FILL, GridData.BEGINNING).grab(true, false).span(2, 1)
        .applyTo(progressIndicator);
     subTaskLabel = new Label(parent, SWT.LEFT | SWT.WRAP);
     gridData().hint(SWT.DEFAULT, convertVerticalDLUsToPixels(LABEL_DLUS))
-      .align(GridData.FILL, SWT.DEFAULT).span(2,1)
+      .align(GridData.FILL, GridData.BEGINNING).span(2,1)
       .applyTo(subTaskLabel);
     subTaskLabel.setFont(parent.getFont());
     return parent;
@@ -102,54 +105,79 @@ public class ProgressDialog extends IconAndMessageDialog
 
   @Override protected Image getImage() { return getInfoImage(); }
 
-  private class ProgressMonitor implements IProgressMonitorWithBlocking {
+  public class ProgressMonitor implements IProgressMonitorWithBlocking {
     private String subTask = "";
     private volatile boolean canceled;
     protected boolean locked = false;
-    @Override public void beginTask(String name, int totalWork) {
-      if (progressIndicator.isDisposed()) return;
-      setTaskName(name);
-      if (totalWork == UNKNOWN) progressIndicator.beginAnimatedTask();
-      else progressIndicator.beginTask(totalWork);
+
+    @Override public void beginTask(final String name, final int totalWork) {
+      swtAsync(new R() { void r() {
+        if (progressIndicator.isDisposed()) return;
+        setTaskName(name);
+        if (totalWork == UNKNOWN) progressIndicator.beginAnimatedTask();
+        else progressIndicator.beginTask(totalWork);
+      }});
     }
     @Override public void done() {
-      if (progressIndicator.isDisposed()) return;
-      progressIndicator.sendRemainingWork();
-      progressIndicator.done();
+      swtAsync(new R() { void r() {
+        if (progressIndicator.isDisposed()) return;
+        progressIndicator.sendRemainingWork();
+        progressIndicator.done();
+        close();
+      }});
     }
-    @Override public void setTaskName(String name) {
-      task = name == null? "" : name;
-      setMessage(task.length() > 0? task : DEFAULT_TASKNAME, false);
-      if (messageLabel != null && !messageLabel.isDisposed()) messageLabel.update();
+    @Override public void setTaskName(final String name) {
+      swtAsync(new R() { void r() {
+        task = name == null? "" : name;
+        setMessage(task.length() > 0? task : DEFAULT_TASKNAME, false);
+        if (messageLabel != null && !messageLabel.isDisposed()) messageLabel.update();
+      }});
     }
-    @Override public void setCanceled(boolean b) {
-      canceled = b;
-      if (locked) clearBlocked();
+    @Override public void setCanceled(final boolean b) {
+      swtAsync(new R() { void r() {
+        canceled = b;
+        if (b) rav.shutdown();
+        if (!b && locked) clearBlocked();
+        if (b && !locked) setBlocked(new Status(CANCEL, "stresstest", "Canceled"));
+      }});
     }
-    @Override public void subTask(String name) {
-      if (subTaskLabel.isDisposed()) return;
-      subTask = name != null ? name : "";
-      subTaskLabel.setText(shortenText(subTask, subTaskLabel));
-      subTaskLabel.update();
+    @Override public void subTask(final String name) {
+      swtAsync(new R() { void r() {
+        if (subTaskLabel.isDisposed()) return;
+        subTask = name != null ? name : "";
+        subTaskLabel.setText(shortenText(subTask, subTaskLabel));
+        subTaskLabel.update();
+      }});
     }
-    @Override public void internalWorked(double work) {
-      if (!progressIndicator.isDisposed()) progressIndicator.worked(work);
+    @Override public void internalWorked(final double work) {
+      swtAsync(new R() { void r() {
+        if (!progressIndicator.isDisposed()) progressIndicator.worked(work);
+      }});
     }
     @Override public void clearBlocked() {
-      if (getShell() == null || getShell().isDisposed()) return;
-      locked = false;
-      progressIndicator.showNormal();
-      setMessage(task, true);
-      imageLabel.setImage(getImage());
+      swtAsync(new R() { void r() {
+        if (getShell() == null || getShell().isDisposed()) return;
+        locked = false;
+        progressIndicator.showNormal();
+        setMessage(task, true);
+        imageLabel.setImage(getImage());
+      }});
     }
-    @Override public void setBlocked(IStatus reason) {
-      if (getShell() == null || getShell().isDisposed()) return;
-      locked = true;
-      progressIndicator.showPaused();
-      setMessage(reason.getMessage(), true);
-      imageLabel.setImage(getImage());
+    @Override public void setBlocked(final IStatus reason) {
+      swtAsync(new R() { void r() {
+        if (getShell() == null || getShell().isDisposed()) return;
+        locked = true;
+        progressIndicator.showPaused();
+        setMessage(reason.getMessage(), true);
+        imageLabel.setImage(getImage());
+      }});
     }
     @Override public boolean isCanceled() { return canceled; }
     @Override public void worked(int work) { internalWorked(work); }
+  }
+
+  abstract class R { abstract void r(); }
+  static void swtAsync(final R r) {
+    Display.getDefault().asyncExec(new Runnable() { public void run() { r.r(); }});
   }
 }

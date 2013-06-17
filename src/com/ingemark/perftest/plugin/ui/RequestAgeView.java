@@ -39,17 +39,20 @@ public class RequestAgeView extends ViewPart
   private static final int MIN_THROTTLE = 50;
   public static RequestAgeView instance;
   public Composite statsParent;
+  private ProgressDialog pd;
   private Scale throttle;
   private IStressTestServer testServer = StressTestServer.NULL;
   private Action stopAction;
+  private Composite viewParent;
 
   public void createPartControl(final Composite p) {
+    this.viewParent = p;
     instance = this;
     p.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
       final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
       @Override public ImageDescriptor getImageDescriptor() { return img; }
-      @Override public void run() { shutdown(p); }
+      @Override public void run() { shutdown(); }
     };
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
@@ -59,17 +62,18 @@ public class RequestAgeView extends ViewPart
     throttle.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
     });
-    newStatsParent(p);
+    newStatsParent();
   }
 
-  void newStatsParent(final Composite p) {
-    statsParent = new Composite(p, SWT.NONE);
+  void newStatsParent() {
+    if (statsParent != null) statsParent.dispose();
+    statsParent = new Composite(viewParent, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
     statsParent.setLayout(new GridLayout(2, false));
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
         try {
-          shutdown(p);
+          shutdown();
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
@@ -91,15 +95,17 @@ public class RequestAgeView extends ViewPart
                   @Override public void mouseDown(MouseEvent e) {}
                 });
               }
-              p.layout(true);
-              p.notifyListeners(SWT.Paint, new Event());
+              viewParent.layout(true);
+              viewParent.notifyListeners(SWT.Paint, new Event());
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
               InfoDialog.show(new DialogInfo("Stress testing error", ((Throwable)e.data)));
             }
           });
+          pd = new ProgressDialog(RequestAgeView.this, "Starting Stress Test", 158);
           testServer = new StressTestServer(statsParent, (String)event.data);
+          testServer.start(pd.pm());
           stopAction.setEnabled(true);
         }
         catch (Throwable t) {
@@ -108,11 +114,11 @@ public class RequestAgeView extends ViewPart
       }});
   }
 
-  void shutdown(Composite parent) {
+  public void shutdown() {
+    if (pd != null) pd.close();
     testServer.shutdown();
     testServer = StressTestServer.NULL;
-    statsParent.dispose();
-    if (parent != null) newStatsParent(parent);
+    newStatsParent();
     stopAction.setEnabled(false);
   }
 
@@ -123,7 +129,7 @@ public class RequestAgeView extends ViewPart
   }
 
   static int pow(int in) { return (int)Math.pow(10, in/100d); }
-  @Override public void dispose() { shutdown(null); }
+  @Override public void dispose() { shutdown(); }
 
   @Override public void setFocus() { throttle.setFocus(); }
 

@@ -4,7 +4,7 @@ import static ch.qos.logback.classic.Level.INFO;
 import static com.ingemark.perftest.Message.DIVISOR;
 import static com.ingemark.perftest.Message.ERROR;
 import static com.ingemark.perftest.Message.EXCEPTION;
-import static com.ingemark.perftest.Message.INIT;
+import static com.ingemark.perftest.Message.INITED;
 import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
@@ -70,7 +70,7 @@ public class StressTester implements Runnable
   final Map<String, LiveStats> lsmap = new HashMap<>();
   final JsScope jsScope;
   private final ClientBootstrap netty;
-  private final Channel channel;
+  final Channel channel;
   private volatile int intensity = 1, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
@@ -141,7 +141,7 @@ public class StressTester implements Runnable
       jsScope.call("init");
       log.debug("Initialized");
       jsScope.initDone();
-      nettySend(channel, new Message(INIT, collectIndices()), true);
+      nettySend(channel, new Message(INITED, collectIndices()), true);
       ((ch.qos.logback.classic.Logger)getLogger(JS_LOGGER_NAME)).setLevel(INFO);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
