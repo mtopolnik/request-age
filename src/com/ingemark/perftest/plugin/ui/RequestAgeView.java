@@ -2,16 +2,20 @@ package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Util.gridData;
+import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
+import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static org.eclipse.ui.PlatformUI.getWorkbench;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
@@ -97,6 +101,10 @@ public class RequestAgeView extends ViewPart
               }
               viewParent.layout(true);
               viewParent.notifyListeners(SWT.Paint, new Event());
+              try {
+                getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(
+                    STRESSTEST_VIEW_ID);
+              } catch (CoreException e) { sneakyThrow(e); }
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
