@@ -18,7 +18,7 @@ import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
 import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
 import static java.lang.Math.max;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.eclipse.debug.core.DebugPlugin.newProcess;
 import static org.eclipse.debug.core.ILaunchManager.RUN_MODE;
 import static org.jboss.netty.channel.Channels.pipeline;
@@ -27,6 +27,7 @@ import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCac
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +58,6 @@ public class StressTestServer implements IStressTestServer
   public static final int NETTY_PORT = 49131;
   private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
-  private final ScheduledExecutorService sched = newSingleThreadScheduledExecutor();
   private volatile Channel channel;
   private final ServerBootstrap netty;
   private int refreshTimeslot = Integer.MIN_VALUE;
@@ -80,6 +80,7 @@ public class StressTestServer implements IStressTestServer
   @Override public void intensity(int intensity) { send(new Message(INTENSITY, intensity)); }
 
   @Override public void shutdown() {
+    final ScheduledExecutorService sched = newScheduledThreadPool(2);
     try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
     catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
     final ScheduledFuture<?> normalShutdown = sched.schedule(new Runnable() { public void run() {
@@ -90,15 +91,18 @@ public class StressTestServer implements IStressTestServer
         netty.releaseExternalResources();
       }
       catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+      finally { sched.shutdown(); }
     }}, 0, TimeUnit.SECONDS);
-    sched.schedule(new Runnable() { @Override public void run() {
-      try {
-        if (normalShutdown.isDone()) return;
-        log.debug("Normal shutdown failed. Destroying subprocess.");
-        subprocess.destroy();
-      }
-      catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
-    }}, 5, TimeUnit.SECONDS);
+    try {
+      sched.schedule(new Runnable() { @Override public void run() {
+        try {
+          if (normalShutdown.isDone()) return;
+          log.debug("Normal shutdown failed. Destroying subprocess.");
+          subprocess.destroy();
+        }
+        catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+      }}, 5, TimeUnit.SECONDS);
+    } catch (RejectedExecutionException e) {}
   };
 
   ServerBootstrap netty() {
