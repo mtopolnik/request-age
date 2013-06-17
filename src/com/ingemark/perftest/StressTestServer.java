@@ -58,21 +58,27 @@ public class StressTestServer implements IStressTestServer
   public static final int NETTY_PORT = 49131;
   private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
-  private volatile Channel channel;
-  private final ServerBootstrap netty;
+  private final String filename;
+  private ServerBootstrap netty;
   private int refreshTimeslot = Integer.MIN_VALUE;
   private Process subprocess;
+  private volatile Channel channel;
   private volatile int[] refreshTimes;
   private volatile int maxRefreshTime, refreshDivisor = 1;
   private volatile long guiSlowSince, guiFastSince;
 
   public StressTestServer(Control c, String filename) {
     this.eventReceiver = c;
+    this.filename = filename;
+  }
+
+  public StressTestServer init() {
     this.netty = netty();
     subprocess = launchTester(filename);
     final Launch launch = new Launch(null, RUN_MODE, null);
     newProcess(launch, subprocess, "Stress Test");
     DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
+    return this;
   }
 
   @Override public void send(Message msg) { nettySend(channel, msg); }
@@ -85,12 +91,17 @@ public class StressTestServer implements IStressTestServer
     catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
     final ScheduledFuture<?> normalShutdown = sched.schedule(new Runnable() { public void run() {
       try {
-        subprocess.waitFor();
-        log.debug("Subprocess done. Shutting down netty");
+        log.debug("Waiting for the Stress Tester subprocess to end");
+        if (subprocess != null) subprocess.waitFor();
+      }
+      catch (Throwable t) { log.error("Waiting for subprocess interrupted", t); }
+      if (netty == null) return;
+      try {
+        log.debug("Shutting down netty");
         netty.shutdown();
         netty.releaseExternalResources();
       }
-      catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+      catch (Throwable t) { log.error("Error while stopping netty", t); }
       finally { sched.shutdown(); }
     }}, 0, TimeUnit.SECONDS);
     try {
