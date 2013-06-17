@@ -28,6 +28,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.debug.core.DebugPlugin;
@@ -81,12 +82,23 @@ public class StressTestServer implements IStressTestServer
   @Override public void shutdown() {
     try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
     catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
-    sched.schedule(new Runnable() { @Override public void run() {
-      try { subprocess.destroy(); }
+    final ScheduledFuture<?> normalShutdown = sched.schedule(new Runnable() { public void run() {
+      try {
+        subprocess.waitFor();
+        log.debug("Subprocess done. Shutting down netty");
+        netty.shutdown();
+        netty.releaseExternalResources();
+      }
       catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
-    }}, 15, TimeUnit.SECONDS);
-    try {subprocess.waitFor();} catch (InterruptedException e) {}
-    netty.shutdown();
+    }}, 0, TimeUnit.SECONDS);
+    sched.schedule(new Runnable() { @Override public void run() {
+      try {
+        if (normalShutdown.isDone()) return;
+        log.debug("Normal shutdown failed. Destroying subprocess.");
+        subprocess.destroy();
+      }
+      catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+    }}, 5, TimeUnit.SECONDS);
   };
 
   ServerBootstrap netty() {

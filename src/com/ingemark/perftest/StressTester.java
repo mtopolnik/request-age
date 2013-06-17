@@ -17,6 +17,7 @@ import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.eclipse.core.runtime.FileLocator.getBundleFile;
@@ -119,7 +120,6 @@ public class StressTester implements Runnable
               nettySend(channel, new Message(EXCEPTION, new DialogInfo(lsmap.get(msg.value))));
               break;
             case SHUTDOWN:
-              log.info("Received shutdown message");
               sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
               break;
             }
@@ -148,7 +148,7 @@ public class StressTester implements Runnable
         final List<Stats> stats = stats();
         if (stats.isEmpty()) return;
         nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
-      }}, 100, SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
+      }}, MILLISECONDS.toMicros(100), SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
     }
     catch (Throwable t) {
       log.error("Error while initializing", t);
@@ -184,15 +184,13 @@ public class StressTester implements Runnable
   }
 
   void shutdown() {
-    try {
-      log.info("Shutting down");
-      sched.shutdown();
-      sched.awaitTermination(5, SECONDS);
-      client.close();
-      log.debug("HTTP Client shut down");
-      netty.shutdown();
-      log.debug("Netty client shut down");
-    } catch (InterruptedException e) { }
+    log.info("Shutting down");
+    sched.shutdown();
+    client.close();
+    log.debug("HTTP Client shut down");
+    netty.shutdown();
+    netty.releaseExternalResources();
+    log.debug("Netty client shut down");
   }
 
   private static final String[]
@@ -228,6 +226,9 @@ public class StressTester implements Runnable
   public static void main(String[] args) {
     try {
       log.info("Loading script {}", args[0]);
+      Runtime.getRuntime().addShutdownHook(new Thread() {
+        public void run() { System.out.println("Stress Tester shut down");
+      }});
       new StressTester(args[0]).runTest();
     } catch (Throwable t) { log.error("", t); }
   }
