@@ -20,35 +20,35 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.ui.PlatformUI;
 
 public class ProgressDialog extends IconAndMessageDialog
 {
   private static String DEFAULT_TASKNAME =
-      JFaceResources.getString("AsyncProgressMonitorDialog.message");
+      JFaceResources.getString("ProgressMonitorDialog.message");
   private static int LABEL_DLUS = 21, BAR_DLUS = 9;
   private final ProgressMonitor progressMonitor = new ProgressMonitor();
   private ProgressIndicator progressIndicator;
   private Label subTaskLabel;
   private Button cancel;
   private String task;
-  private int nestingDepth;
-
   public ProgressDialog(Shell parent) {
     super(parent);
     setShellStyle(getDefaultOrientation() | SWT.BORDER | SWT.TITLE | SWT.APPLICATION_MODAL |
                   (isResizable()? SWT.RESIZE | SWT.MAX : 0));
     setBlockOnOpen(false);
   }
-
-  public void enter() { open(); nestingDepth++; }
-  public void leave() { nestingDepth--; close(); }
+  public ProgressDialog() {
+    this(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell());
+  }
 
   @Override public int open() {
     final int result = super.open();
     setMessage(task == null || task.length() == 0? DEFAULT_TASKNAME : task, true);
     return result;
   }
-  @Override public boolean close() { return nestingDepth <= 0 && super.close(); }
+
+  public IProgressMonitor pm() { return progressMonitor; }
 
   @Override protected void cancelPressed() {
     cancel.setEnabled(false);
@@ -58,7 +58,7 @@ public class ProgressDialog extends IconAndMessageDialog
 
   @Override protected void configureShell(final Shell shell) {
     super.configureShell(shell);
-    shell.setText(JFaceResources.getString("AsyncProgressMonitorDialog.title"));
+    shell.setText(JFaceResources.getString("ProgressMonitorDialog.title"));
     shell.setCursor(shell.getDisplay().getSystemCursor(SWT.CURSOR_WAIT));
     // Add a listener to set the message properly when the dialog becomes visible.
     shell.addListener(SWT.Show, new Listener() { @Override public void handleEvent(Event event) {
@@ -91,9 +91,6 @@ public class ProgressDialog extends IconAndMessageDialog
     p.x = Math.max(p.x, 450);
     return p;
   }
-  protected void setCancelButtonEnabled(boolean b) {
-    if (cancel != null && !cancel.isDisposed()) cancel.setEnabled(b);
-  }
   private void setMessage(String msg, boolean force) {
     message = msg == null ? "" : msg;
     if (messageLabel == null || messageLabel.isDisposed()) return;
@@ -102,7 +99,6 @@ public class ProgressDialog extends IconAndMessageDialog
       messageLabel.setText(shortenText(message, messageLabel));
     }
   }
-  public IProgressMonitor progressMonitor() { return progressMonitor; }
 
   @Override protected Image getImage() { return getInfoImage(); }
 
