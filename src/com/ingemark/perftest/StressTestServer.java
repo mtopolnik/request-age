@@ -125,7 +125,10 @@ public class StressTestServer implements IStressTestServer
         netty.releaseExternalResources();
       }
       catch (Throwable t) { log.error("Error while stopping netty", t); }
-      finally { sched.shutdown(); }
+      finally {
+        if (pm != null) pm.done();
+        sched.shutdown();
+      }
     }}, 0, TimeUnit.SECONDS);
     try {
       sched.schedule(new Runnable() { @Override public void run() {

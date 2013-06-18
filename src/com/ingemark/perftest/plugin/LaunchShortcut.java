@@ -23,6 +23,7 @@ public class LaunchShortcut implements ILaunchShortcut
   void launch(IFile in) {
     final Event e = new Event();
     e.data = in.getLocation().toOSString();
+    RequestAgeView.show();
     RequestAgeView.instance.statsParent.notifyListeners(EVT_RUN_SCRIPT, e);
   }
 }

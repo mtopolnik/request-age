@@ -101,13 +101,11 @@ public class RequestAgeView extends ViewPart
               }
               viewParent.layout(true);
               viewParent.notifyListeners(SWT.Paint, new Event());
-              try {
-                getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(
-                    STRESSTEST_VIEW_ID);
-              } catch (CoreException e) { sneakyThrow(e); }
+              show();
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
+              if (pd != null) pd.close();
               InfoDialog.show(new DialogInfo("Stress testing error", ((Throwable)e.data)));
             }
           });
@@ -117,13 +115,13 @@ public class RequestAgeView extends ViewPart
           stopAction.setEnabled(true);
         }
         catch (Throwable t) {
+          if (pd != null) pd.close();
           InfoDialog.show(new DialogInfo("Stress test init error", t));
         }
       }});
   }
 
   public void shutdown() {
-    if (pd != null) pd.close();
     testServer.shutdown();
     testServer = StressTestServer.NULL;
     newStatsParent();
@@ -143,5 +141,11 @@ public class RequestAgeView extends ViewPart
 
   private void applyThrottle() {
     testServer.intensity(pow(throttle.getSelection()));
+  }
+
+  public static void show() {
+    try {
+      getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(STRESSTEST_VIEW_ID);
+    } catch (CoreException e) { sneakyThrow(e); }
   }
 }
