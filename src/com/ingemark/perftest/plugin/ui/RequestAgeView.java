@@ -10,7 +10,7 @@ import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE
 import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
 import static com.ingemark.perftest.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
-import static com.ingemark.perftest.plugin.ui.HistogramViewer.MIN_DESIRED_WIDTH;
+import static com.ingemark.perftest.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.signum;
@@ -114,7 +114,7 @@ public class RequestAgeView extends ViewPart
                   final int
                     availRows = max(1, bounds.height/DESIRED_HEIGHT),
                     maxCols = indices.size()/availRows + (int)signum(indices.size() % availRows),
-                    desiredCols = max(1, min(maxCols, bounds.width / MIN_DESIRED_WIDTH));
+                    desiredCols = max(1, min(maxCols, bounds.width / minDesiredWidth));
                   if (desiredCols == statsParentLayout.numColumns) return;
                   statsParentLayout.numColumns = desiredCols;
                   statsParent.setLayout(statsParentLayout);

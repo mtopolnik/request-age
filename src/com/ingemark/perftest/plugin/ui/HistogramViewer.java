@@ -30,13 +30,12 @@ public class HistogramViewer implements PaintListener
   static final int
     HIST_BAR_WIDTH = 1,
     HIST_XOFFSET = 50,
-    MIN_DESIRED_TOTALBARS = 10,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH,
-    MIN_DESIRED_WIDTH = TOTAL_REQS_OFFSET + HIST_BAR_WIDTH*MIN_DESIRED_TOTALBARS,
     DESIRED_HEIGHT = 200,
     FULL_TOTAL_BAR_HEIGHT = 100,
     HIST_HEIGHT_SCALE = 1,
     METER_SCALE = 50;
+  static int minDesiredWidth;
   final int histYoffset;
   final Canvas canvas;
   final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
@@ -60,7 +59,9 @@ public class HistogramViewer implements PaintListener
       recreateBackdrop();
     }});
     gc = new GC(canvas);
-    histYoffset = 10 + gc.getFontMetrics().getHeight();
+    final FontMetrics fm = gc.getFontMetrics();
+    histYoffset = 10 + fm.getHeight();
+    minDesiredWidth = TOTAL_REQS_OFFSET + 6*fm.getAverageCharWidth();
     gc.dispose();
     gc = null;
   }
