@@ -19,6 +19,8 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ControlEvent;
+import org.eclipse.swt.events.ControlListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -73,7 +75,20 @@ public class RequestAgeView extends ViewPart
     if (statsParent != null) statsParent.dispose();
     statsParent = new Composite(viewParent, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
-    statsParent.setLayout(new GridLayout(2, false));
+    final GridLayout statsParentLayout = new GridLayout(2, false);
+    statsParent.setLayout(statsParentLayout);
+    statsParent.addControlListener(new ControlListener() {
+      @Override public void controlResized(ControlEvent e) {
+        final int
+          curr = statsParentLayout.numColumns,
+          desired =
+            Math.max(1, statsParent.getBounds().width / HistogramViewer.MIN_DESIRED_WIDTH);
+        if (curr == desired) return;
+        statsParentLayout.numColumns = desired;
+        statsParent.layout(true);
+      }
+      @Override public void controlMoved(ControlEvent e) {}
+    });
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
         try {

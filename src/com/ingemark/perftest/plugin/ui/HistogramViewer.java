@@ -27,10 +27,15 @@ import com.ingemark.perftest.Stats;
 
 public class HistogramViewer implements PaintListener
 {
-  private static final int FULL_TOTAL_BAR_HEIGHT = 100;
   static final int
-    HIST_HEIGHT_SCALE = 1, HIST_BAR_WIDTH = 1, HIST_XOFFSET = 50, METER_SCALE = 50,
-    TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH;
+    HIST_BAR_WIDTH = 1,
+    HIST_XOFFSET = 50,
+    MIN_DESIRED_TOTALBARS = 10,
+    TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH,
+    MIN_DESIRED_WIDTH = TOTAL_REQS_OFFSET + HIST_BAR_WIDTH*MIN_DESIRED_TOTALBARS,
+    FULL_TOTAL_BAR_HEIGHT = 100,
+    HIST_HEIGHT_SCALE = 1,
+    METER_SCALE = 50;
   final int histYoffset;
   final Canvas canvas;
   final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
@@ -139,7 +144,7 @@ public class HistogramViewer implements PaintListener
   void paintTotalReqs() {
     final int
       maxTotalBars = 1 +
-        (canvas.getClientArea().width - HIST_XOFFSET - HIST_SIZE*HIST_BAR_WIDTH) / HIST_BAR_WIDTH,
+        (canvas.getClientArea().width - TOTAL_REQS_OFFSET) / HIST_BAR_WIDTH,
     fullTotalBars = min(stats.pendingReqs/FULL_TOTAL_BAR_HEIGHT, maxTotalBars),
     lastTotalBarHeight = stats.pendingReqs%FULL_TOTAL_BAR_HEIGHT;
     paintBar(colTotalReq, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
