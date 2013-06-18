@@ -33,6 +33,7 @@ public class HistogramViewer implements PaintListener
     MIN_DESIRED_TOTALBARS = 10,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH,
     MIN_DESIRED_WIDTH = TOTAL_REQS_OFFSET + HIST_BAR_WIDTH*MIN_DESIRED_TOTALBARS,
+    DESIRED_HEIGHT = 200,
     FULL_TOTAL_BAR_HEIGHT = 100,
     HIST_HEIGHT_SCALE = 1,
     METER_SCALE = 50;
@@ -163,34 +164,36 @@ public class HistogramViewer implements PaintListener
     gc.setForeground(color(SWT.COLOR_BLACK));
     gc.setBackground(color(SWT.COLOR_WHITE));
     final FontMetrics m = gc.getFontMetrics();
-    y = canvas.getClientArea().height-m.getLeading()-m.getAscent()-y;
+    y = histHeight()-m.getLeading()-m.getAscent()-y;
     if (fitHeight) y = max(y, 0);
     gc.drawString(s, x, y);
     return new Point(x, y);
   }
   void drawHorLine(Color color, int x, int y, int len) {
     gc.setForeground(color);
-    final int height = canvas.getClientArea().height;
+    final int height = histHeight();
     gc.drawLine(x, height-y, x+len-1, height-y);
   }
   void drawVerLine(Color color, int x, int y, int len) {
     gc.setForeground(color);
-    final int height = canvas.getClientArea().height;
+    final int height = histHeight();
     gc.drawLine(x, max(0, height-y-1), x, max(0, height-y-len));
   }
   void paintRect(Color color, int x, int y, int width, int height) {
     if (height == 0 || width == 0) return;
     if (width == 1) {drawVerLine(color, x, y, height); return;}
     if (height == 1) {drawHorLine(color, x, y, width); return;}
-    final Rectangle area = canvas.getClientArea();
+    final int histHeight = histHeight();
     gc.setBackground(color);
-    height = min(height, area.height-y);
-    gc.fillRectangle(x, max(0, area.height-y-height), width, height);
+    height = min(height, histHeight-y);
+    gc.fillRectangle(x, max(0, histHeight-y-height), width, height);
   }
   void paintBar(Color color, int pos, int barCount, int barHeight) {
     paintRect(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
         barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE);
   }
+
+  int histHeight() { return Math.min(DESIRED_HEIGHT, canvas.getClientArea().height); }
 
   Color color(int id) { return Display.getCurrent().getSystemColor(id); }
 

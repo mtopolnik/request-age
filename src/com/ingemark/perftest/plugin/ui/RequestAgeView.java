@@ -9,6 +9,11 @@ import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
 import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
 import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
 import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static com.ingemark.perftest.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
+import static com.ingemark.perftest.plugin.ui.HistogramViewer.MIN_DESIRED_WIDTH;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.signum;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -25,6 +30,7 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
@@ -77,18 +83,6 @@ public class RequestAgeView extends ViewPart
     gridData().grab(true, true).applyTo(statsParent);
     final GridLayout statsParentLayout = new GridLayout(2, false);
     statsParent.setLayout(statsParentLayout);
-    statsParent.addControlListener(new ControlListener() {
-      @Override public void controlResized(ControlEvent e) {
-        final int
-          curr = statsParentLayout.numColumns,
-          desired =
-            Math.max(1, statsParent.getBounds().width / HistogramViewer.MIN_DESIRED_WIDTH);
-        if (curr == desired) return;
-        statsParentLayout.numColumns = desired;
-        statsParent.layout(true);
-      }
-      @Override public void controlMoved(ControlEvent e) {}
-    });
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
         try {
@@ -114,7 +108,21 @@ public class RequestAgeView extends ViewPart
                   @Override public void mouseDown(MouseEvent e) {}
                 });
               }
+              statsParent.addControlListener(new ControlListener() {
+                @Override public void controlResized(ControlEvent e) {
+                  final Rectangle bounds = statsParent.getBounds();
+                  final int
+                    availRows = max(1, bounds.height/DESIRED_HEIGHT),
+                    maxCols = indices.size()/availRows + (int)signum(indices.size() % availRows),
+                    desiredCols = max(1, min(maxCols, bounds.width / MIN_DESIRED_WIDTH));
+                  if (desiredCols == statsParentLayout.numColumns) return;
+                  statsParentLayout.numColumns = desiredCols;
+                  statsParent.setLayout(statsParentLayout);
+                }
+                @Override public void controlMoved(ControlEvent e) {}
+              });
               viewParent.layout(true);
+              statsParent.notifyListeners(SWT.Resize, new Event());
               viewParent.notifyListeners(SWT.Paint, new Event());
               show();
           }});
