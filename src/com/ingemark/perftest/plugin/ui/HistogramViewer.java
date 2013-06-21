@@ -80,16 +80,17 @@ public class HistogramViewer implements PaintListener
         if (label >= 3000) break loop;
         final int y = histYoffset + tickMarkY(exp, i);
         drawHorLine(color(SWT.COLOR_BLACK), 15, y, 5);
-        if (i == 2 || i == 10)
-          printString(String.valueOf(label), 8+15, y-labelOffset);
+        if (i == 10) printString(String.valueOf(label), 8+15, y-labelOffset);
       }
     for (int i = 0;; i++) {
       final int barIndex = i*TIMESLOTS_PER_SEC;
       final int xPos = HIST_XOFFSET + barIndex*HIST_BAR_WIDTH;
       drawVerLine(color(SWT.COLOR_BLACK), xPos, m.getHeight()+3, 5);
-      final String label = String.valueOf(i);
-      final Point ext = gc.stringExtent(label);
-      printString(label, xPos - ext.x/2, 2);
+      if (i % 2 == 0) {
+        final String label = String.valueOf(i);
+        final Point ext = gc.stringExtent(label);
+        printString(label, xPos - ext.x/2, 2);
+      }
       if (barIndex >= HIST_SIZE) break;
     }
     gc.dispose();
