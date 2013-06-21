@@ -197,7 +197,7 @@ public class JsHttp extends BaseFunction
   }
 
   private static Map<String, Acceptor> hashMap(Object... kvs) {
-    final Map<String, Acceptor> r = new HashMap<>();
+    final Map<String, Acceptor> r = new HashMap<String, Acceptor>();
     for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
     return r;
   }

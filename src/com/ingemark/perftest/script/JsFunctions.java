@@ -6,17 +6,13 @@ import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;
 import static org.slf4j.LoggerFactory.getLogger;
 
-import java.io.IOException;
 import java.io.StringReader;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-import javax.xml.stream.XMLStreamException;
-
 import org.jdom2.Document;
 import org.jdom2.Element;
-import org.jdom2.JDOMException;
 import org.jdom2.Namespace;
 import org.jdom2.input.StAXStreamBuilder;
 import org.jdom2.xpath.XPathExpression;
@@ -39,9 +35,9 @@ public class JsFunctions {
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
   static { readerCfg.configureForSpeed(); }
-  private static final Map<String, Namespace> nsmap = new ConcurrentHashMap<>();
-  private static final Map<String, XPathExpression<Object>> xpathmap = new ConcurrentHashMap<>();
-  private static final Map<String, Pattern> regexmap = new ConcurrentHashMap<>();
+  private static final Map<String, Namespace> nsmap = concHashMap();
+  private static final Map<String, XPathExpression<Object>> xpathmap = concHashMap();
+  private static final Map<String, Pattern> regexmap = concHashMap();
 
   public static Namespace nsdecl(String prefix, String url) {
     final Namespace ns = ns(prefix, url);
@@ -66,7 +62,7 @@ public class JsFunctions {
         in instanceof Response?
            ByteSourceBootstrapper.construct(readerCfg, ((Response)in).getResponseBodyAsStream())
            : CharSourceBootstrapper.construct(readerCfg, new StringReader((String)in))));
-    } catch (JDOMException | XMLStreamException | IOException e) { return sneakyThrow(e); }
+    } catch (Exception e) { return sneakyThrow(e); }
   }
   public static XPathExpression xpath(String expr) {
     XPathExpression x = xpathmap.get(expr);
@@ -95,4 +91,6 @@ public class JsFunctions {
            : o instanceof NativeJavaObject? (T)((NativeJavaObject)o).unwrap()
            : (T)o;
   }
+
+  private static <K,V> Map<K,V> concHashMap() { return new ConcurrentHashMap<K,V>(); }
 }

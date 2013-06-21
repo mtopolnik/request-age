@@ -67,7 +67,7 @@ public class StressTester implements Runnable
       return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
   }});
   final AsyncHttpClient client;
-  final Map<String, LiveStats> lsmap = new HashMap<>();
+  final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();
   final JsScope jsScope;
   private final ClientBootstrap netty;
   final Channel channel;
@@ -169,13 +169,13 @@ public class StressTester implements Runnable
   @Override public void run() { jsScope.call("test"); }
 
   ArrayList<Integer> collectIndices() {
-    final ArrayList<Integer> ret = new ArrayList<>();
+    final ArrayList<Integer> ret = new ArrayList<Integer>();
     for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
     return ret;
   }
 
   List<Stats> stats() {
-    final List<Stats> ret = new ArrayList<>(lsmap.size());
+    final List<Stats> ret = new ArrayList<Stats>(lsmap.size());
     for (LiveStats ls : lsmap.values()) {
       final Stats stats = ls.stats(updateDivisor);
       if (stats != null) ret.add(stats);

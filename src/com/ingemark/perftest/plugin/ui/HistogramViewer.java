@@ -7,6 +7,7 @@ import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
@@ -99,7 +100,7 @@ public class HistogramViewer implements PaintListener
 
   void statsUpdate(Stats stats) {
     final long now = now();
-    if (now-numbersLastUpdated > 200_000_000) {
+    if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
       numbersLastUpdated = now;
       printedReqsPerSec = stats.reqsPerSec;
       printedPendingReqs = stats.pendingReqs;

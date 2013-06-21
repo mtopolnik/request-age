@@ -4,6 +4,7 @@ Bundle-Name: Stress Testing Plug-in
 Bundle-SymbolicName: com.ingemark.stresstest;singleton:=true
 Bundle-Version: 1.2.0.qualifier
 Bundle-Vendor: Inge-mark
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
  org.eclipse.debug.core,

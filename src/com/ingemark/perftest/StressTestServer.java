@@ -21,6 +21,7 @@ import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.eclipse.debug.core.DebugPlugin.newProcess;
 import static org.eclipse.debug.core.ILaunchManager.RUN_MODE;
@@ -60,7 +61,6 @@ public class StressTestServer implements IStressTestServer
 {
   static final Logger log = getLogger(StressTestServer.class);
   public static final int NETTY_PORT = 49131;
-  private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
   private final String filename;
   private final AtomicBoolean shuttingDown = new AtomicBoolean();
@@ -216,10 +216,10 @@ public class StressTestServer implements IStressTestServer
   }
 
   void receivedStats(final Stats[] stats) {
-    final long enqueuedAt = now()/NS_TO_MS;
+    final long enqueuedAt = NANOSECONDS.toMillis(now());
     Display.getDefault().asyncExec(new Runnable() {
       public void run() {
-        final long start = now()/NS_TO_MS;
+        final long start = NANOSECONDS.toMillis(now());
         if (eventReceiver.isDisposed()) return;
         for (Stats s : stats) {
           final Event e = new Event();
@@ -229,7 +229,7 @@ public class StressTestServer implements IStressTestServer
         final Rectangle area = eventReceiver.getBounds();
         eventReceiver.redraw(0, 0, area.width, area.height, true);
 //        eventReceiver.update();
-        final long end = now()/NS_TO_MS;
+        final long end = NANOSECONDS.toMillis(now());
         final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
         refreshTimes[toIndex(refreshTimes, refreshTimeslot++)] = elapsed;
         final int avgRefresh = arraySum(refreshTimes)/refreshTimes.length;
