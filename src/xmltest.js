@@ -9,11 +9,11 @@ function init() {
 }
 
 function test() {
-   return req("get").get("http://localhost:8080/g").go(function(r) {
+   return req("get").get("http://192.168.1.68:8080/g").go(function(r) {
       return req("post").post(r.stringBody()).body(
             spy("Posting xml", xml("root", ns("a")).el("child").textel("txt", "g"))
       ).go(function(r) {
-         return req("get2").get("http://localhost:8080/" + 
+         return req("get2").get("http://192.168.1.68:8080/" + 
                xpath("/a:root/a:child/a:txt/text()").evaluate(r.xmlBody())[0])
                .go(function(r) { if (i.getAndIncrement() > 100) throw "wrong answer"; });
       })

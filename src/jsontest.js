@@ -1,4 +1,6 @@
 function conf(b) {
+   format = java.lang.String.format;
+   urlBase = "http://192.168.18.146:8080";
 }
 
 function init() {
@@ -7,10 +9,10 @@ function init() {
 }
 
 function test() {
-   req("get").get("http://localhost:8080/g").go(function(r) {
+   req("get").get(format("%s/g",urlBase)).go(function(r) {
       req("post").post(r.stringBody()).body({root:{child:{txt:"g"}}})
       .go(function(r) {
-    	  req("get22").get("http://localhost:8080/" + r.jsonBody().root.child.txt)
+    	  req("get22").get(format("%s/%s", urlBase, r.jsonBody().root.child.txt))
     	  .go(null);
       })
    });
