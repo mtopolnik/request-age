@@ -9,7 +9,7 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
-public class StressTestActivator extends AbstractUIPlugin
+public class StressTestPlugin extends AbstractUIPlugin
 {
   public static final String
     STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
@@ -18,7 +18,7 @@ public class StressTestActivator extends AbstractUIPlugin
     EVT_INIT_HIST = 1025,
     EVT_ERROR = 1026,
     STATS_EVTYPE_BASE = 2048;
-  static StressTestActivator instance;
+  static StressTestPlugin instance;
   private Bundle bundle;
 
   @Override public void start(BundleContext context) throws Exception {
@@ -28,7 +28,7 @@ public class StressTestActivator extends AbstractUIPlugin
   @Override public void stop(BundleContext context) throws Exception {
     instance = null;
   }
-  public static StressTestActivator stressTestPlugin() {
+  public static StressTestPlugin stressTestPlugin() {
     return instance;
   }
   public Bundle bundle() { return bundle; }
