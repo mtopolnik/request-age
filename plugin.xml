@@ -16,8 +16,13 @@
       </perspectiveExtension>
    </extension>
    <extension point="org.eclipse.debug.ui.launchShortcuts">
-      <shortcut id="com.ingemark.perftest.launchShortcut" class="com.ingemark.perftest.plugin.LaunchShortcut"
-         label="Stress Test" icon="img/perftest.gif" modes="run">
+      <shortcut
+            class="com.ingemark.perftest.plugin.LaunchShortcut"
+            description="Launch the current selection as a stress testing script"
+            icon="img/perftest.gif"
+            id="com.ingemark.perftest.launchShortcut"
+            label="Stress Test"
+            modes="run">
          <contextualLaunch>
             <contextLabel mode="run" label="Stress test" />
             <enablement>
