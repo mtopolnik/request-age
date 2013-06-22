@@ -3,12 +3,12 @@ package com.ingemark.perftest.plugin.ui;
 import static com.ingemark.perftest.Message.EXCEPTION;
 import static com.ingemark.perftest.Util.gridData;
 import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
-import static com.ingemark.perftest.plugin.StressTestActivator.STATS_EVTYPE_BASE;
-import static com.ingemark.perftest.plugin.StressTestActivator.STRESSTEST_VIEW_ID;
-import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_ERROR;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_INIT_HIST;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.perftest.plugin.StressTestPlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.perftest.plugin.StressTestPlugin.STRESSTEST_VIEW_ID;
+import static com.ingemark.perftest.plugin.StressTestPlugin.stressTestPlugin;
 import static com.ingemark.perftest.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
 import static com.ingemark.perftest.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
@@ -49,11 +49,12 @@ public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
   private static final int MIN_THROTTLE = 50;
+  private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView instance;
   public Composite statsParent;
   private ProgressDialog pd;
   private Scale throttle;
-  private IStressTestServer testServer = StressTestServer.NULL;
+  private volatile IStressTestServer testServer = StressTestServer.NULL;
   private Action stopAction;
   private Composite viewParent;
 
@@ -64,7 +65,7 @@ public class RequestAgeView extends ViewPart
     stopAction = new Action() {
       final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
       @Override public ImageDescriptor getImageDescriptor() { return img; }
-      @Override public void run() { shutdown(); }
+      @Override public void run() { shutdownAndNewStatsParent(); }
     };
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
@@ -86,7 +87,10 @@ public class RequestAgeView extends ViewPart
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
         try {
-          shutdown();
+          pd = new ProgressDialog("Starting Stress Test", 203, new Runnable() {
+            @Override public void run() { shutdownAndThen(DO_NOTHING); }
+          });
+          newStatsParent();
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
@@ -132,10 +136,12 @@ public class RequestAgeView extends ViewPart
               InfoDialog.show(new DialogInfo("Stress testing error", ((Throwable)e.data)));
             }
           });
-          pd = new ProgressDialog(RequestAgeView.this, "Starting Stress Test", 158);
-          testServer = new StressTestServer(statsParent, (String)event.data);
-          testServer.start(pd.pm());
-          stopAction.setEnabled(true);
+          shutdownAndThen(new Runnable() { @Override public void run() {
+            testServer = new StressTestServer(statsParent, (String)event.data)
+              .progressMonitor(pd.pm());
+            testServer.start();
+            stopAction.setEnabled(true);
+          }});
         }
         catch (Throwable t) {
           if (pd != null) pd.close();
@@ -144,11 +150,18 @@ public class RequestAgeView extends ViewPart
       }});
   }
 
-  public void shutdown() {
-    testServer.shutdown();
-    testServer = StressTestServer.NULL;
+  public void shutdownAndNewStatsParent() {
     newStatsParent();
+    pd = new ProgressDialog("Shutting down Stress Test", 15, DO_NOTHING).cancelable(false);
+    shutdownAndThen(new Runnable() {@Override public void run() { pd.pm().done(); }});
+  }
+
+  private void shutdownAndThen(Runnable andThen) {
+    testServer.progressMonitor(pd.pm());
     stopAction.setEnabled(false);
+    final IStressTestServer ts = testServer;
+    testServer = StressTestServer.NULL;
+    ts.shutdown(andThen);
   }
 
   static String joinPath(String[] ps) {
@@ -158,7 +171,8 @@ public class RequestAgeView extends ViewPart
   }
 
   static int pow(int in) { return (int)Math.pow(10, in/100d); }
-  @Override public void dispose() { shutdown(); }
+
+  @Override public void dispose() { shutdownAndThen(DO_NOTHING);}
 
   @Override public void setFocus() { throttle.setFocus(); }
 

@@ -1,6 +1,7 @@
 package com.ingemark.perftest.plugin.ui;
 
 import static com.ingemark.perftest.Util.gridData;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import org.eclipse.core.runtime.IProgressMonitorWithBlocking;
 import org.eclipse.core.runtime.IStatus;
@@ -22,22 +23,24 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
+import org.slf4j.Logger;
 
 public class ProgressDialog extends IconAndMessageDialog
 {
+  private static final Logger log = getLogger(ProgressDialog.class);
   private static String DEFAULT_TASKNAME =
       JFaceResources.getString("ProgressMonitorDialog.message");
   private static int LABEL_DLUS = 21, BAR_DLUS = 9;
   private final ProgressMonitor progressMonitor = new ProgressMonitor();
-  private final RequestAgeView rav;
+  private final Runnable onCancel;
   private ProgressIndicator progressIndicator;
   private Label subTaskLabel;
   private Button cancel;
   private String task;
 
-  public ProgressDialog(RequestAgeView rav, String taskName, int totalWork) {
+  public ProgressDialog(String taskName, int totalWork, Runnable onCancel) {
     super(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell());
-    this.rav = rav;
+    this.onCancel = onCancel;
     setShellStyle(getDefaultOrientation() | SWT.BORDER | SWT.TITLE | SWT.APPLICATION_MODAL |
         (isResizable()? SWT.RESIZE | SWT.MAX : 0));
     setBlockOnOpen(false);
@@ -51,12 +54,16 @@ public class ProgressDialog extends IconAndMessageDialog
     return result;
   }
 
+  public ProgressDialog cancelable(boolean cancelable) {
+    cancel.setEnabled(cancelable); return this;
+  }
+
   public ProgressMonitor pm() { return progressMonitor; }
 
   @Override protected void cancelPressed() {
     cancel.setEnabled(false);
     progressMonitor.setCanceled(true);
-    super.cancelPressed();
+    setReturnCode(CANCEL);
   }
 
   @Override protected void configureShell(final Shell shell) {
@@ -119,6 +126,7 @@ public class ProgressDialog extends IconAndMessageDialog
       }});
     }
     @Override public void done() {
+      log.debug("ProgressMonitor#done");
       swtAsync(new R() { void r() {
         if (progressIndicator.isDisposed()) return;
         progressIndicator.sendRemainingWork();
@@ -136,7 +144,7 @@ public class ProgressDialog extends IconAndMessageDialog
     @Override public void setCanceled(final boolean b) {
       swtAsync(new R() { void r() {
         canceled = b;
-        if (b) rav.shutdown();
+        if (b) onCancel.run();
         if (!b && locked) clearBlocked();
         if (b && !locked) setBlocked(new Status(CANCEL, "stresstest", "Canceled"));
       }});

@@ -15,9 +15,10 @@ import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.Util.swtSend;
 import static com.ingemark.perftest.Util.toIndex;
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_ERROR;
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_INIT_HIST;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_ERROR;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_INIT_HIST;
 import static java.lang.Math.max;
+import static java.lang.Thread.currentThread;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -31,8 +32,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.net.InetSocketAddress;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.Launch;
@@ -51,7 +52,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.plugin.StressTestActivator;
+import com.ingemark.perftest.plugin.StressTestPlugin;
 import com.ingemark.perftest.plugin.ui.InfoDialog;
 import com.ingemark.perftest.plugin.ui.ProgressDialog.ProgressMonitor;
 
@@ -62,85 +63,57 @@ public class StressTestServer implements IStressTestServer
   private static final int NS_TO_MS = 1_000_000;
   private final Control eventReceiver;
   private final String filename;
+  private final AtomicBoolean shuttingDown = new AtomicBoolean();
   private volatile ServerBootstrap netty;
-  private int refreshTimeslot = Integer.MIN_VALUE;
-  private Process subprocess;
   private volatile Channel channel;
   private volatile int[] refreshTimes;
   private volatile int maxRefreshTime, refreshDivisor = 1;
   private volatile long guiSlowSince, guiFastSince;
-  private ProgressMonitor pm;
   private volatile int workIncrement = 256;
-  private Thread initThread;
+  private volatile Thread initThread;
+  private volatile int refreshTimeslot = Integer.MIN_VALUE;
+  private volatile Process subprocess;
+  private volatile ProgressMonitor pm;
 
   public StressTestServer(Control c, String filename) {
     this.eventReceiver = c;
     this.filename = filename;
   }
 
-  @Override public Thread start(ProgressMonitor ipm) {
-    this.pm = ipm;
-    initThread = new Thread(new Runnable() { @Override public void run() {
+  @Override public void start() {
+    this.initThread = currentThread();
+    try {
       pm.subTask("Starting netty");
-      netty = netty();
-      pm.worked(10);
+      this.netty = netty();
+      pm.worked(20);
       pm.subTask("Launching subprocess");
-      subprocess = launchTester(filename);
+      this.subprocess = launchTester(filename);
+      this.initThread = null;
       final Launch launch = new Launch(null, RUN_MODE, null);
       newProcess(launch, subprocess, "Stress Test");
       DebugPlugin.getDefault().getLaunchManager().addLaunch(launch);
-      pm.worked(10);
+      pm.worked(20);
       pm.subTask("Listening for messages from the subprocess");
-    }});
-    initThread.start();
-    return initThread;
+      log.debug("Listening for messages from the subprocess");
+    } catch (Throwable t) { pm.done(); }
+  }
+
+  @Override public StressTestServer progressMonitor(ProgressMonitor ipm) {
+    this.pm = ipm; return this;
   }
 
   @Override public void send(Message msg) { nettySend(channel, msg); }
 
   @Override public void intensity(int intensity) { send(new Message(INTENSITY, intensity)); }
 
-  @Override public void shutdown() {
-    final ScheduledExecutorService sched = newScheduledThreadPool(2);
-    try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
-    catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
-    final ScheduledFuture<?> normalShutdown = sched.schedule(new Runnable() { public void run() {
-      try {
-        if (initThread != null) {
-          initThread.interrupt();
-          initThread.join(SECONDS.toMillis(5));
-        }
-      }
-      catch (Throwable t) { log.error("Joining init thread interrupted", t); }
-      try {
-        if (subprocess == null) return;
-        log.debug("Waiting for the Stress Tester subprocess to end");
-        subprocess.waitFor();
-      }
-      catch (Throwable t) { log.error("Waiting for subprocess interrupted", t); }
-      if (netty == null) return;
-      try {
-        log.debug("Shutting down netty");
-        netty.shutdown();
-        netty.releaseExternalResources();
-      }
-      catch (Throwable t) { log.error("Error while stopping netty", t); }
-      finally {
-        if (pm != null) pm.done();
-        sched.shutdown();
-      }
-    }}, 0, TimeUnit.SECONDS);
-    try {
-      sched.schedule(new Runnable() { @Override public void run() {
-        try {
-          if (normalShutdown.isDone()) return;
-          log.debug("Normal shutdown failed. Destroying subprocess.");
-          subprocess.destroy();
-        }
-        catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
-      }}, 5, TimeUnit.SECONDS);
-    } catch (RejectedExecutionException e) {}
-  };
+  private boolean shutdownDone(Runnable andThen) {
+    final boolean stillUp = shuttingDown.getAndSet(false);
+    if (stillUp) {
+      andThen.run();
+      if (pm.isCanceled()) pm.done();
+    }
+    return !stillUp;
+  }
 
   ServerBootstrap netty() {
     log.info("Starting Server Netty");
@@ -153,14 +126,17 @@ public class StressTestServer implements IStressTestServer
           final Message msg = (Message)e.getMessage();
           switch (msg.type) {
           case INIT:
+            if (pm.isCanceled()) break;
             pm.subTask("Awaiting response to " + msg.value.toString());
-            pm.worked((workIncrement >>= 1) == 128? 10 : workIncrement);
+            pm.worked((workIncrement >>= 1) == 128? 20 : workIncrement);
             break;
           case INITED:
             channel = ctx.getChannel();
             refreshDivisorChanged();
-            pm.done();
-            swtSend(EVT_INIT_HIST, msg.value);
+            if (!pm.isCanceled()) {
+              pm.done();
+              swtSend(EVT_INIT_HIST, msg.value);
+            }
             break;
           case ERROR:
             swtSend(EVT_ERROR, msg.value);
@@ -184,6 +160,55 @@ public class StressTestServer implements IStressTestServer
     return b;
   }
 
+  @Override public void shutdown(final Runnable andThen) {
+    if (shuttingDown.getAndSet(true))
+      throw new RuntimeException("Called StressTestServer#shutdown while shutdown in progress");
+    final ScheduledExecutorService sched = newScheduledThreadPool(2);
+    try { nettySend(channel, new Message(SHUTDOWN, 0), true); }
+    catch (Throwable t) { log.warn("Failed to send shutdown message to stress tester", t); }
+    sched.schedule(new Runnable() { public void run() {
+      try {
+        if (initThread != null) {
+          pm.subTask("Aborting any startup procedure");
+          log.debug("Aborting startup procedure");
+          initThread.interrupt();
+          initThread.join(SECONDS.toMillis(5));
+        }
+      }
+      catch (Throwable t) { log.error("Joining init thread interrupted", t); }
+      pm.worked(5);
+      if (subprocess != null) try {
+        pm.subTask("Waiting for the subprocess to end");
+        log.debug("Waiting for the Stress Tester subprocess to end");
+        subprocess.waitFor();
+      }
+      catch (Throwable t) { log.error("Waiting for subprocess interrupted", t); }
+      pm.worked(5);
+      pm.subTask("Shutting down netty");
+      if (netty == null) return;
+      try {
+        log.debug("Shutting down netty");
+        netty.shutdown();
+        netty.releaseExternalResources();
+      }
+      catch (Throwable t) { log.error("Error while stopping netty", t); }
+      pm.subTask("Shutdown complete");
+      pm.worked(5);
+      shutdownDone(andThen);
+      log.debug("Normal shutdown done");
+      sched.shutdown();
+    }}, 0, TimeUnit.SECONDS);
+    try {
+      sched.schedule(new Runnable() { @Override public void run() {
+        if (!shutdownDone(andThen)) try {
+          log.debug("Normal shutdown still not done. Destroying subprocess.");
+          subprocess.destroy();
+        }
+        catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
+      }}, initThread!=null && initThread.isAlive()? 10 : 5, TimeUnit.SECONDS);
+    } catch (RejectedExecutionException e) {}
+  }
+
   void refreshDivisorChanged() {
     send(new Message(DIVISOR, refreshDivisor));
     refreshTimes = new int[(5 * TIMESLOTS_PER_SEC) / refreshDivisor];
@@ -199,7 +224,7 @@ public class StressTestServer implements IStressTestServer
         for (Stats s : stats) {
           final Event e = new Event();
           e.data = s;
-          eventReceiver.notifyListeners(StressTestActivator.STATS_EVTYPE_BASE + s.index, e);
+          eventReceiver.notifyListeners(StressTestPlugin.STATS_EVTYPE_BASE + s.index, e);
         }
         final Rectangle area = eventReceiver.getBounds();
         eventReceiver.redraw(0, 0, area.width, area.height, true);
@@ -244,9 +269,10 @@ public class StressTestServer implements IStressTestServer
   }
 
   public static final IStressTestServer NULL = new IStressTestServer() {
-    @Override public Thread start(ProgressMonitor pm) { return null; }
+    @Override public void start() { }
     @Override public void intensity(int intensity) { }
-    @Override public void shutdown() { }
+    @Override public void shutdown(Runnable r) { r.run(); }
     @Override public void send(Message msg) { }
+    @Override public IStressTestServer progressMonitor(ProgressMonitor ipm) { return this; }
   };
 }

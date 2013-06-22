@@ -5,7 +5,8 @@ import com.ingemark.perftest.plugin.ui.ProgressDialog.ProgressMonitor;
 
 public interface IStressTestServer {
   void intensity(int intensity);
-  void shutdown();
+  void shutdown(Runnable andThen);
   void send(Message msg);
-  Thread start(ProgressMonitor ipm);
+  void start();
+  IStressTestServer progressMonitor(ProgressMonitor ipm);
 }

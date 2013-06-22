@@ -1,6 +1,6 @@
 package com.ingemark.perftest.plugin;
 
-import static com.ingemark.perftest.plugin.StressTestActivator.EVT_RUN_SCRIPT;
+import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_RUN_SCRIPT;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.debug.ui.ILaunchShortcut;

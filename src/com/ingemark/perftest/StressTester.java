@@ -12,7 +12,7 @@ import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.plugin.StressTestActivator.stressTestPlugin;
+import static com.ingemark.perftest.plugin.StressTestPlugin.stressTestPlugin;
 import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
