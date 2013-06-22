@@ -170,7 +170,7 @@ public class StressTestServer implements IStressTestServer
       try {
         if (initThread != null) {
           pm.subTask("Aborting any startup procedure");
-          log.debug("Aborting startup procedure");
+          log.debug("Interrupting startup thread");
           initThread.interrupt();
           initThread.join(SECONDS.toMillis(5));
         }
@@ -195,13 +195,13 @@ public class StressTestServer implements IStressTestServer
       pm.subTask("Shutdown complete");
       pm.worked(5);
       shutdownDone(andThen);
-      log.debug("Normal shutdown done");
+      log.debug("Shutdown done");
       sched.shutdown();
     }}, 0, TimeUnit.SECONDS);
     try {
       sched.schedule(new Runnable() { @Override public void run() {
         if (!shutdownDone(andThen)) try {
-          log.debug("Normal shutdown still not done. Destroying subprocess.");
+          log.debug("Shutdown still not done. Destroying subprocess.");
           subprocess.destroy();
         }
         catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
