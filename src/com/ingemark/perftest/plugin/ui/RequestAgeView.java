@@ -133,6 +133,7 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
               if (pd != null) pd.close();
+              stopAction.setEnabled(false);
               InfoDialog.show(new DialogInfo("Stress testing error", ((Throwable)e.data)));
             }
           });
