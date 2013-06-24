@@ -8,8 +8,9 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -31,14 +32,17 @@ import com.fasterxml.aalto.stax.StreamReaderImpl;
 import com.ning.http.client.Response;
 
 public class JsFunctions {
+  private static final int COMPILED_EXPR_CACHE_LIMIT = 256;
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "xpath", "spy"
+    "nsdecl", "ns", "xml", "parseXml", "xpath", "regex", "spy"
   };
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
   static { readerCfg.configureForSpeed(); }
-  static final Map<String, Namespace> nsmap = new HashMap<>();
-  static final Map<String, XPathExpression<Object>> xpathmap = new HashMap<>();
+  private static final Map<String, Namespace> nsmap = new ConcurrentHashMap<>();
+  private static final Map<String, XPathExpression<Object>> xpathmap = new ConcurrentHashMap<>();
+  private static final Map<String, Pattern> regexmap = new ConcurrentHashMap<>();
+
   public static Namespace nsdecl(String prefix, String url) {
     final Namespace ns = ns(prefix, url);
     nsmap.put(prefix, ns);
@@ -55,22 +59,30 @@ public class JsFunctions {
     final Element el = cast(root, Element.class);
     return el != null? new JdomBuilder(el) : new JdomBuilder(cast(el, Document.class));
   }
-  public static Document parseXml(Object _in) {
-    _in = cast(_in, Object.class);
+  public static Document parseXml(Object in) {
+    in = cast(in, Object.class);
     try {
       return new StAXStreamBuilder().build(StreamReaderImpl.construct(
-        _in instanceof Response?
-           ByteSourceBootstrapper.construct(readerCfg, ((Response)_in).getResponseBodyAsStream())
-           : CharSourceBootstrapper.construct(readerCfg, new StringReader((String)_in))));
+        in instanceof Response?
+           ByteSourceBootstrapper.construct(readerCfg, ((Response)in).getResponseBodyAsStream())
+           : CharSourceBootstrapper.construct(readerCfg, new StringReader((String)in))));
     } catch (JDOMException | XMLStreamException | IOException e) { return sneakyThrow(e); }
   }
   public static XPathExpression xpath(String expr) {
     XPathExpression x = xpathmap.get(expr);
     if (x == null) {
       x = XPathFactory.instance().compile(expr, fpassthrough(), null, nsmap.values());
-      xpathmap.put(expr, x);
+      if (xpathmap.size() < COMPILED_EXPR_CACHE_LIMIT) xpathmap.put(expr, x);
     }
     return x;
+  }
+  public static Pattern regex(String regex) {
+    Pattern p = regexmap.get(regex);
+    if (p == null) {
+      p = Pattern.compile(regex);
+      if (regexmap.size() < COMPILED_EXPR_CACHE_LIMIT) regexmap.put(regex, p);
+    }
+    return p;
   }
   public static <T> T spy(String msg, T ret) {
     jsLogger.debug("{}: {}", msg,
