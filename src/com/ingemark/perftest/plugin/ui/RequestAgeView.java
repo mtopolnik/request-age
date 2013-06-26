@@ -61,7 +61,6 @@ public class RequestAgeView extends ViewPart
   public void createPartControl(final Composite p) {
     this.viewParent = p;
     instance = this;
-    p.setBackground(p.getDisplay().getSystemColor(SWT.COLOR_WHITE));
     p.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
       final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
@@ -71,6 +70,7 @@ public class RequestAgeView extends ViewPart
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
     throttle = new Scale(p, SWT.VERTICAL);
+    throttle.setBackground(p.getDisplay().getSystemColor(SWT.COLOR_WHITE));
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
