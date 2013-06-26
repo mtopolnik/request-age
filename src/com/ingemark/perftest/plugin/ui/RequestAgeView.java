@@ -30,6 +30,7 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
@@ -52,16 +53,18 @@ public class RequestAgeView extends ViewPart
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView instance;
   public Composite statsParent;
+  private volatile IStressTestServer testServer = StressTestServer.NULL;
+  private Composite viewParent;
   private ProgressDialog pd;
   private Scale throttle;
-  private volatile IStressTestServer testServer = StressTestServer.NULL;
   private Action stopAction;
-  private Composite viewParent;
 
-  public void createPartControl(final Composite p) {
-    this.viewParent = p;
+  public void createPartControl(Composite p) {
+    this.viewParent = new Composite(p, SWT.NONE);
+    final Color colWhite = p.getDisplay().getSystemColor(SWT.COLOR_WHITE);
+    viewParent.setBackground(colWhite);
     instance = this;
-    p.setLayout(new GridLayout(2, false));
+    viewParent.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
       final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
       @Override public ImageDescriptor getImageDescriptor() { return img; }
@@ -69,8 +72,8 @@ public class RequestAgeView extends ViewPart
     };
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
-    throttle = new Scale(p, SWT.VERTICAL);
-    throttle.setBackground(p.getDisplay().getSystemColor(SWT.COLOR_WHITE));
+    throttle = new Scale(viewParent, SWT.VERTICAL);
+    throttle.setBackground(colWhite);
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
