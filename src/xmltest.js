@@ -3,19 +3,22 @@ function conf(b) {
 
 function init() {
    nsdecl("a", "http://www.w3.org/2005/Atom");
+   urlBase = "http://localhost:8080";
    req.acceptableStatus("ok");
    i = java.util.concurrent.atomic.AtomicInteger();
    return test(); 
 }
 
 function test() {
-   return req("get").get("http://192.168.1.68:8080/g").go(function(r) {
-      return req("post").post(r.stringBody()).body(
+   req("get").get(urlBase+"/g").go(function(r) {
+      req("post").post(r.stringBody()).body(
             spy("Posting xml", xml("root", ns("a")).el("child").textel("txt", "g"))
       ).go(function(r) {
-         return req("get2").get("http://192.168.1.68:8080/" + 
-               xpath("/a:root/a:child/a:txt/text()").evaluate(r.xmlBody())[0])
-               .go(function(r) { if (i.getAndIncrement() > 100) throw "wrong answer"; });
+         var xml = r.xmlBody();
+         log.debug("get2 result: {}", prettify(xml)); 
+         req("get2").get(urlBase + "/" + 
+               xpath("/a:root/a:child/a:txt/text()").evaluate(xml)[0])
+               .go();
       })
    });
 }

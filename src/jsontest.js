@@ -1,6 +1,6 @@
 function conf(b) {
    format = java.lang.String.format;
-   urlBase = "http://192.168.18.146:8080";
+   urlBase = "http://localhost:8080";
 }
 
 function init() {
