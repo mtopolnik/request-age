@@ -1,6 +1,8 @@
 package com.ingemark.perftest;
 
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
@@ -115,5 +117,11 @@ public class Util
         shell.setCursor(cursorToSet);
         shell.setData(BUSYID_NAME, state? busyId : null);
       }
+  }
+  public static String excToString(Throwable t) {
+    if (t == null) return "";
+    final StringWriter sw = new StringWriter(256);
+    t.printStackTrace(new PrintWriter(sw));
+    return sw.toString();
   }
 }

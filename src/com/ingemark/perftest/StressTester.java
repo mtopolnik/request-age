@@ -9,6 +9,7 @@ import static com.ingemark.perftest.Message.INTENSITY;
 import static com.ingemark.perftest.Message.SHUTDOWN;
 import static com.ingemark.perftest.Message.STATS;
 import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
+import static com.ingemark.perftest.Util.excToString;
 import static com.ingemark.perftest.Util.join;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.sneakyThrow;
@@ -152,7 +153,7 @@ public class StressTester implements Runnable
     }
     catch (Throwable t) {
       log.error("Error while initializing", t);
-      nettySend(channel, new Message(ERROR, t));
+      nettySend(channel, new Message(ERROR, excToString(t)));
       shutdown();
     }
   }
