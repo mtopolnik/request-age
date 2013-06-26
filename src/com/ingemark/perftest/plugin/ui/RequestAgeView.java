@@ -73,7 +73,7 @@ public class RequestAgeView extends ViewPart
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
     throttle = new Scale(viewParent, SWT.VERTICAL);
-//    throttle.setBackground(colWhite);
+    throttle.setBackground(colWhite);
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
