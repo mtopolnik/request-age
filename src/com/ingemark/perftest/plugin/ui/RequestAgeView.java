@@ -73,7 +73,7 @@ public class RequestAgeView extends ViewPart
     stopAction.setEnabled(false);
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
     throttle = new Scale(viewParent, SWT.VERTICAL);
-    throttle.setBackground(colWhite);
+//    throttle.setBackground(colWhite);
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
@@ -86,7 +86,9 @@ public class RequestAgeView extends ViewPart
     if (statsParent != null) statsParent.dispose();
     statsParent = new Composite(viewParent, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
-    final GridLayout statsParentLayout = new GridLayout(2, false);
+    final GridLayout l = new GridLayout(2, false);
+    l.marginHeight = l.marginWidth = 0;
+    final GridLayout statsParentLayout = l;
     statsParent.setLayout(statsParentLayout);
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
