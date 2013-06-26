@@ -5,6 +5,7 @@ import static com.ingemark.perftest.StressTester.fac;
 import static com.ingemark.perftest.Util.nettySend;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.script.JsFunctions.parseXml;
+import static com.ingemark.perftest.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
 
@@ -25,10 +26,10 @@ import org.slf4j.LoggerFactory;
 
 import com.ingemark.perftest.script.JdomBuilder;
 import com.ning.http.client.AsyncCompletionHandlerBase;
-import com.ning.http.client.ProxyServer;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.AsyncHttpClientConfig.Builder;
+import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
 public class JsHttp extends BaseFunction
@@ -187,6 +188,7 @@ public class JsHttp extends BaseFunction
     private final Response r;
     BetterResponse(Response r) { this.r = r; }
     public Object xmlBody() { return parseXml(this.r); }
+    public Object prettyXmlBody() { return prettyXml(r); }
     public Object jsonBody() { return parse.call(getCurrentContext(), getParentScope(),
         JSON, new Object[] { responseBody(this.r) }); }
     public String stringBody() { return responseBody(this.r); }

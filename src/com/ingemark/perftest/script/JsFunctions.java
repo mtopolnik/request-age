@@ -9,6 +9,7 @@ import static org.jdom2.output.Format.getPrettyFormat;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Map;
@@ -36,7 +37,7 @@ import com.ning.http.client.Response;
 public class JsFunctions {
   private static final int COMPILED_EXPR_CACHE_LIMIT = 256;
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "prettify", "xpath", "regex", "spy"
+    "nsdecl", "ns", "xml", "parseXml", "prettyXml", "xpath", "regex", "spy"
   };
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
@@ -56,32 +57,37 @@ public class JsFunctions {
   }
   public static JdomBuilder xml(Object root, Object ns) {
     final String name = cast(root, String.class);
-    if (name != null)
-      return new JdomBuilder(name, cast(ns, Namespace.class));
+    if (name != null) return new JdomBuilder(name, cast(ns, Namespace.class));
     final Element el = cast(root, Element.class);
     return el != null? new JdomBuilder(el) : new JdomBuilder(cast(el, Document.class));
   }
   public static Document parseXml(Object in) {
-    in = cast(in, Object.class);
     try {
-      return new StAXStreamBuilder().build(StreamReaderImpl.construct(
-        in instanceof Response?
-           ByteSourceBootstrapper.construct(readerCfg, ((Response)in).getResponseBodyAsStream())
-           : CharSourceBootstrapper.construct(readerCfg, new StringReader((String)in))));
+      final Response r = cast(in, Response.class);
+      final InputStream is = r != null? r.getResponseBodyAsStream() : cast(in, InputStream.class);
+      final String s = is == null? cast(in, String.class) : null;
+      if (is == null && s == null) throw new IllegalArgumentException("Got " + in +
+          "; supporting HTTP Response, InputStream, or String");
+      return new StAXStreamBuilder().build(StreamReaderImpl.construct(is != null?
+          ByteSourceBootstrapper.construct(readerCfg, is)
+          : CharSourceBootstrapper.construct(readerCfg, new StringReader(s))));
     } catch (Exception e) { return sneakyThrow(e); }
   }
-  public static Object prettify(Object in) {
-    final Object o = cast(in, Object.class);
+  public static Object prettyXml(Object input) {
+    final Object o = cast(input, Object.class);
+    if (o == null) return "<!--undefined-->";
+    if (!(o instanceof Response) && !(o instanceof InputStream) &&
+        !(o instanceof Document) && !(o instanceof Content))
+      throw new IllegalArgumentException(
+          "Got " + o.getClass().getName() + ". Supporting HTTP Response, " +
+      		"InputStream, or JDOM2 Document/Content");
     return new Object() { @Override public String toString() {
-      if (o == null) return "<!--undefined-->";
-      if (!(o instanceof Document) && !(o instanceof Content))
-        throw new IllegalArgumentException("Supporting JDOM2 Document or Content, but got "
-            + o.getClass().getName());
+      final Object in = o instanceof Response || o instanceof InputStream? parseXml(o) : o;
       final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
       final StringWriter w = new StringWriter(256);
       try {
-        if (o instanceof Document) xo.output((Document)o, w);
-        else xo.output(asList((Content)o), w);
+        if (in instanceof Document) xo.output((Document)in, w);
+        else xo.output(asList((Content)in), w);
       } catch (IOException e) { return sneakyThrow(e); }
       return w.toString();
     }};
@@ -109,9 +115,9 @@ public class JsFunctions {
   }
 
   private static <T> T cast(Object o, Class<T> c) {
-    return o == Undefined.instance? null
-           : o instanceof NativeJavaObject? (T)((NativeJavaObject)o).unwrap()
-           : (T)o;
+    if (o == Undefined.instance) return null;
+    if (o instanceof NativeJavaObject) o = ((NativeJavaObject)o).unwrap();
+    return c.isInstance(o)? (T) o : null;
   }
 
   private static <K,V> Map<K,V> concHashMap() { return new ConcurrentHashMap<K,V>(); }
