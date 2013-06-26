@@ -34,22 +34,22 @@ import com.ning.http.client.Response;
 public class JsHttp extends BaseFunction
 {
   private static final Logger log = LoggerFactory.getLogger(JsHttp.class);
+  private static final Map<String, Acceptor> acceptors = hashMap(
+      "any", new Acceptor() { public boolean acceptable(Response r) { return true; } },
+      "success", new Acceptor() { public boolean acceptable(Response r) {
+        final int st = r.getStatusCode();
+        return st >= 200 && st < 400;
+      }},
+      "ok", new Acceptor() { public boolean acceptable(Response r) {
+        final int st = r.getStatusCode();
+        return st >= 200 && st < 300;
+      }}
+    );
   private final StressTester tester;
   private final ScriptableObject JSON;
   private final Callable stringify, parse;
-  private final Map<String, Acceptor> acceptors = hashMap(
-    "any", new Acceptor() { public boolean acceptable(Response r) { return true; } },
-    "success", new Acceptor() { public boolean acceptable(Response r) {
-      final int st = r.getStatusCode();
-      return st >= 200 && st < 400;
-    }},
-    "ok", new Acceptor() { public boolean acceptable(Response r) {
-      final int st = r.getStatusCode();
-      return st >= 200 && st < 300;
-    }}
-  );
   volatile int index;
-  volatile Acceptor acceptor = acceptors.get("all");
+  volatile Acceptor acceptor = acceptors.get("any");
 
   public JsHttp(ScriptableObject parentScope, StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));

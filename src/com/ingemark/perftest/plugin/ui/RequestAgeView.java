@@ -48,7 +48,7 @@ import com.ingemark.perftest.StressTestServer;
 public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
-  private static final int MIN_THROTTLE = 10, THROTTLE_SCALE_FACTOR = 4;
+  private static final int MIN_THROTTLE = 10, MAX_THROTTLE = 100, THROTTLE_SCALE_FACTOR = 3;
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView instance;
   public Composite statsParent;
@@ -61,6 +61,7 @@ public class RequestAgeView extends ViewPart
   public void createPartControl(final Composite p) {
     this.viewParent = p;
     instance = this;
+    p.setBackground(p.getDisplay().getSystemColor(SWT.COLOR_WHITE));
     p.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
       final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
@@ -71,7 +72,7 @@ public class RequestAgeView extends ViewPart
     getViewSite().getActionBars().getToolBarManager().add(stopAction);
     throttle = new Scale(p, SWT.VERTICAL);
     throttle.setMinimum(MIN_THROTTLE);
-    throttle.setMaximum(100);
+    throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
     });
