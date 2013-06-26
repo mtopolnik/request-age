@@ -36,7 +36,7 @@ import com.ning.http.client.Response;
 public class JsFunctions {
   private static final int COMPILED_EXPR_CACHE_LIMIT = 256;
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "toPrettyString", "xpath", "regex", "spy"
+    "nsdecl", "ns", "xml", "parseXml", "prettify", "xpath", "regex", "spy"
   };
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
@@ -70,19 +70,21 @@ public class JsFunctions {
            : CharSourceBootstrapper.construct(readerCfg, new StringReader((String)in))));
     } catch (Exception e) { return sneakyThrow(e); }
   }
-  public static String toPrettyString(Object in) {
-    in = cast(in, Object.class);
-    if (in == null) return "<!--undefined-->";
-    if (!(in instanceof Document) && !(in instanceof Content))
-      throw new IllegalArgumentException("Supporting JDOM2 Document or Content, but got "
-          + in.getClass().getName());
-    final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
-    final StringWriter w = new StringWriter(256);
-    try {
-      if (in instanceof Document) xo.output((Document)in, w);
-      else xo.output(asList((Content)in), w);
-    } catch (IOException e) { return sneakyThrow(e); }
-    return w.toString();
+  public static Object prettify(Object in) {
+    final Object o = cast(in, Object.class);
+    return new Object() { @Override public String toString() {
+      if (o == null) return "<!--undefined-->";
+      if (!(o instanceof Document) && !(o instanceof Content))
+        throw new IllegalArgumentException("Supporting JDOM2 Document or Content, but got "
+            + o.getClass().getName());
+      final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
+      final StringWriter w = new StringWriter(256);
+      try {
+        if (o instanceof Document) xo.output((Document)o, w);
+        else xo.output(asList((Content)o), w);
+      } catch (IOException e) { return sneakyThrow(e); }
+      return w.toString();
+    }};
   }
   public static XPathExpression xpath(String expr) {
     XPathExpression x = xpathmap.get(expr);
