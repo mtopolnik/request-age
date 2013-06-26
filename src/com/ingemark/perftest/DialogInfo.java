@@ -11,7 +11,10 @@ public class DialogInfo implements Serializable {
     this.title = ls.name + " - Last Reported Exception";
     this.msg = Util.excToString(ls.lastException);
   }
-  public DialogInfo(String title, Throwable exc) {
-    this.title = title; this.msg = excToString(exc);
+  public DialogInfo(String title, String msg) {
+    this.title = title; this.msg = msg;
+  }
+  public DialogInfo(String title, Throwable t) {
+    this.title = title; this.msg = excToString(t);
   }
 }
