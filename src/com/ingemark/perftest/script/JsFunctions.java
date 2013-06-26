@@ -56,18 +56,26 @@ public class JsFunctions {
     return uri != null? getNamespace(prefix, uri) : nsmap.get(prefix);
   }
   public static JdomBuilder xml(Object root, Object ns) {
+    root = cast(root, Object.class);
+    if (root == null) throw new NullPointerException("First argument is null/undefined");
     final String name = cast(root, String.class);
     if (name != null) return new JdomBuilder(name, cast(ns, Namespace.class));
     final Element el = cast(root, Element.class);
-    return el != null? new JdomBuilder(el) : new JdomBuilder(cast(el, Document.class));
+    if (el != null) return new JdomBuilder(el);
+    final Document doc = cast(el, Document.class);
+    if (doc != null) return new JdomBuilder(doc);
+    throw new IllegalArgumentException("Got " + root.getClass().getName() +
+        "; supporting Document, Element,  or String");
   }
   public static Document parseXml(Object in) {
     try {
+      in = cast(in, Object.class);
+      if (in == null) throw new NullPointerException("Argument is null/undefined");
       final Response r = cast(in, Response.class);
       final InputStream is = r != null? r.getResponseBodyAsStream() : cast(in, InputStream.class);
       final String s = is == null? cast(in, String.class) : null;
-      if (is == null && s == null) throw new IllegalArgumentException("Got " + in +
-          "; supporting HTTP Response, InputStream, or String");
+      if (is == null && s == null) throw new IllegalArgumentException("Got " +
+          in.getClass().getName() + "; supporting HTTP Response, InputStream, or String");
       return new StAXStreamBuilder().build(StreamReaderImpl.construct(is != null?
           ByteSourceBootstrapper.construct(readerCfg, is)
           : CharSourceBootstrapper.construct(readerCfg, new StringReader(s))));
@@ -76,13 +84,14 @@ public class JsFunctions {
   public static Object prettyXml(Object input) {
     final Object o = cast(input, Object.class);
     if (o == null) return "<!--undefined-->";
-    if (!(o instanceof Response) && !(o instanceof InputStream) &&
-        !(o instanceof Document) && !(o instanceof Content))
+    final boolean parseable =
+        o instanceof Response || o instanceof String || o instanceof InputStream;
+    if (!(parseable || o instanceof Document || o instanceof Content))
       throw new IllegalArgumentException(
-          "Got " + o.getClass().getName() + ". Supporting HTTP Response, " +
+          "Got " + o.getClass().getName() + ". Supporting HTTP Response, String, " +
       		"InputStream, or JDOM2 Document/Content");
     return new Object() { @Override public String toString() {
-      final Object in = o instanceof Response || o instanceof InputStream? parseXml(o) : o;
+      final Object in = parseable? parseXml(o) : o;
       final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
       final StringWriter w = new StringWriter(256);
       try {
