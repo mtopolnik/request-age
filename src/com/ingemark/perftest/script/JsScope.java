@@ -7,8 +7,9 @@ import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +77,7 @@ public class JsScope {
     fac.call(new ContextAction() {
       @Override public Object run(Context cx) {
         try {
-          final Reader js = new FileReader(fname);
+          final Reader js = new InputStreamReader(new FileInputStream(fname), "UTF-8");
           cx.evaluateReader(global, js, fname, 1, null);
           return null;
         } catch (IOException e) { return sneakyThrow(e); }
