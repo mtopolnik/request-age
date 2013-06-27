@@ -67,8 +67,8 @@ public class JsHttp extends BaseFunction
 
   public void initDone() { index = -1; }
 
-  @Override public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-    return new ReqBuilder((String)args[0]);
+  @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+    return new ReqBuilder(args[0].toString());
   }
   @Override public int getArity() { return 1; }
 
