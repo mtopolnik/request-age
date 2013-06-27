@@ -37,7 +37,7 @@ import com.ning.http.client.Response;
 public class JsFunctions {
   private static final int COMPILED_EXPR_CACHE_LIMIT = 256;
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "prettyXml", "xpath", "regex", "spy"
+    "nsdecl", "ns", "xml", "parseXml", "prettyXml", "xpath", "regex", "url", "spy"
   };
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
@@ -117,6 +117,8 @@ public class JsFunctions {
     }
     return p;
   }
+  public static UrlBuilder url(String urlBase) { return new UrlBuilder(urlBase); }
+
   public static <T> T spy(String msg, T ret) {
     jsLogger.debug("{}: {}", msg,
         ret instanceof NativeJavaObject? ((NativeJavaObject)ret).unwrap() : ret);
