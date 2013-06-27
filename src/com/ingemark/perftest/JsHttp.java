@@ -77,8 +77,8 @@ public class JsHttp extends BaseFunction
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
-    public ReqBuilder(String name) { this.name = name; }
-    public ReqBuilder(String method, String url) { this(null); brb(method, url); }
+    ReqBuilder(String name) { this.name = name; }
+    ReqBuilder(String method, String url) { this(null); brb(method, url); }
 
     public ReqBuilder get(String url) { return brb("GET", url); }
     public ReqBuilder put(String url) { return brb("PUT", url); }
@@ -207,7 +207,7 @@ public class JsHttp extends BaseFunction
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return new ReqBuilder(m, (String)args[0]);
+        return new ReqBuilder(m, args[0].toString());
       }
     });
   }
