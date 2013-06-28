@@ -100,8 +100,6 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
-              throttle.setSelection(MIN_THROTTLE);
-              applyThrottle();
               final List<Integer> indices = (List<Integer>)event.data;
               Collections.sort(indices);
               for (int i : indices) {
@@ -134,6 +132,8 @@ public class RequestAgeView extends ViewPart
               viewParent.layout(true);
               statsParent.notifyListeners(SWT.Resize, new Event());
               viewParent.notifyListeners(SWT.Paint, new Event());
+              throttle.setSelection(MIN_THROTTLE);
+              applyThrottle();
               show();
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
