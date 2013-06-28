@@ -72,7 +72,7 @@ public class StressTester implements Runnable
   final JsScope jsScope;
   private final ClientBootstrap netty;
   final Channel channel;
-  private volatile int intensity = 1, updateDivisor = 1;
+  private volatile int intensity = 0, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
   public StressTester(final String fname) {
@@ -121,7 +121,7 @@ public class StressTester implements Runnable
               nettySend(channel, new Message(EXCEPTION, new DialogInfo(lsmap.get(msg.value))));
               break;
             case SHUTDOWN:
-              sched.schedule(new Runnable() { public void run() {shutdown();} }, 0, SECONDS);
+              asyncShutdown();
               break;
             }
           } catch (Throwable t) {t.printStackTrace();}
@@ -167,7 +167,14 @@ public class StressTester implements Runnable
       : null;
   }
 
-  @Override public void run() { jsScope.call("test"); }
+  @Override public void run() {
+    try { jsScope.call("test"); }
+    catch (Throwable t) {
+      log.error("Stress testing error", t);
+      nettySend(channel, new Message(ERROR, excToString(t)));
+      asyncShutdown();
+    }
+  }
 
   ArrayList<Integer> collectIndices() {
     final ArrayList<Integer> ret = new ArrayList<Integer>();
@@ -192,6 +199,10 @@ public class StressTester implements Runnable
     netty.shutdown();
     netty.releaseExternalResources();
     log.debug("Netty client shut down");
+  }
+
+  void asyncShutdown() {
+    sched.submit(new Runnable() { public void run() {shutdown();} });
   }
 
   private static final String[]
