@@ -126,7 +126,7 @@ public class JsFunctions {
   }
 
   private static <T> T cast(Object o, Class<T> c) {
-    if (o == Undefined.instance) return null;
+    if (o == null || o == Undefined.instance) return null;
     if (o instanceof NativeJavaObject) o = ((NativeJavaObject)o).unwrap();
     return c.isInstance(o)? (T) o : null;
   }
