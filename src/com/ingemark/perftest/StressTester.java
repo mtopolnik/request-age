@@ -75,16 +75,22 @@ public class StressTester implements Runnable
   private volatile int intensity = 0, updateDivisor = 1;
   private ScheduledFuture<?> testTask;
 
-  public StressTester(final String fname) {
-    this.jsScope = new JsScope(this);
-    jsScope.evaluateFile(fname);
-    final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-    jsScope.call("conf", jsScope.jsHttp.betterAhccBuilder(b));
-    this.client = new AsyncHttpClient(b.build());
+  public StressTester(final String fname) throws Throwable {
     this.netty = netty();
-    log.debug("Connecting to server");
+    log.debug("Connecting to server within Eclipse");
     this.channel = channel(netty);
     log.debug("Connected");
+    try {
+      this.jsScope = new JsScope(this);
+      jsScope.evaluateFile(fname);
+      final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
+      jsScope.call("conf", jsScope.jsHttp.betterAhccBuilder(b));
+      this.client = new AsyncHttpClient(b.build());
+    } catch (Throwable t) {
+      nettySend(channel, new Message(ERROR, excToString(t)));
+      shutdown();
+      throw t;
+    }
   }
 
   LiveStats livestats(String name) {
@@ -194,7 +200,7 @@ public class StressTester implements Runnable
   void shutdown() {
     log.info("Shutting down");
     sched.shutdown();
-    client.close();
+    if (client != null) client.close();
     log.debug("HTTP Client shut down");
     netty.shutdown();
     netty.releaseExternalResources();
