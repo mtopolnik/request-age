@@ -129,12 +129,11 @@ public class RequestAgeView extends ViewPart
                 }
                 @Override public void controlMoved(ControlEvent e) {}
               });
-              viewParent.layout(true);
-              statsParent.notifyListeners(SWT.Resize, new Event());
-              viewParent.notifyListeners(SWT.Paint, new Event());
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
               show();
+              viewParent.layout(true);
+              viewParent.redraw();
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
