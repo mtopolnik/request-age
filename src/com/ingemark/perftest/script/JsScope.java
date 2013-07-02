@@ -1,11 +1,9 @@
 package com.ingemark.perftest.script;
 
 import static com.ingemark.perftest.Util.sneakyThrow;
-import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptableObject.DONTENUM;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
-import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -19,9 +17,9 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
-import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ContextFactory.Listener;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
@@ -54,7 +52,7 @@ public class JsScope {
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
         jsHttp = new JsHttp(global, tester);
         putProperty(global, "req", jsHttp);
-        putProperty(global, "log", javaToJS(getLogger(JS_LOGGER_NAME), global));
+//        putProperty(global, "log", javaToJS(getLogger(JS_LOGGER_NAME), global));
         return global;
       }});
   }

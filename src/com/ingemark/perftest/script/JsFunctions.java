@@ -6,6 +6,7 @@ import static java.util.Arrays.asList;
 import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;
 import static org.jdom2.output.Format.getPrettyFormat;
+import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
@@ -24,7 +25,11 @@ import org.jdom2.input.StAXStreamBuilder;
 import org.jdom2.output.XMLOutputter;
 import org.jdom2.xpath.XPathExpression;
 import org.jdom2.xpath.XPathFactory;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.Undefined;
 import org.slf4j.Logger;
 
@@ -119,10 +124,22 @@ public class JsFunctions {
   }
   public static UrlBuilder url(String urlBase) { return new UrlBuilder(urlBase); }
 
-  public static <T> T spy(String msg, T ret) {
-    jsLogger.debug("{}: {}", msg,
-        ret instanceof NativeJavaObject? ((NativeJavaObject)ret).unwrap() : ret);
+  public static Object spy(Context _1, Scriptable _2, Object[] args, Function _3) {
+    if (args.length == 0) return null;
+    final Object ret = args[args.length-1];
+    if (!jsLogger.isDebugEnabled()) return ret;
+    if (args.length == 1) { jsLogger.debug(logArg(args[0]).toString()); return ret; }
+    final Object[] logArgs = new Object[args.length-1];
+    final int start = args.length-1;
+    for (int i = start; i < args.length; i++) logArgs[i-start] = logArg(args[i]);
+    jsLogger.debug(args[0].toString(), logArgs);
     return ret;
+  }
+  private static Object logArg(Object in) {
+    return in instanceof NativeJavaObject? ((NativeJavaObject)in).unwrap()
+    : in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
+      ((Scriptable)in).getParentScope(), in, null, " ")
+    : in;
   }
 
   private static <T> T cast(Object o, Class<T> c) {
