@@ -19,6 +19,7 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ContextFactory.Listener;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
@@ -88,6 +89,13 @@ public class JsScope {
 
   static class BetterWrapFactory extends WrapFactory {
     @Override public Object wrap(Context cx, Scriptable scope, Object obj, Class<?> staticType) {
+      if (obj instanceof Scriptable) {
+        if (obj instanceof ScriptableObject && ((Scriptable) obj).getParentScope() == null
+            && ((Scriptable) obj).getPrototype() == null) {
+          ScriptRuntime.setObjectProtoAndParent((ScriptableObject) obj, scope);
+        }
+        return obj;
+      }
       return obj instanceof List? new ScriptableList(scope, (List) obj)
       : obj instanceof Map? new ScriptableMap(scope, (Map) obj)
       : obj instanceof Text? ((Text)obj).getValue()

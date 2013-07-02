@@ -18,9 +18,10 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.NativeJSON;
-import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.json.JsonParser;
+import org.mozilla.javascript.json.JsonParser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,17 +48,12 @@ public class JsHttp extends BaseFunction
       }}
     );
   private final StressTester tester;
-  private final ScriptableObject JSON;
-  private final Callable stringify, parse;
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("any");
 
   public JsHttp(ScriptableObject parentScope, StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));
     this.tester = tester;
-    JSON = (NativeJSON)parentScope.get("JSON");
-    stringify = (Callable)JSON.get("stringify");
-    parse = (Callable)JSON.get("parse");
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
@@ -91,10 +87,10 @@ public class JsHttp extends BaseFunction
       if (body instanceof JdomBuilder) {
         brb.addHeader("Content-Type", "text/xml;charset=UTF-8");
         brb.setBody(body.toString());
-      } else if (body instanceof NativeObject) {
+      } else if (body instanceof Scriptable) {
         brb.addHeader("Content-Type", "application/json;charset=UTF-8");
         fac.call(new ContextAction() { @Override public Object run(Context cx) {
-          brb.setBody((String)stringify.call(cx, getParentScope(), JSON, new Object[] {body}));
+          brb.setBody((String)NativeJSON.stringify(cx, getParentScope(), body, null, ""));
           return null;
         }});
       }
@@ -121,7 +117,7 @@ public class JsHttp extends BaseFunction
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
         tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
       }
-      try { handleResponse(tester.client.executeRequest(reqBuilder.brb.build()).get(), f); }
+      try { handleResponse(reqBuilder.brb.execute().get(), f); }
       catch (Exception e) { sneakyThrow(e); }
     }
 
@@ -129,7 +125,7 @@ public class JsHttp extends BaseFunction
       final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
       final int startSlot = liveStats.registerReq();
       try {
-        tester.client.executeRequest(reqBuilder.brb.build(), new AsyncCompletionHandlerBase() {
+        reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
           @Override public Response onCompleted(final Response resp) throws IOException {
             return (Response) fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
@@ -189,8 +185,11 @@ public class JsHttp extends BaseFunction
     BetterResponse(Response r) { this.r = r; }
     public Object xmlBody() { return parseXml(this.r); }
     public Object prettyXmlBody() { return prettyXml(r); }
-    public Object jsonBody() { return parse.call(getCurrentContext(), getParentScope(),
-        JSON, new Object[] { responseBody(this.r) }); }
+    public Object jsonBody() {
+      try { return new JsonParser(getCurrentContext(), getParentScope()).parseValue(
+            responseBody(this.r)); }
+      catch (ParseException e) { return sneakyThrow(e); }
+    }
     public String stringBody() { return responseBody(this.r); }
   }
 
