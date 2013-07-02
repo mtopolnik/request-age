@@ -8,6 +8,7 @@ import static com.ingemark.perftest.script.JsFunctions.parseXml;
 import static com.ingemark.perftest.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
+import static org.mozilla.javascript.ScriptRuntime.constructError;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -146,8 +147,7 @@ public class JsHttp extends BaseFunction
 
     private void handleResponse(Response resp, Callable f) {
       if (!acceptor.acceptable(resp))
-        throw new RuntimeException(
-            "Failed response: " + resp.getStatusCode() + " " + resp.getStatusText());
+        throw constructError("FailedResponse", resp.getStatusCode() + " " + resp.getStatusText());
       if (f != null) tester.jsScope.call(f, betterResponse(resp));
     }
   }
