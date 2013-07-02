@@ -2,23 +2,19 @@ function conf(b) {
 }
 
 function init() {
-   nsdecl("a", "http://www.w3.org/2005/Atom");
-   urlBase = "http://localhost:8080";
-   req.acceptableStatus("ok");
-   i = java.util.concurrent.atomic.AtomicInteger();
-   return test(); 
+   base = "http://localhost:8080";
+   test(); 
 }
 
 function test() {
-   req("get").get(urlBase+"/g").go(function(r) {
+   url1 = url(base).s("g");
+   req("get").get(url1).go(function(r) {
       req("post").post(r.stringBody()).body(
-            spy("Posting xml", xml("root", ns("a")).el("child").textel("txt", "g"))
+            spy("Posting xml", xml("root").el("child").textel("txt", "g"))
       ).go(function(r) {
-         var xml = r.xmlBody();
-         log.debug("get2 result: {}", prettify(xml)); 
-         req("get2").get(urlBase + "/" + 
-               xpath("/a:root/a:child/a:txt/text()").evaluate(xml)[0])
-               .go();
+         req("get2").get(
+               url(base).s(xpath("/root/child/txt/text()").evaluate(r.xmlBody())[0])
+         ).go();
       })
    });
 }
