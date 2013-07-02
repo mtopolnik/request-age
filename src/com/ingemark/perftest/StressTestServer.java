@@ -275,4 +275,15 @@ public class StressTestServer implements IStressTestServer
     @Override public void send(Message msg) { }
     @Override public IStressTestServer progressMonitor(ProgressMonitor ipm) { return this; }
   };
+
+
+  public static void main(String[] args) {
+    final ServerBootstrap b = new ServerBootstrap(
+        new NioServerSocketChannelFactory(newCachedThreadPool(),newCachedThreadPool()));
+    b.setPipelineFactory(pipelineFactory(pipeline(
+        new ObjectDecoder(softCachingResolver(StressTestServer.class.getClassLoader())),
+        new SimpleChannelHandler(), new ObjectEncoder())));
+    b.bind(new InetSocketAddress("localhost", NETTY_PORT));
+    log.info("Listening on " + NETTY_PORT);
+  }
 }
