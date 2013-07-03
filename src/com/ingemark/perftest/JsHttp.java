@@ -19,6 +19,7 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.NativeJSON;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.json.JsonParser;
@@ -65,7 +66,7 @@ public class JsHttp extends BaseFunction
   public void initDone() { index = -1; }
 
   @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-    return new ReqBuilder(args[0].toString());
+    return new ReqBuilder(ScriptRuntime.toString(args[0]));
   }
   @Override public int getArity() { return 1; }
 
@@ -206,7 +207,7 @@ public class JsHttp extends BaseFunction
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return new ReqBuilder(m, args[0].toString());
+        return new ReqBuilder(m, ScriptRuntime.toString(args[0]));
       }
     });
   }
