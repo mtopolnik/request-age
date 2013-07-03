@@ -12,5 +12,5 @@
   <root level="ALL">
     <appender-ref ref="console"/>
   </root>
-  <logger name="com.ning" level="INFO"/>
+  <logger name="com.ning" level="ALL"/>
 </configuration>

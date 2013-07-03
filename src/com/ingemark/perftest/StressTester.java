@@ -149,7 +149,7 @@ public class StressTester implements Runnable
       log.debug("Initialized");
       jsScope.initDone();
       nettySend(channel, new Message(INITED, collectIndices()), true);
-      ((ch.qos.logback.classic.Logger)getLogger(JS_LOGGER_NAME)).setLevel(INFO);
+      raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
         final List<Stats> stats = stats();
@@ -162,6 +162,10 @@ public class StressTester implements Runnable
       nettySend(channel, new Message(ERROR, excToString(t)));
       shutdown();
     }
+  }
+  static void raiseLogLevel(String... loggerNames) {
+	  for (String loggerName : loggerNames)
+		  ((ch.qos.logback.classic.Logger)getLogger(loggerName)).setLevel(INFO);
   }
 
   synchronized void scheduleTest(int newIntensity) {
