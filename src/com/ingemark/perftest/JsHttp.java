@@ -101,7 +101,7 @@ public class JsHttp extends BaseFunction
     }
 
     private ReqBuilder brb(String method, String url) {
-      brb = tester.client.prepareConnect(url).setMethod(method);
+      brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
       return this;
     }
 
