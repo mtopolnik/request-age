@@ -69,12 +69,18 @@ public class RequestAgeView extends ViewPart
     instance = this;
     viewParent.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
-      final ImageDescriptor img = stressTestPlugin().imageDescriptor("stop.gif");
-      @Override public ImageDescriptor getImageDescriptor() { return img; }
+      final ImageDescriptor
+        on = stressTestPlugin().imageDescriptor("stop.gif"),
+        off = stressTestPlugin().imageDescriptor("stop_disabled.gif");
+      @Override public ImageDescriptor getImageDescriptor() { return isEnabled()? on:off; }
+      @Override public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        setImageDescriptor(getImageDescriptor());
+      }
       @Override public void run() { shutdownAndNewStatsParent(); }
     };
     reportAction = new Action() {
-      final ImageDescriptor img = stressTestPlugin().imageDescriptor("file.png");
+      final ImageDescriptor img = stressTestPlugin().imageDescriptor("report.gif");
       @Override public ImageDescriptor getImageDescriptor() { return img; }
       @Override public void run() { statsParent.notifyListeners(EVT_REPORT, null); }
     };
