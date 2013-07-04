@@ -1,6 +1,6 @@
-package com.ingemark.perftest.plugin;
+package com.ingemark.requestage.plugin;
 
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.debug.ui.ILaunchShortcut;
@@ -10,7 +10,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.part.FileEditorInput;
 
-import com.ingemark.perftest.plugin.ui.RequestAgeView;
+import com.ingemark.requestage.plugin.ui.RequestAgeView;
 
 public class LaunchShortcut implements ILaunchShortcut
 {

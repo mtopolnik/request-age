@@ -1,8 +1,8 @@
-package com.ingemark.perftest.plugin.ui;
+package com.ingemark.requestage.plugin.ui;
 
-import static com.ingemark.perftest.StressTester.HIST_SIZE;
-import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
-import static com.ingemark.perftest.Util.now;
+import static com.ingemark.requestage.StressTester.HIST_SIZE;
+import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.Util.now;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -24,7 +24,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
-import com.ingemark.perftest.Stats;
+import com.ingemark.requestage.Stats;
 
 public class HistogramViewer implements PaintListener
 {
@@ -135,10 +135,10 @@ public class HistogramViewer implements PaintListener
   }
 
   private void paintRespTime() {
-    final float stDev = max(1, stats.stdevRespTime);
-    final int lowBound = toMeter(max(0, (int)(stats.avgRespTime - stDev))),
-              highBound = max(lowBound+1, toMeter((int)(stats.avgRespTime + stDev)));
-    paintRect(30, color(SWT.COLOR_BLACK),
+    final float stDev = stats.stdevRespTime;
+    final int lowBound = toMeter(1000/(stats.avgRespTime + stDev)),
+              highBound = max(lowBound+1, toMeter(1000/(stats.avgRespTime - stDev)));
+    paintRect(30, color(SWT.COLOR_BLUE),
         TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN, highBound-lowBound);
     drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN);
     drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+highBound, TICKMARK_LEN);
@@ -217,5 +217,6 @@ public class HistogramViewer implements PaintListener
   private int histHeight() { return Math.min(DESIRED_HEIGHT, canvas.getClientArea().height); }
   private Color color(int id) { return Display.getCurrent().getSystemColor(id); }
   private static int toMeter(int in) { return (int) (METER_SCALE * max(0d, log10(in))); }
+  private static int toMeter(double d) { return toMeter((int)min(Integer.MAX_VALUE, max(0, d))); }
   private static int tickMarkY(int exp, int i) { return (int) (METER_SCALE * (exp + log10(i))); }
 }

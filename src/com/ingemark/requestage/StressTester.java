@@ -1,20 +1,20 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
 import static ch.qos.logback.classic.Level.INFO;
-import static com.ingemark.perftest.Message.DIVISOR;
-import static com.ingemark.perftest.Message.ERROR;
-import static com.ingemark.perftest.Message.EXCEPTION;
-import static com.ingemark.perftest.Message.INITED;
-import static com.ingemark.perftest.Message.INTENSITY;
-import static com.ingemark.perftest.Message.SHUTDOWN;
-import static com.ingemark.perftest.Message.STATS;
-import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
-import static com.ingemark.perftest.Util.excToString;
-import static com.ingemark.perftest.Util.join;
-import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.plugin.StressTestPlugin.stressTestPlugin;
-import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
+import static com.ingemark.requestage.Message.DIVISOR;
+import static com.ingemark.requestage.Message.ERROR;
+import static com.ingemark.requestage.Message.EXCEPTION;
+import static com.ingemark.requestage.Message.INITED;
+import static com.ingemark.requestage.Message.INTENSITY;
+import static com.ingemark.requestage.Message.SHUTDOWN;
+import static com.ingemark.requestage.Message.STATS;
+import static com.ingemark.requestage.StressTestServer.NETTY_PORT;
+import static com.ingemark.requestage.Util.excToString;
+import static com.ingemark.requestage.Util.join;
+import static com.ingemark.requestage.Util.nettySend;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.stressTestPlugin;
+import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -53,7 +53,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.mozilla.javascript.ContextFactory;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.script.JsScope;
+import com.ingemark.requestage.script.JsScope;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 

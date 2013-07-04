@@ -2,29 +2,35 @@
 <?eclipse version="3.4"?>
 <plugin>
    <extension point="org.eclipse.ui.views">
-      <category name="ingemark Stress Test" id="ingemark-perftest-plugin">
-      </category>
-      <view category="ingemark-perftest-plugin" class="com.ingemark.perftest.plugin.ui.RequestAgeView" icon="img/perftest.gif"
-         id="com.ingemark.perftest.plugin.views.RequestAgeView" name="Request Age">
+      <view
+            category="com.ingemark.requestage.views"
+            class="com.ingemark.requestage.plugin.ui.RequestAgeView"
+            icon="img/requestage.gif"
+            id="com.ingemark.requestage.views.RequestAgeView"
+            name="RequestAge">
       </view>
+      <category
+            id="com.ingemark.requestage.views"
+            name="RequestAge">
+      </category>
    </extension>
    <extension point="org.eclipse.ui.perspectiveExtensions">
       <perspectiveExtension targetID="org.eclipse.jdt.ui.JavaPerspective">
          <view ratio="0.5" relative="org.eclipse.ui.views.ProblemView" relationship="stack"
-            id="com.ingemark.perftest.plugin.views.RequestAgeView">
+            id="com.ingemark.requestage.views.RequestAgeView">
          </view>
       </perspectiveExtension>
    </extension>
    <extension point="org.eclipse.debug.ui.launchShortcuts">
       <shortcut
-            class="com.ingemark.perftest.plugin.LaunchShortcut"
-            description="Launch the current selection as a stress testing script"
-            icon="img/perftest.gif"
-            id="com.ingemark.perftest.launchShortcut"
-            label="Stress Test"
+            class="com.ingemark.requestage.plugin.LaunchShortcut"
+            description="Launch the current selection as a RequestAge stress testing script"
+            icon="img/requestage.gif"
+            id="com.ingemark.requestage.launchShortcut"
+            label="RequestAge Script"
             modes="run">
          <contextualLaunch>
-            <contextLabel mode="run" label="Stress test" />
+            <contextLabel mode="run" label="RequestAge Script" />
             <enablement>
                <with variable="selection">
                   <count value="1" />

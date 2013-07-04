@@ -1,27 +1,30 @@
-package com.ingemark.perftest.plugin.ui;
+package com.ingemark.requestage.plugin.ui;
 
-import static com.ingemark.perftest.Message.EXCEPTION;
-import static com.ingemark.perftest.Util.gridData;
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_ERROR;
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_INIT_HIST;
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_RUN_SCRIPT;
-import static com.ingemark.perftest.plugin.StressTestPlugin.STATS_EVTYPE_BASE;
-import static com.ingemark.perftest.plugin.StressTestPlugin.STRESSTEST_VIEW_ID;
-import static com.ingemark.perftest.plugin.StressTestPlugin.stressTestPlugin;
-import static com.ingemark.perftest.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
-import static com.ingemark.perftest.plugin.ui.HistogramViewer.minDesiredWidth;
+import static com.ingemark.requestage.Message.EXCEPTION;
+import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.STRESSTEST_VIEW_ID;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.stressTestPlugin;
+import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
+import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.signum;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ControlEvent;
@@ -40,11 +43,11 @@ import org.eclipse.swt.widgets.Scale;
 import org.eclipse.ui.part.ViewPart;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.DialogInfo;
-import com.ingemark.perftest.IStressTestServer;
-import com.ingemark.perftest.Message;
-import com.ingemark.perftest.Stats;
-import com.ingemark.perftest.StressTestServer;
+import com.ingemark.requestage.DialogInfo;
+import com.ingemark.requestage.IStressTestServer;
+import com.ingemark.requestage.Message;
+import com.ingemark.requestage.Stats;
+import com.ingemark.requestage.StressTestServer;
 
 public class RequestAgeView extends ViewPart
 {
@@ -57,7 +60,7 @@ public class RequestAgeView extends ViewPart
   private Composite viewParent;
   private ProgressDialog pd;
   private Scale throttle;
-  private Action stopAction;
+  private Action stopAction, reportAction;
 
   public void createPartControl(Composite p) {
     this.viewParent = new Composite(p, SWT.NONE);
@@ -70,8 +73,15 @@ public class RequestAgeView extends ViewPart
       @Override public ImageDescriptor getImageDescriptor() { return img; }
       @Override public void run() { shutdownAndNewStatsParent(); }
     };
-    stopAction.setEnabled(false);
-    getViewSite().getActionBars().getToolBarManager().add(stopAction);
+    reportAction = new Action() {
+      final ImageDescriptor img = stressTestPlugin().imageDescriptor("file.png");
+      @Override public ImageDescriptor getImageDescriptor() { return img; }
+      @Override public void run() { statsParent.notifyListeners(EVT_REPORT, null); }
+    };
+    enableActions(false);
+    final IToolBarManager toolbar = getViewSite().getActionBars().getToolBarManager();
+    toolbar.add(stopAction);
+    toolbar.add(reportAction);
     throttle = new Scale(viewParent, SWT.VERTICAL);
     throttle.setBackground(colWhite);
     throttle.setMinimum(MIN_THROTTLE);
@@ -80,6 +90,11 @@ public class RequestAgeView extends ViewPart
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
     });
     newStatsParent();
+  }
+
+  private void enableActions(boolean state) {
+    stopAction.setEnabled(state);
+    reportAction.setEnabled(state);
   }
 
   void newStatsParent() {
@@ -102,8 +117,10 @@ public class RequestAgeView extends ViewPart
               log.debug("Init histogram");
               final List<Integer> indices = (List<Integer>)event.data;
               Collections.sort(indices);
+              final List<HistogramViewer> hists = new ArrayList<HistogramViewer>();
               for (int i : indices) {
                 final HistogramViewer histogram = new HistogramViewer(statsParent);
+                hists.add(histogram);
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
                   public void handleEvent(Event e) { histogram.statsUpdate((Stats) e.data); }
@@ -116,6 +133,13 @@ public class RequestAgeView extends ViewPart
                   @Override public void mouseDown(MouseEvent e) {}
                 });
               }
+              statsParent.addListener(EVT_REPORT, new Listener() {
+                @Override public void handleEvent(Event event) {
+                  final List<Stats> statsList = new ArrayList<Stats>();
+                  for (HistogramViewer hist : hists) statsList.add(hist.stats);
+                  ReportDialog.show(testServer.testName(), statsList);
+                }
+              });
               statsParent.addControlListener(new ControlListener() {
                 @Override public void controlResized(ControlEvent e) {
                   final Rectangle bounds = statsParent.getBounds();
@@ -137,7 +161,7 @@ public class RequestAgeView extends ViewPart
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
-              stopAction.setEnabled(false);
+              enableActions(false);
               if (pd != null) pd.close();
               InfoDialog.show(new DialogInfo("Stress testing error", ((String)e.data)));
             }
@@ -146,7 +170,7 @@ public class RequestAgeView extends ViewPart
             testServer = new StressTestServer(statsParent, (String)event.data)
               .progressMonitor(pd.pm());
             testServer.start();
-            stopAction.setEnabled(true);
+            enableActions(true);
           }});
         }
         catch (Throwable t) {
@@ -163,8 +187,8 @@ public class RequestAgeView extends ViewPart
   }
 
   private void shutdownAndThen(Runnable andThen) {
-    testServer.progressMonitor(pd.pm());
-    stopAction.setEnabled(false);
+    testServer.progressMonitor(pd != null? pd.pm() : null);
+    enableActions(false);
     final IStressTestServer ts = testServer;
     testServer = StressTestServer.NULL;
     ts.shutdown(andThen);

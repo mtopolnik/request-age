@@ -1,6 +1,6 @@
-package com.ingemark.perftest.script;
+package com.ingemark.requestage.script;
 
-import static com.ingemark.perftest.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.sneakyThrow;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;

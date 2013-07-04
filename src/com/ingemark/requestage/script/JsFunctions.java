@@ -1,7 +1,7 @@
-package com.ingemark.perftest.script;
+package com.ingemark.requestage.script;
 
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
 import static java.util.Arrays.asList;
 import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;

@@ -1,8 +1,8 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.Util.arrayMean;
-import static com.ingemark.perftest.Util.arrayStdev;
-import static com.ingemark.perftest.Util.arraySum;
+import static com.ingemark.requestage.Util.arrayMean;
+import static com.ingemark.requestage.Util.arrayStdev;
+import static com.ingemark.requestage.Util.arraySum;
 
 import java.io.Serializable;
 

@@ -1,6 +1,6 @@
-package com.ingemark.perftest.script;
+package com.ingemark.requestage.script;
 
-import static com.ingemark.perftest.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.sneakyThrow;
 import static org.mozilla.javascript.ScriptableObject.DONTENUM;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
@@ -26,8 +26,8 @@ import org.mozilla.javascript.WrapFactory;
 import org.ringojs.wrappers.ScriptableList;
 import org.ringojs.wrappers.ScriptableMap;
 
-import com.ingemark.perftest.JsHttp;
-import com.ingemark.perftest.StressTester;
+import com.ingemark.requestage.JsHttp;
+import com.ingemark.requestage.StressTester;
 
 public class JsScope {
   public static final String JS_LOGGER_NAME = "js";

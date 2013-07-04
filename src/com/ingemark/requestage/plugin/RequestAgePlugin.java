@@ -1,4 +1,4 @@
-package com.ingemark.perftest.plugin;
+package com.ingemark.requestage.plugin;
 
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.Path;
@@ -9,16 +9,17 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
-public class StressTestPlugin extends AbstractUIPlugin
+public class RequestAgePlugin extends AbstractUIPlugin
 {
   public static final String
-    STRESSTEST_VIEW_ID = "com.ingemark.perftest.plugin.views.RequestAgeView";
+    STRESSTEST_VIEW_ID = "com.ingemark.requestage.views.RequestAgeView";
   public static final int
     EVT_RUN_SCRIPT = 1024,
     EVT_INIT_HIST = 1025,
     EVT_ERROR = 1026,
+    EVT_REPORT = 1027,
     STATS_EVTYPE_BASE = 2048;
-  static StressTestPlugin instance;
+  static RequestAgePlugin instance;
   private Bundle bundle;
 
   @Override public void start(BundleContext context) throws Exception {
@@ -28,7 +29,7 @@ public class StressTestPlugin extends AbstractUIPlugin
   @Override public void stop(BundleContext context) throws Exception {
     instance = null;
   }
-  public static StressTestPlugin stressTestPlugin() {
+  public static RequestAgePlugin stressTestPlugin() {
     return instance;
   }
   public Bundle bundle() { return bundle; }

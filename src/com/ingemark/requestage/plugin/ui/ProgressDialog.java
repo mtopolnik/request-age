@@ -1,6 +1,6 @@
-package com.ingemark.perftest.plugin.ui;
+package com.ingemark.requestage.plugin.ui;
 
-import static com.ingemark.perftest.Util.gridData;
+import static com.ingemark.requestage.Util.gridData;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import org.eclipse.core.runtime.IProgressMonitorWithBlocking;

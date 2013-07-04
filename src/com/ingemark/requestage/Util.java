@@ -1,4 +1,4 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
 import java.io.PrintWriter;
 import java.io.Serializable;
@@ -24,7 +24,7 @@ import org.ringojs.wrappers.ScriptableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ingemark.perftest.plugin.ui.RequestAgeView;
+import com.ingemark.requestage.plugin.ui.RequestAgeView;
 import com.ning.http.client.Response;
 
 public class Util

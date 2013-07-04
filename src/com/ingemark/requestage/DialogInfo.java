@@ -1,6 +1,6 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.Util.excToString;
+import static com.ingemark.requestage.Util.excToString;
 
 import java.io.Serializable;
 

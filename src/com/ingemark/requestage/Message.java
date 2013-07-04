@@ -1,4 +1,4 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
 import java.io.Serializable;
 import java.util.Arrays;

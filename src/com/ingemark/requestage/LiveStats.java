@@ -1,8 +1,8 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.StressTester.HIST_SIZE;
-import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
-import static com.ingemark.perftest.Util.toIndex;
+import static com.ingemark.requestage.StressTester.HIST_SIZE;
+import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.Util.toIndex;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.concurrent.atomic.AtomicInteger;

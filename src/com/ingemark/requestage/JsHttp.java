@@ -1,12 +1,12 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.Message.INIT;
-import static com.ingemark.perftest.StressTester.fac;
-import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.now;
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.script.JsFunctions.parseXml;
-import static com.ingemark.perftest.script.JsFunctions.prettyXml;
+import static com.ingemark.requestage.Message.INIT;
+import static com.ingemark.requestage.StressTester.fac;
+import static com.ingemark.requestage.Util.nettySend;
+import static com.ingemark.requestage.Util.now;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.script.JsFunctions.parseXml;
+import static com.ingemark.requestage.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptRuntime.constructError;
@@ -28,7 +28,7 @@ import org.mozilla.javascript.json.JsonParser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ingemark.perftest.script.JdomBuilder;
+import com.ingemark.requestage.script.JdomBuilder;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
