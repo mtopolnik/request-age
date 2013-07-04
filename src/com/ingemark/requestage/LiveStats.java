@@ -3,19 +3,20 @@ package com.ingemark.requestage;
 import static com.ingemark.requestage.StressTester.HIST_SIZE;
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.requestage.Util.toIndex;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveStats {
+  private static final double MILLIS_AS_NANOS = MILLISECONDS.toNanos(1);
   private static final int TIMES_SIZE = 50;
   public final int index;
   public final String name;
   volatile Throwable lastException;
   private final char[] histogram = new char[HIST_SIZE];
   private int respTimesIndex, timeSlot = Integer.MAX_VALUE;
+  final float[] respTimes = new float[TIMES_SIZE];
   final int[]
-      respTimes = new int[TIMES_SIZE],
       reqs = new int[TIMESLOTS_PER_SEC],
       succs = new int[TIMESLOTS_PER_SEC],
       fails = new int[TIMESLOTS_PER_SEC];
@@ -31,7 +32,7 @@ public class LiveStats {
   }
   synchronized void deregisterReq(int startSlot, long time, Throwable t) {
     pendingReqs.decrementAndGet();
-    respTimes[respTimesIndex++ % TIMES_SIZE] = (int)NANOSECONDS.toMillis(time);
+    respTimes[respTimesIndex++ % TIMES_SIZE] = (float)(time/MILLIS_AS_NANOS);
     if (startSlot-timeSlot < histogram.length) histogram[toIndex(histogram, startSlot)]--;
     final int[] ary =  t == null? succs : fails;
     ary[toIndex(ary, timeSlot)]++;

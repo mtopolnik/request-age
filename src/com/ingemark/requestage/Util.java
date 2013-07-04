@@ -46,12 +46,12 @@ public class Util
     for (int cnt : array) sum += cnt;
     return sum;
   }
-  public static double arrayMean(int[] array) {
+  public static double arrayMean(float[] array) {
     double avg = 0;
     for (double t : array) avg += t / (double) array.length;
     return avg;
   }
-  public static double arrayStdev(double avg, int[] array) {
+  public static double arrayStdev(double avg, float[] array) {
     double sumSq = 0;
     for (double t : array) {
       final double dev = t - avg;
