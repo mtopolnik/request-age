@@ -91,20 +91,27 @@ public class JsFunctions {
     if (o == null) return "<!--undefined-->";
     final boolean parseable =
         o instanceof Response || o instanceof String || o instanceof InputStream;
-    if (!(parseable || o instanceof Document || o instanceof Content))
+    if (!(parseable || o instanceof Document || o instanceof Content || o instanceof JdomBuilder))
       throw new IllegalArgumentException(
           "Got " + o.getClass().getName() + ". Supporting HTTP Response, String, " +
-      		"InputStream, or JDOM2 Document/Content");
-    return new Object() { @Override public String toString() {
-      final Object in = parseable? parseXml(o) : o;
-      final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
-      final StringWriter w = new StringWriter(256);
-      try {
-        if (in instanceof Document) xo.output((Document)in, w);
-        else xo.output(asList((Content)in), w);
-      } catch (IOException e) { return sneakyThrow(e); }
-      return w.toString();
-    }};
+      		"InputStream, JdomBuilder, or JDOM2 Document/Content");
+    return new Object() {
+      Object in = o;
+      String out;
+      @Override public synchronized String toString() {
+        if (out != null) return out;
+        final Object jdom = parseable? parseXml(in)
+                 : in instanceof JdomBuilder? ((JdomBuilder)in).topNode()
+                 : in;
+        final XMLOutputter xo = new XMLOutputter(getPrettyFormat());
+        final StringWriter w = new StringWriter(256);
+        try {
+          if (jdom instanceof Document) xo.output((Document)jdom, w);
+          else xo.output(asList((Content)jdom), w);
+        } catch (IOException e) { return sneakyThrow(e); }
+        in = null;
+        return out = w.toString();
+      }};
   }
   public static XPathExpression xpath(String expr) {
     XPathExpression x = xpathmap.get(expr);
