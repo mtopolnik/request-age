@@ -16,8 +16,7 @@ import org.jdom2.output.XMLOutputter;
 public class JdomBuilder
 {
   private final Document doc;
-  private final Element root;
-  private Element currEl;
+  private Element root, currEl;
 
   JdomBuilder(String root, Namespace ns) {
     this.root = push(nsEl(root, ns));
@@ -26,12 +25,15 @@ public class JdomBuilder
   public JdomBuilder(Document doc) {
     if (doc == null) throw new NullPointerException("Document must not be null");
     this.doc = doc;
-    this.root = doc.getRootElement();
+    this.currEl = this.root = doc.getRootElement();
   }
-  public JdomBuilder(Element root) {
-    this.doc = root.getDocument();
-    this.root = root;
+  public JdomBuilder(Element start) {
+    if (start == null) throw new NullPointerException("Start element must not be null");
+    this.doc = start.getDocument();
+    this.currEl = start;
+    this.root = doc != null && doc.getRootElement() != null? doc.getRootElement() : start;
   }
+  public Object topNode() { return doc != null? doc : root; }
 
   public JdomBuilder el(String name) { return el(name, null); }
   public JdomBuilder el(String name, Namespace ns) { push(nsEl(name, ns)); return this; }
@@ -69,7 +71,11 @@ public class JdomBuilder
 
   @Override public String toString() {
     final StringWriter w = new StringWriter(256);
-    try { new XMLOutputter(getCompactFormat()).output(doc, w); }
+    try {
+      final XMLOutputter outputter = new XMLOutputter(getCompactFormat());
+      if (doc != null) outputter.output(doc, w);
+      else outputter.output(root, w);
+    }
     catch (IOException e) { sneakyThrow(e); }
     return w.toString();
   }
@@ -78,7 +84,10 @@ public class JdomBuilder
     return new Element(name, ns != null? ns : currEl != null? currEl.getNamespace() : NO_NAMESPACE);
   }
   private Element push(Element e) {
-    if (currEl != null) currEl.addContent(e);
+    if (root == null) {
+      root = currEl = e;
+      if (doc != null) doc.setRootElement(root);
+    } else currEl.addContent(e);
     return currEl = e;
   }
   private Element pop() {
