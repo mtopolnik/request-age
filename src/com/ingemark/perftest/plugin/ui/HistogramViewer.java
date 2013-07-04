@@ -28,14 +28,16 @@ import com.ingemark.perftest.Stats;
 
 public class HistogramViewer implements PaintListener
 {
-  static final int
+  private static final int
+    TICKMARK_LEN = 5,
+    TICKMARK_X = 15,
     HIST_BAR_WIDTH = 1,
     HIST_XOFFSET = 50,
     TOTAL_REQS_OFFSET = HIST_XOFFSET + HIST_SIZE*HIST_BAR_WIDTH,
-    DESIRED_HEIGHT = 200,
     FULL_TOTAL_BAR_HEIGHT = 100,
     HIST_HEIGHT_SCALE = 1,
     METER_SCALE = 50;
+  static final int DESIRED_HEIGHT = 200;
   static int minDesiredWidth;
   final int histYoffset;
   final Canvas canvas;
@@ -50,7 +52,7 @@ public class HistogramViewer implements PaintListener
     final Display d = Display.getCurrent();
     colReqBar = new Color(d, 12, 12, 240);
     colRespPlusBar = new Color(d, 0, 170, 12);
-    colRespMinusBar = new Color(d, 255, 140, 0);
+    colRespMinusBar = new Color(d, 255, 204, 0);
     colFailBar = color(SWT.COLOR_RED);
     colHist = color(SWT.COLOR_BLUE);
     colTotalReq = new Color(d, 200, 170, 170);
@@ -67,7 +69,7 @@ public class HistogramViewer implements PaintListener
     gc = null;
   }
 
-  void recreateBackdrop() {
+  private void recreateBackdrop() {
     final Rectangle area = canvas.getClientArea();
     if (backdrop != null) backdrop.dispose();
     backdrop = new Image(Display.getCurrent(), area);
@@ -80,8 +82,8 @@ public class HistogramViewer implements PaintListener
         final int label = (int)pow(10, exp)*i;
         if (label >= 3000) break loop;
         final int y = histYoffset + tickMarkY(exp, i);
-        drawHorLine(color(SWT.COLOR_BLACK), 15, y, 5);
-        if (i == 10) printString(String.valueOf(label), 8+15, y-labelOffset);
+        drawHorLine(color(SWT.COLOR_BLACK), TICKMARK_X, y, TICKMARK_LEN);
+        if (i == 10) printString(String.valueOf(label), 8+TICKMARK_X, y-labelOffset);
       }
     for (int i = 0;; i++) {
       final int barIndex = i*TIMESLOTS_PER_SEC;
@@ -111,6 +113,7 @@ public class HistogramViewer implements PaintListener
   @Override public void paintControl(PaintEvent e) {
     gc = e.gc;
     gc.drawImage(backdrop, 0, 0);
+    paintRespTime();
     paintMeterBars();
     paintHistogram();
     paintTotalReqs();
@@ -118,20 +121,30 @@ public class HistogramViewer implements PaintListener
     gc = null;
   }
 
-  void printChartName() {
+  private void printChartName() {
     final Point ext = gc.stringExtent(stats.name);
     printString(stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
         5 + tickMarkY(3, 2), true);
   }
 
-  void paintHistogram() {
+  private void paintHistogram() {
     final char[] hist = stats.histogram;
     int i;
     for (i = 0; i < hist.length; i++) paintBar(colHist, i, 1, hist[i]);
   }
 
-  void paintMeterBars() {
+  private void paintRespTime() {
+    final float stDev = max(1, stats.stdevRespTime);
+    final int lowBound = toMeter(max(0, (int)(stats.avgRespTime - stDev))),
+              highBound = max(lowBound+1, toMeter((int)(stats.avgRespTime + stDev)));
+    paintRect(30, color(SWT.COLOR_BLACK),
+        TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN, highBound-lowBound);
+    drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN);
+    drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+highBound, TICKMARK_LEN);
+  }
+
+  private void paintMeterBars() {
     printString(String.valueOf(printedReqsPerSec), 2, 0);
     int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
     paintRect(colReqBar, 0, histYoffset, 5, a);
@@ -145,7 +158,7 @@ public class HistogramViewer implements PaintListener
     paintRect(colFailBar, 8, histYoffset, 5, failsHeight);
   }
 
-  void paintTotalReqs() {
+  private void paintTotalReqs() {
     final int
       maxTotalBars = 1 +
         (canvas.getClientArea().width - TOTAL_REQS_OFFSET) / HIST_BAR_WIDTH,
@@ -160,10 +173,10 @@ public class HistogramViewer implements PaintListener
     printString(s, max(TOTAL_REQS_OFFSET, totalReqsCenter - ext.x/2), labelBase);
   }
 
-  Point printString(String s, int x, int y) {
+  private Point printString(String s, int x, int y) {
     return printString(s, x, y, false);
   }
-  Point printString(String s, int x, int y, boolean fitHeight) {
+  private Point printString(String s, int x, int y, boolean fitHeight) {
     gc.setForeground(color(SWT.COLOR_BLACK));
     gc.setBackground(color(SWT.COLOR_WHITE));
     final FontMetrics m = gc.getFontMetrics();
@@ -172,35 +185,37 @@ public class HistogramViewer implements PaintListener
     gc.drawString(s, x, y);
     return new Point(x, y);
   }
-  void drawHorLine(Color color, int x, int y, int len) {
+  private void drawHorLine(Color color, int x, int y, int len) {
     gc.setForeground(color);
     final int height = histHeight();
     gc.drawLine(x, height-y, x+len-1, height-y);
   }
-  void drawVerLine(Color color, int x, int y, int len) {
+  private void drawVerLine(Color color, int x, int y, int len) {
     gc.setForeground(color);
     final int height = histHeight();
     gc.drawLine(x, max(0, height-y-1), x, max(0, height-y-len));
   }
-  void paintRect(Color color, int x, int y, int width, int height) {
-    if (height == 0 || width == 0) return;
-    if (width == 1) {drawVerLine(color, x, y, height); return;}
-    if (height == 1) {drawHorLine(color, x, y, width); return;}
-    final int histHeight = histHeight();
-    gc.setBackground(color);
-    height = min(height, histHeight-y);
-    gc.fillRectangle(x, max(0, histHeight-y-height), width, height);
+  private void paintRect(Color color, int x, int y, int width, int height) {
+    paintRect(255, color, x, y, width, height);
   }
-  void paintBar(Color color, int pos, int barCount, int barHeight) {
+  private void paintRect(int alpha, Color color, int x, int y, int width, int height) {
+    if (height == 0 || width == 0) return;
+    gc.setAlpha(alpha);
+    try {
+      if (width == 1) {drawVerLine(color, x, y, height); return;}
+      if (height == 1) {drawHorLine(color, x, y, width); return;}
+      final int histHeight = histHeight();
+      gc.setBackground(color);
+      height = min(height, histHeight-y);
+      gc.fillRectangle(x, max(0, histHeight-y-height), width, height);
+    } finally { gc.setAlpha(255); }
+  }
+  private void paintBar(Color color, int pos, int barCount, int barHeight) {
     paintRect(color, HIST_XOFFSET+pos*HIST_BAR_WIDTH, histYoffset,
         barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE);
   }
-
-  int histHeight() { return Math.min(DESIRED_HEIGHT, canvas.getClientArea().height); }
-
-  Color color(int id) { return Display.getCurrent().getSystemColor(id); }
-
-  static int toMeter(int in) { return (int) (METER_SCALE * max(0d, log10(in))); }
-
-  static int tickMarkY(int exp, int i) { return (int) (METER_SCALE * (exp + log10(i))); }
+  private int histHeight() { return Math.min(DESIRED_HEIGHT, canvas.getClientArea().height); }
+  private Color color(int id) { return Display.getCurrent().getSystemColor(id); }
+  private static int toMeter(int in) { return (int) (METER_SCALE * max(0d, log10(in))); }
+  private static int tickMarkY(int exp, int i) { return (int) (METER_SCALE * (exp + log10(i))); }
 }

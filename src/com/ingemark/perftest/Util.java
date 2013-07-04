@@ -46,6 +46,19 @@ public class Util
     for (int cnt : array) sum += cnt;
     return sum;
   }
+  public static double arrayMean(int[] array) {
+    double avg = 0;
+    for (double t : array) avg += t / (double) array.length;
+    return avg;
+  }
+  public static double arrayStdev(double avg, int[] array) {
+    double sumSq = 0;
+    for (double t : array) {
+      final double dev = t - avg;
+      sumSq += dev * (dev/(double) array.length);
+    }
+    return Math.sqrt(sumSq);
+  }
   public static long now() { return System.nanoTime(); }
 
   public static String join(String separator, String... parts) {
