@@ -3,6 +3,7 @@ package com.ingemark.perftest;
 import static com.ingemark.perftest.Message.INIT;
 import static com.ingemark.perftest.StressTester.fac;
 import static com.ingemark.perftest.Util.nettySend;
+import static com.ingemark.perftest.Util.now;
 import static com.ingemark.perftest.Util.sneakyThrow;
 import static com.ingemark.perftest.script.JsFunctions.parseXml;
 import static com.ingemark.perftest.script.JsFunctions.prettyXml;
@@ -124,8 +125,14 @@ public class JsHttp extends BaseFunction
     }
 
     private void executeTest(ReqBuilder reqBuilder, final Callable f) {
-      final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
+      final String reqName = reqBuilder.name;
+      if (reqName == null) throw constructError("NoName",
+          "Attempt to execute an unnamed request in test phase");
+      final LiveStats liveStats = tester.lsmap.get(reqName);
+      if (liveStats == null) throw constructError("NotRegistered",
+          String.format("Request %s was not registered in init phase", reqName));
       final int startSlot = liveStats.registerReq();
+      final long start = now();
       try {
         reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
           @Override public Response onCompleted(final Response resp) throws IOException {
@@ -134,13 +141,13 @@ public class JsHttp extends BaseFunction
                 Throwable failure = null;
                 try { handleResponse(resp, f); }
                 catch (Throwable t) { failure = t; }
-                finally { liveStats.deregisterReq(startSlot, failure); }
+                finally { liveStats.deregisterReq(startSlot, now()-start, failure); }
                 return resp;
               }
             });
           }
           @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, t);
+            liveStats.deregisterReq(startSlot, now()-start, t);
           }
         });
       } catch (IOException e) { sneakyThrow(e); }
