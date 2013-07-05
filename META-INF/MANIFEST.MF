@@ -13,5 +13,6 @@ Bundle-ClassPath: .,
  lib/
 Bundle-ActivationPolicy: lazy
 Bundle-Activator: com.ingemark.requestage.plugin.RequestAgePlugin
-Import-Package: org.eclipse.jdt.launching,
+Import-Package: com.ibm.icu.text,
+ org.eclipse.jdt.launching,
  org.eclipse.ui.part
