@@ -9,7 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveStats {
   private static final double NANOSEC_TO_SEC = 1.0/SECONDS.toNanos(1);
-  private static final int RESPTIMES_SIZE = 35;
+  private static final int
+    RESPTIMES_SIZE = 50, RESPTIME_SAMPLING_PERIOD = 2*(int)SECONDS.toNanos(1)/RESPTIMES_SIZE;
   public final int index;
   public final String name;
   volatile Throwable lastException;
@@ -33,7 +34,7 @@ public class LiveStats {
   }
   synchronized void deregisterReq(int startSlot, long now, long start, Throwable t) {
     pendingReqs.decrementAndGet();
-    if (now-respTimeLastSampled >= SECONDS.toNanos(1)/RESPTIMES_SIZE) {
+    if (now-respTimeLastSampled >= RESPTIME_SAMPLING_PERIOD) {
       respTimeLastSampled = now;
       respTimes[respTimesIndex++ % RESPTIMES_SIZE] = (float)((now-start)*NANOSEC_TO_SEC);
     }

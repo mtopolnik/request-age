@@ -73,20 +73,22 @@ public class ReportDialog
     }
     for (Stats stats : statsList) {
       final TableItem it = new TableItem(t, SWT.NONE);
-      final Object[] row = reportRow(stats);
       int i = 0;
-      it.setText(i, (String)row[i++]);
-      it.setText(i, row[i++].toString());
-      it.setText(i, row[i++].toString());
-      it.setText(i, row[i++].toString());
-      final float avg = (Float) row[i];
-      it.setText(i++, avg >= 1? format("%.2f",avg) : format("%.0f ms",avg*1000));
-      it.setText(i, format("%.1f%%", (Float)row[i++]/avg));
+      it.setText(i++, stats.name);
+      it.setText(i++, ""+stats.reqsPerSec);
+      it.setText(i++, ""+stats.succRespPerSec);
+      it.setText(i++, ""+stats.failsPerSec);
+      it.setText(i++, timeFormat(stats.avgRespTime));
+      it.setText(i++, timeFormat(stats.stdevRespTime));
     }
     for (int i = 0; i < headers.length; i++) t.getColumn(i).pack();
     top.pack();
     top.setVisible(true);
     top.setFocus();
+  }
+
+  private static String timeFormat(float f) {
+    return f >= 1? format("%.2f s",f) : format("%.0f ms",f*1000);
   }
 
   private static Object[] reportRow(Stats stats) {
