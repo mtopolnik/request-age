@@ -91,7 +91,7 @@ public class JsFunctions {
     if (o == null) return "<!--undefined-->";
     final boolean parseable =
         o instanceof Response || o instanceof String || o instanceof InputStream;
-    if (!(parseable || o instanceof Document || o instanceof Content || o instanceof JdomBuilder))
+    if (!(parseable || isJdom(o)))
       throw new IllegalArgumentException(
           "Got " + o.getClass().getName() + ". Supporting HTTP Response, String, " +
       		"InputStream, JdomBuilder, or JDOM2 Document/Content");
@@ -143,10 +143,15 @@ public class JsFunctions {
     return ret;
   }
   private static Object logArg(Object in) {
-    return in instanceof NativeJavaObject? ((NativeJavaObject)in).unwrap()
-    : in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
+    if (in instanceof NativeJavaObject) in = ((NativeJavaObject)in).unwrap();
+    return in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
       ((Scriptable)in).getParentScope(), in, null, " ")
+    : isJdom(in)? prettyXml(in)
     : in;
+  }
+
+  private static boolean isJdom(final Object o) {
+    return o instanceof Document || o instanceof Content || o instanceof JdomBuilder;
   }
 
   private static <T> T cast(Object o, Class<T> c) {
