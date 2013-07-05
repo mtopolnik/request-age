@@ -25,6 +25,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
+import org.swtchart.Chart;
 
 import com.ibm.icu.text.DecimalFormat;
 import com.ingemark.requestage.Stats;
@@ -53,9 +54,13 @@ public class ReportDialog
     gridData().align(FILL, FILL).applyTo(lDateTime);
     lDateTime.setText(dateTimeFormat.format(new Date()));
     final Table t = new Table(top, SWT.H_SCROLL | SWT.V_SCROLL);
-    gridData().align(FILL, FILL).grab(true, true).applyTo(t);
+    gridData().align(FILL, FILL)
+    .applyTo(t);
     t.setLinesVisible(true);
     t.setHeaderVisible(true);
+    gridData().align(FILL, FILL)
+    .grab(true, true)
+    .applyTo(new Chart(top, SWT.NONE));
     final Button ok = new Button(top, SWT.NONE);
     top.setDefaultButton(ok);
     ok.setText("OK");
@@ -87,6 +92,7 @@ public class ReportDialog
       it.setText(i++, timeFormat(stats.stdevRespTime));
     }
     for (int i = 0; i < headers.length; i++) t.getColumn(i).pack();
+
     top.pack();
     top.setVisible(true);
     top.setFocus();
