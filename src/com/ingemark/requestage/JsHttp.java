@@ -141,13 +141,13 @@ public class JsHttp extends BaseFunction
                 Throwable failure = null;
                 try { handleResponse(resp, f); }
                 catch (Throwable t) { failure = t; }
-                finally { liveStats.deregisterReq(startSlot, now()-start, failure); }
+                finally { liveStats.deregisterReq(startSlot, now(), start, failure); }
                 return resp;
               }
             });
           }
           @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, now()-start, t);
+            liveStats.deregisterReq(startSlot, now(), start, t);
           }
         });
       } catch (IOException e) { sneakyThrow(e); }

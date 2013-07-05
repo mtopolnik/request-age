@@ -59,6 +59,11 @@ public class Util
     }
     return Math.sqrt(sumSq);
   }
+  public static float[] reciprocalArray(float[] array) {
+    final float[] ret = new float[array.length];
+    for (int i = 0; i < array.length; i++) ret[i] = 1/array[i];
+    return ret;
+  }
   public static long now() { return System.nanoTime(); }
 
   public static String join(String separator, String... parts) {

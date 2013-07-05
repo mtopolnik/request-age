@@ -135,13 +135,13 @@ public class HistogramViewer implements PaintListener
   }
 
   private void paintRespTime() {
-    final float stDev = stats.stdevRespTime;
-    final int lowBound = toMeter(1000/(stats.avgRespTime + stDev)),
-              highBound = max(lowBound+1, toMeter(1000/(stats.avgRespTime - stDev)));
-    paintRect(30, color(SWT.COLOR_BLUE),
+    final int avg = toMeter(stats.avgServIntensty),
+              highBound = toMeter(stats.avgServIntensty + stats.stdevServIntensty),
+              lowBound = toMeter(stats.avgServIntensty - stats.stdevServIntensty);
+    paintRect(80, color(SWT.COLOR_GRAY),
         TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN, highBound-lowBound);
-    drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+lowBound, TICKMARK_LEN);
-    drawHorLine(color(SWT.COLOR_RED), TICKMARK_X, histYoffset+highBound, TICKMARK_LEN);
+    drawHorLine(color(SWT.COLOR_BLUE), TICKMARK_X, histYoffset+avg, TICKMARK_LEN);
+    drawHorLine(color(SWT.COLOR_BLUE), TICKMARK_X, histYoffset+avg+1, TICKMARK_LEN);
   }
 
   private void paintMeterBars() {
