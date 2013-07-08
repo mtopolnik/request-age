@@ -5,6 +5,7 @@
       <view
             category="com.ingemark.requestage.views"
             class="com.ingemark.requestage.plugin.ui.RequestAgeView"
+            fastViewWidthRatio="0.3"
             icon="img/requestage.gif"
             id="com.ingemark.requestage.views.RequestAgeView"
             name="RequestAge">
@@ -13,11 +14,27 @@
             id="com.ingemark.requestage.views"
             name="RequestAge">
       </category>
+      <view
+            allowMultiple="false"
+            category="com.ingemark.requestage.views"
+            class="com.ingemark.requestage.plugin.ui.HistoryView"
+            fastViewWidthRatio="1"
+            icon="img/requestage.gif"
+            id="com.ingemark.requestage.views.History"
+            name="RequestAge History"
+            restorable="true">
+      </view>
    </extension>
    <extension point="org.eclipse.ui.perspectiveExtensions">
       <perspectiveExtension targetID="org.eclipse.jdt.ui.JavaPerspective">
-         <view ratio="0.5" relative="org.eclipse.ui.views.ProblemView" relationship="stack"
+         <view relative="org.eclipse.jdt.ui.PackageExplorer" relationship="stack"
             id="com.ingemark.requestage.views.RequestAgeView">
+         </view>
+         <view
+               id="com.ingemark.requestage.views.History"
+               minimized="false"
+               relationship="stack"
+               relative="org.eclipse.ui.views.ProblemView">
          </view>
       </perspectiveExtension>
    </extension>

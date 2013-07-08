@@ -93,15 +93,6 @@ public class StressTester implements Runnable
     }
   }
 
-  LiveStats livestats(String name) {
-    final LiveStats liveStats = lsmap.get(name);
-    return liveStats != null? liveStats : new LiveStats(0, name) {
-      @Override synchronized int registerReq() {
-        return super.registerReq();
-      }
-    };
-  }
-
   Channel channel(ClientBootstrap netty) {
     try {
       return netty.connect(new InetSocketAddress("localhost", NETTY_PORT)).await().getChannel();
@@ -148,7 +139,7 @@ public class StressTester implements Runnable
       jsScope.call("init");
       log.debug("Initialized");
       jsScope.initDone();
-      nettySend(channel, new Message(INITED, collectIndices()), true);
+      nettySend(channel, new Message(INITED, lsmap.size()), true);
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
@@ -184,12 +175,6 @@ public class StressTester implements Runnable
       nettySend(channel, new Message(ERROR, excToString(t)));
       asyncShutdown();
     }
-  }
-
-  ArrayList<Integer> collectIndices() {
-    final ArrayList<Integer> ret = new ArrayList<Integer>();
-    for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
-    return ret;
   }
 
   List<Stats> stats() {

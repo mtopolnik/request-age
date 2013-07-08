@@ -54,13 +54,9 @@ public class ReportDialog
     gridData().align(FILL, FILL).applyTo(lDateTime);
     lDateTime.setText(dateTimeFormat.format(new Date()));
     final Table t = new Table(top, SWT.H_SCROLL | SWT.V_SCROLL);
-    gridData().align(FILL, FILL)
-    .applyTo(t);
+    gridData().align(FILL, FILL).grab(true, true).applyTo(t);
     t.setLinesVisible(true);
     t.setHeaderVisible(true);
-    gridData().align(FILL, FILL)
-    .grab(true, true)
-    .applyTo(new Chart(top, SWT.NONE));
     final Button ok = new Button(top, SWT.NONE);
     top.setDefaultButton(ok);
     ok.setText("OK");

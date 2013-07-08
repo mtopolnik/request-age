@@ -199,6 +199,7 @@ public class JsHttp extends BaseFunction
       catch (ParseException e) { return sneakyThrow(e); }
     }
     public String stringBody() { return responseBody(this.r); }
+    @Override public String toString() { return stringBody(); }
   }
 
   static String responseBody(Response r) {

@@ -19,7 +19,6 @@ import static org.eclipse.ui.PlatformUI.getWorkbench;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.core.runtime.CoreException;
@@ -121,12 +120,10 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
-              final List<Integer> indices = (List<Integer>)event.data;
-              Collections.sort(indices);
-              final List<HistogramViewer> hists = new ArrayList<HistogramViewer>();
-              for (int i : indices) {
-                final HistogramViewer histogram = new HistogramViewer(statsParent);
-                hists.add(histogram);
+              final int size = (Integer)event.data;
+              final HistogramViewer[] hists = new HistogramViewer[size];
+              for (int i = 0; i < size; i++) {
+                final HistogramViewer histogram = hists[i] = new HistogramViewer(statsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
                   public void handleEvent(Event e) { histogram.statsUpdate((Stats) e.data); }
@@ -151,7 +148,7 @@ public class RequestAgeView extends ViewPart
                   final Rectangle bounds = statsParent.getBounds();
                   final int
                     availRows = max(1, bounds.height/DESIRED_HEIGHT),
-                    maxCols = indices.size()/availRows + (int)signum(indices.size() % availRows),
+                    maxCols = size/availRows + (int)signum(size % availRows),
                     desiredCols = max(1, min(maxCols, bounds.width / minDesiredWidth));
                   if (desiredCols == statsParentLayout.numColumns) return;
                   statsParentLayout.numColumns = desiredCols;

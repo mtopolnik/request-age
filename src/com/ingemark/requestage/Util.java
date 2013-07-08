@@ -47,14 +47,17 @@ public class Util
     return sum;
   }
   public static double arrayMean(float[] array) {
+    return arrayMean(array, array.length);
+  }
+  public static double arrayMean(float[] array, int limit) {
     double avg = 0;
-    for (double t : array) avg += t / (double) array.length;
+    for (int i = 0; i < limit; i++) avg += (double) array[i] / limit;
     return avg;
   }
   public static double arrayStdev(double avg, float[] array) {
     double sumSq = 0;
-    for (double t : array) {
-      final double dev = t - avg;
+    for (double d : array) {
+      final double dev = d - avg;
       sumSq += dev * (dev/(double) array.length);
     }
     return Math.sqrt(sumSq);
