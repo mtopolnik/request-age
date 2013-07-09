@@ -2,26 +2,24 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Util.gridData;
-import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.showView;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.REQUESTAGE_VIEW_ID;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.STRESSTEST_VIEW_ID;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.stressTestPlugin;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.signum;
-import static org.eclipse.ui.PlatformUI.getWorkbench;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.resource.ImageDescriptor;
@@ -53,9 +51,10 @@ public class RequestAgeView extends ViewPart
   static final Logger log = getLogger(RequestAgeView.class);
   private static final int MIN_THROTTLE = 10, MAX_THROTTLE = 115, THROTTLE_SCALE_FACTOR = 3;
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
-  public static RequestAgeView instance;
+  public static RequestAgeView requestAgeView;
   public Composite statsParent;
   private volatile IStressTestServer testServer = StressTestServer.NULL;
+  private volatile History[] histories = {};
   private Composite viewParent;
   private ProgressDialog pd;
   private Scale throttle;
@@ -65,7 +64,7 @@ public class RequestAgeView extends ViewPart
     this.viewParent = new Composite(p, SWT.NONE);
     final Color colWhite = p.getDisplay().getSystemColor(SWT.COLOR_WHITE);
     viewParent.setBackground(colWhite);
-    instance = this;
+    requestAgeView = this;
     viewParent.setLayout(new GridLayout(2, false));
     stopAction = new Action() {
       final ImageDescriptor
@@ -97,6 +96,8 @@ public class RequestAgeView extends ViewPart
     newStatsParent();
   }
 
+  public History[] histories() { return histories; }
+
   private void enableActions(boolean state) {
     stopAction.setEnabled(state);
     reportAction.setEnabled(state);
@@ -121,12 +122,18 @@ public class RequestAgeView extends ViewPart
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
               final int size = (Integer)event.data;
+              histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
               for (int i = 0; i < size; i++) {
                 final HistogramViewer histogram = hists[i] = new HistogramViewer(statsParent);
+                final History history = histories[i] = new History();
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
-                  public void handleEvent(Event e) { histogram.statsUpdate((Stats) e.data); }
+                  public void handleEvent(Event e) {
+                    final Stats stats = (Stats) e.data;
+                    histogram.statsUpdate(stats);
+                    history.statsUpdate(stats);
+                  }
                 });
                 histogram.canvas.addMouseListener(new MouseListener() {
                   @Override public void mouseDoubleClick(MouseEvent e) {
@@ -158,7 +165,7 @@ public class RequestAgeView extends ViewPart
               });
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
-              show();
+              showView(REQUESTAGE_VIEW_ID);
               viewParent.layout(true);
               viewParent.redraw();
           }});
@@ -211,11 +218,5 @@ public class RequestAgeView extends ViewPart
 
   private void applyThrottle() {
     testServer.intensity(pow(THROTTLE_SCALE_FACTOR*throttle.getSelection()));
-  }
-
-  public static void show() {
-    try {
-      getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(STRESSTEST_VIEW_ID);
-    } catch (CoreException e) { sneakyThrow(e); }
   }
 }

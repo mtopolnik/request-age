@@ -11,12 +11,18 @@ import static com.ingemark.requestage.Message.STATS;
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.requestage.StressTester.launchTester;
 import static com.ingemark.requestage.Util.arraySum;
+import static com.ingemark.requestage.Util.event;
 import static com.ingemark.requestage.Util.nettySend;
 import static com.ingemark.requestage.Util.now;
+import static com.ingemark.requestage.Util.showView;
 import static com.ingemark.requestage.Util.swtSend;
 import static com.ingemark.requestage.Util.toIndex;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.HISTORY_VIEW_ID;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
+import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -42,7 +48,6 @@ import org.eclipse.debug.core.Launch;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -54,7 +59,6 @@ import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
-import com.ingemark.requestage.plugin.RequestAgePlugin;
 import com.ingemark.requestage.plugin.ui.InfoDialog;
 import com.ingemark.requestage.plugin.ui.ProgressDialog.ProgressMonitor;
 
@@ -138,11 +142,15 @@ public class StressTestServer implements IStressTestServer
             refreshDivisorChanged();
             if (!pm.isCanceled()) {
               pm.done();
-              swtSend(EVT_INIT_HIST, msg.value);
+              Display.getDefault().asyncExec(new Runnable() { public void run() {
+                requestAgeView.statsParent.notifyListeners(EVT_INIT_HIST, event(msg.value));
+                showView(HISTORY_VIEW_ID);
+                globalEventHub().notifyListeners(EVT_INIT_HIST, null);
+              }});
             }
             break;
           case ERROR:
-            swtSend(EVT_ERROR, msg.value);
+            swtSend(requestAgeView.statsParent, EVT_ERROR, msg.value);
             break;
           case EXCEPTION:
             InfoDialog.show((DialogInfo) msg.value);
@@ -224,11 +232,7 @@ public class StressTestServer implements IStressTestServer
       public void run() {
         final long start = NANOSECONDS.toMillis(now());
         if (eventReceiver.isDisposed()) return;
-        for (Stats s : stats) {
-          final Event e = new Event();
-          e.data = s;
-          eventReceiver.notifyListeners(RequestAgePlugin.STATS_EVTYPE_BASE + s.index, e);
-        }
+        for (Stats s : stats) eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, event(s));
         final Rectangle area = eventReceiver.getBounds();
         eventReceiver.redraw(0, 0, area.width, area.height, true);
 //        eventReceiver.update();

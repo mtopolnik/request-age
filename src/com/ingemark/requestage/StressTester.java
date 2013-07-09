@@ -237,6 +237,6 @@ public class StressTester implements Runnable
         public void run() { System.out.println("Stress Tester shut down");
       }});
       new StressTester(args[0]).runTest();
-    } catch (Throwable t) { log.error("", t); }
+    } catch (Throwable t) { log.error("Top-level error", t); }
   }
 }

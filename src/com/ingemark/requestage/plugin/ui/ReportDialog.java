@@ -1,6 +1,7 @@
 package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.text.DateFormat.MEDIUM;
 import static java.text.DateFormat.getDateTimeInstance;
 import static org.eclipse.swt.SWT.FILL;
@@ -25,7 +26,6 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
-import org.swtchart.Chart;
 
 import com.ibm.icu.text.DecimalFormat;
 import com.ingemark.requestage.Stats;
@@ -45,8 +45,8 @@ public class ReportDialog
   static void show(String testName, List<Stats> statsList) {
     final Display disp = Display.getCurrent();
     final Shell top = new Shell(disp);
-    final Rectangle bounds = disp.map(RequestAgeView.instance.statsParent, null,
-        RequestAgeView.instance.statsParent.getBounds());
+    final Rectangle bounds = disp.map(requestAgeView.statsParent, null,
+        requestAgeView.statsParent.getBounds());
     top.setBounds(bounds);
     top.setLayout(new GridLayout(1, false));
     top.setText(testName + " - RequestAge Report");
@@ -103,7 +103,7 @@ public class ReportDialog
         stats.failsPerSec, stats.avgRespTime, stats.stdevRespTime};
   }
 
-  private static String textReport(String testName, List<Stats> statsList) {
+  static String textReport(String testName, List<Stats> statsList) {
     final StringWriter w = new StringWriter();
     final PrintWriter pw = new PrintWriter(w);
     pw.format("RequestAge Report for %s on %s\n", testName, dateTimeFormat.format(new Date()));
