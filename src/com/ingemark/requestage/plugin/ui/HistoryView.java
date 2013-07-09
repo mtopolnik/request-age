@@ -30,7 +30,7 @@ public class HistoryView extends ViewPart implements Listener
 {
   private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_GREEN, SWT.COLOR_RED,
     SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW };
-  private final Color gridColor = new Color(Display.getCurrent(), 220, 220, 220);
+  private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
   private Chart chart;
 
