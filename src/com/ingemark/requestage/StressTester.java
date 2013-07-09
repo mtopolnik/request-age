@@ -13,7 +13,7 @@ import static com.ingemark.requestage.Util.excToString;
 import static com.ingemark.requestage.Util.join;
 import static com.ingemark.requestage.Util.nettySend;
 import static com.ingemark.requestage.Util.sneakyThrow;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.stressTestPlugin;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -220,7 +220,7 @@ public class StressTester implements Runnable
 
   public static Process launchTester(String scriptFile) {
     try {
-      final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
+      final String bpath = getBundleFile(requestAgePlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
       log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);

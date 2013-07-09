@@ -9,7 +9,7 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.REQUESTAGE_VIEW_ID;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.stressTestPlugin;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IToolBarManager;
-import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ControlEvent;
 import org.eclipse.swt.events.ControlListener;
@@ -66,22 +65,13 @@ public class RequestAgeView extends ViewPart
     viewParent.setBackground(colWhite);
     requestAgeView = this;
     viewParent.setLayout(new GridLayout(2, false));
-    stopAction = new Action() {
-      final ImageDescriptor
-        on = stressTestPlugin().imageDescriptor("stop.gif"),
-        off = stressTestPlugin().imageDescriptor("stop_disabled.gif");
-      @Override public ImageDescriptor getImageDescriptor() { return isEnabled()? on:off; }
-      @Override public void setEnabled(boolean enabled) {
-        super.setEnabled(enabled);
-        setImageDescriptor(getImageDescriptor());
-      }
-      @Override public void run() { shutdownAndNewStatsParent(); }
-    };
-    reportAction = new Action() {
-      final ImageDescriptor img = stressTestPlugin().imageDescriptor("report.gif");
-      @Override public ImageDescriptor getImageDescriptor() { return img; }
-      @Override public void run() { statsParent.notifyListeners(EVT_REPORT, null); }
-    };
+    stopAction = new Action() { public void run() { shutdownAndNewStatsParent(); } };
+    stopAction.setImageDescriptor(requestAgePlugin().imageDescriptor("stop.gif"));
+    stopAction.setDisabledImageDescriptor(requestAgePlugin().imageDescriptor("stop_disabled.gif"));
+    reportAction = new Action() { public void run() {
+      statsParent.notifyListeners(EVT_REPORT, null);
+    }};
+    reportAction.setImageDescriptor(requestAgePlugin().imageDescriptor("report.gif"));
     enableActions(false);
     final IToolBarManager toolbar = getViewSite().getActionBars().getToolBarManager();
     toolbar.add(stopAction);

@@ -41,7 +41,7 @@ public class RequestAgePlugin extends AbstractUIPlugin
   @Override public void stop(BundleContext context) throws Exception {
     instance = null;
   }
-  public static RequestAgePlugin stressTestPlugin() {
+  public static RequestAgePlugin requestAgePlugin() {
     return instance;
   }
   public Bundle bundle() { return bundle; }

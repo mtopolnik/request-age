@@ -2,6 +2,7 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.StressTester.HIST_SIZE;
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.Util.color;
 import static com.ingemark.requestage.Util.now;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
@@ -215,7 +216,6 @@ public class HistogramViewer implements PaintListener
         barCount*HIST_BAR_WIDTH, barHeight*HIST_HEIGHT_SCALE);
   }
   private int histHeight() { return Math.min(DESIRED_HEIGHT, canvas.getClientArea().height); }
-  private Color color(int id) { return Display.getCurrent().getSystemColor(id); }
   private static int toMeter(int in) { return (int) (METER_SCALE * max(0d, log10(in))); }
   private static int toMeter(double d) { return toMeter((int)min(Integer.MAX_VALUE, max(0, d))); }
   private static int tickMarkY(int exp, int i) { return (int) (METER_SCALE * (exp + log10(i))); }

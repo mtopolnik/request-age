@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jface.layout.GridDataFactory;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -64,7 +65,7 @@ public class Util
   }
   public static float[] reciprocalArray(float[] array) {
     final float[] ret = new float[array.length];
-    for (int i = 0; i < array.length; i++) ret[i] = 1/array[i];
+    for (int i = 0; i < array.length; i++) ret[i] = array[i] == 0? 0 : 1/array[i];
     return ret;
   }
   public static long now() { return System.nanoTime(); }
@@ -148,4 +149,5 @@ public class Util
     t.printStackTrace(new PrintWriter(sw));
     return sw.toString();
   }
+  public static Color color(int id) { return Display.getCurrent().getSystemColor(id); }
 }

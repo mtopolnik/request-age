@@ -62,10 +62,8 @@ public class History {
       array[i] = new Date((array[2*i].getTime()+array[2*i+1].getTime())/2);
   }
 
-  public double[] reqsPerSec() {
-    return Arrays.copyOf(reqsPerSec, index);
-  }
-  public Date[] timestamps() {
-    return Arrays.copyOf(timestamps, index);
-  }
+  public double[] reqsPerSec() { return Arrays.copyOf(reqsPerSec, index); }
+  public double[] pendingReqs() { return Arrays.copyOf(pendingReqs, index); }
+  public double[] servingIntensity() { return Arrays.copyOf(servingIntensity, index); }
+  public Date[] timestamps() { return Arrays.copyOf(timestamps, index); }
 }
