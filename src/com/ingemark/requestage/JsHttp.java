@@ -137,9 +137,7 @@ public class JsHttp extends BaseFunction
 
     private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
-      if (reqName == null) throw constructError("NoName",
-          "Attempt to execute an unnamed request in test phase");
-      final LiveStats liveStats = tester.lsmap.get(reqName);
+      final LiveStats liveStats = reqName != null? tester.lsmap.get(reqName) : mockLiveStats;
       if (liveStats == null) throw constructError("NotRegistered",
           String.format("Request %s was not registered in init phase", reqName));
       final int startSlot = liveStats.registerReq();
@@ -174,6 +172,10 @@ public class JsHttp extends BaseFunction
       if (f != null) tester.jsScope.call(f, betterResponse(resp));
     }
   }
+  static final LiveStats mockLiveStats = new LiveStats(0, "") {
+    @Override int registerReq() { return -1; }
+    @Override void deregisterReq(int startSlot, long now, long start, Throwable t) { }
+  };
 
   public Scriptable betterAhccBuilder(final AsyncHttpClientConfig.Builder b) {
     return (Scriptable)fac.call(new ContextAction() {
