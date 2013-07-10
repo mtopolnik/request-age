@@ -84,6 +84,9 @@ public class StressTester implements Runnable
       this.jsScope = new JsScope(this);
       jsScope.evaluateFile(fname);
       final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
+      b.setIdleConnectionInPoolTimeoutInMs((int)SECONDS.toMillis(10));
+      b.setMaxRequestRetry(0);
+      b.setRequestTimeoutInMs((int)SECONDS.toMillis(20));
       jsScope.call("conf", jsScope.jsHttp.betterAhccBuilder(b));
       this.client = new AsyncHttpClient(b.build());
     } catch (Throwable t) {
