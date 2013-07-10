@@ -49,6 +49,7 @@ public class HistoryView extends ViewPart implements Listener
   @Override public void createPartControl(Composite parent) {
     final Display disp = parent.getDisplay();
     parent.setLayout(new GridLayout(2, false));
+    parent.setBackground(color(SWT.COLOR_WHITE));
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
@@ -59,7 +60,6 @@ public class HistoryView extends ViewPart implements Listener
       final String key = History.keys[i], title = yTitles[i];
       final Button radio = new Button(radios, SWT.RADIO);
       gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
-      radio.setBackground(color(SWT.COLOR_WHITE));
       radio.setText(title);
       radio.addSelectionListener(new SelectionListener() {
         @Override public void widgetSelected(SelectionEvent e) {
