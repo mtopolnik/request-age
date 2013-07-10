@@ -59,6 +59,7 @@ public class HistoryView extends ViewPart implements Listener
       final String key = History.keys[i], title = yTitles[i];
       final Button radio = new Button(radios, SWT.RADIO);
       gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
+      radio.setBackground(color(SWT.COLOR_WHITE));
       radio.setText(title);
       radio.addSelectionListener(new SelectionListener() {
         @Override public void widgetSelected(SelectionEvent e) {
