@@ -53,7 +53,7 @@ public class RequestAgeView extends ViewPart
   public static RequestAgeView requestAgeView;
   public Composite statsParent;
   private volatile IStressTestServer testServer = StressTestServer.NULL;
-  private volatile History[] histories = {};
+  volatile History[] histories = {};
   private Composite viewParent;
   private ProgressDialog pd;
   private Scale throttle;
