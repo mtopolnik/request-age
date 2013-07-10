@@ -7,6 +7,7 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.eclipse.swt.SWT.CENTER;
 import static org.eclipse.swt.SWT.FILL;
 import static org.swtchart.ISeries.SeriesType.LINE;
 
@@ -48,13 +49,14 @@ public class HistoryView extends ViewPart implements Listener
 
   @Override public void createPartControl(Composite parent) {
     final Display disp = parent.getDisplay();
-    parent.setLayout(new GridLayout(2, false));
+    parent.setLayout(new GridLayout(1, false));
     parent.setBackground(color(SWT.COLOR_WHITE));
+    final Group radios = new Group(parent, SWT.NONE);
+    gridData().align(CENTER, FILL).applyTo(radios);
+    radios.setLayout(new GridLayout(3,false));
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
-    final Group radios = new Group(parent, SWT.NONE);
-    radios.setLayout(new GridLayout(1,false));
     boolean selected = true;
     for (int i = 0; i < History.keys.length; i++) {
       final String key = History.keys[i], title = yTitles[i];
