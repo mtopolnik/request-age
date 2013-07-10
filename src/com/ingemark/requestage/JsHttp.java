@@ -29,10 +29,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ingemark.requestage.script.JdomBuilder;
+import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.AsyncHttpClientConfig.Builder;
+import com.ning.http.client.HttpResponseBodyPart;
 import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
@@ -110,21 +112,29 @@ public class JsHttp extends BaseFunction
       acceptor = acceptors.get(qualifier);
       return this;
     }
-    public void go() { go(null); }
+    public void go() { go1(null, true); }
+    public void go(Callable f) { go1(f, false); }
+    public void goDiscardingBody(Callable f) { go1(f, true); }
 
-    public void go(Callable f) { if (index >= 0) executeInit(this, f); else executeTest(this, f); }
+    private void go1(Callable f, boolean discardBody) {
+      if (index >= 0) executeInit(this, f, discardBody); else executeTest(this, f, discardBody);
+    }
 
-    private void executeInit(ReqBuilder reqBuilder, Callable f) {
+    private void executeInit(ReqBuilder reqBuilder, Callable f, final boolean discardBody) {
       if (reqBuilder.name != null) {
         log.debug("Adding " + reqBuilder.name + " under " + index);
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
         tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
       }
-      try { handleResponse(reqBuilder.brb.execute().get(), f); }
-      catch (Exception e) { sneakyThrow(e); }
+      try {
+        handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
+          public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
+            return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart); }}
+        ).get(), f);
+      } catch (Exception e) { sneakyThrow(e); }
     }
 
-    private void executeTest(ReqBuilder reqBuilder, final Callable f) {
+    private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
       if (reqName == null) throw constructError("NoName",
           "Attempt to execute an unnamed request in test phase");
@@ -134,22 +144,26 @@ public class JsHttp extends BaseFunction
       final int startSlot = liveStats.registerReq();
       final long start = now();
       try {
-        reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
-          @Override public Response onCompleted(final Response resp) throws IOException {
-            return (Response) fac.call(new ContextAction() {
+        reqBuilder.brb.execute(new AsyncCompletionHandler<Void>() {
+          public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
+            return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart);
+          }
+          @Override public Void onCompleted(final Response resp) {
+            fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
                 Throwable failure = null;
                 try { handleResponse(resp, f); }
                 catch (Throwable t) { failure = t; }
                 finally { liveStats.deregisterReq(startSlot, now(), start, failure); }
-                return resp;
+                return null;
               }
             });
+            return null;
           }
           @Override public void onThrowable(Throwable t) {
             liveStats.deregisterReq(startSlot, now(), start, t);
           }
-        });
+      });
       } catch (IOException e) { sneakyThrow(e); }
     }
 
