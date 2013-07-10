@@ -112,11 +112,12 @@ public class JsHttp extends BaseFunction
       acceptor = acceptors.get(qualifier);
       return this;
     }
-    public void go() { go1(null, true); }
-    public void go(Callable f) { go1(f, false); }
-    public void goDiscardingBody(Callable f) { go1(f, true); }
+    public void go() { go0(null, true); }
+    public void go(Callable f) { go0(f, false); }
+    public void goDiscardingBody(Callable f) { go0(f, true); }
 
-    private void go1(Callable f, boolean discardBody) {
+    private void go0(Callable f, boolean discardBody) {
+      if (f == null) discardBody = true;
       if (index >= 0) executeInit(this, f, discardBody); else executeTest(this, f, discardBody);
     }
 
