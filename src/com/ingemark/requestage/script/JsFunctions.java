@@ -151,7 +151,9 @@ public class JsFunctions {
     }
     return p;
   }
-  public static UrlBuilder url(String urlBase) { return new UrlBuilder(urlBase); }
+  public static UrlBuilder url(Context _1, Scriptable scope, Object[] args, Function _3) {
+    return new UrlBuilder(scope, args);
+  }
 
   public static Object spy(Context _1, Scriptable _2, Object[] args, Function _3) {
     if (args.length == 0) return null;
