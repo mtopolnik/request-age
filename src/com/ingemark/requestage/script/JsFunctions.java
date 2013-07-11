@@ -3,17 +3,20 @@ package com.ingemark.requestage.script;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
 import static java.util.Arrays.asList;
+import static java.util.Collections.newSetFromMap;
 import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;
 import static org.jdom2.output.Format.getPrettyFormat;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -30,6 +33,7 @@ import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 import org.slf4j.Logger;
 
@@ -42,7 +46,7 @@ import com.ning.http.client.Response;
 public class JsFunctions {
   private static final int COMPILED_EXPR_CACHE_LIMIT = 256;
   public static final String[] JS_METHODS = new String[] {
-    "nsdecl", "ns", "xml", "parseXml", "prettyXml", "xpath", "regex", "url", "spy"
+    "require","nsdecl","ns","xml","parseXml","prettyXml","xpath","regex","url","spy"
   };
   private static Logger jsLogger = getLogger(JS_LOGGER_NAME);
   private static final ReaderConfig readerCfg = new ReaderConfig();
@@ -50,6 +54,24 @@ public class JsFunctions {
   private static final Map<String, Namespace> nsmap = concHashMap();
   private static final Map<String, XPathExpression<Object>> xpathmap = concHashMap();
   private static final Map<String, Pattern> regexmap = concHashMap();
+  private static final Set<String> filesAlreadyRequired =
+      newSetFromMap(new ConcurrentHashMap<String,Boolean>());
+
+  public static Object require(Context _1, Scriptable scope, Object[] args, Function _3)
+  throws Exception
+  {
+    final String fname = args[0].toString();
+    final JsScope jsScope = (JsScope) ((NativeJavaObject)
+        ScriptableObject.getProperty(scope, "jsScope")).unwrap();
+    File f = new File(fname);
+    if (!f.isAbsolute()) f = new File(jsScope.scriptBase, fname);
+    final String path = f.getCanonicalPath();
+    if (filesAlreadyRequired.add(path)) {
+      jsScope.evaluateFile(path);
+      return true;
+    }
+    return false;
+  }
 
   public static Namespace nsdecl(String prefix, String url) {
     final Namespace ns = ns(prefix, url);

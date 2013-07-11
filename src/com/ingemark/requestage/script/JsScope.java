@@ -1,10 +1,12 @@
 package com.ingemark.requestage.script;
 
+import static com.ingemark.requestage.Util.javaToJS;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static org.mozilla.javascript.ScriptableObject.DONTENUM;
 import static org.mozilla.javascript.ScriptableObject.getTypedProperty;
 import static org.mozilla.javascript.ScriptableObject.putProperty;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -34,9 +36,12 @@ public class JsScope {
   private static final ContextFactory fac = ContextFactory.getGlobal();
   private static final WrapFactory betterWrapFactory = new BetterWrapFactory();
   public final ScriptableObject global;
+  public final File scriptBase;
   public JsHttp jsHttp;
 
-  public JsScope(final StressTester tester) {
+  public JsScope(final StressTester tester, final String fname) {
+    try { scriptBase = new File(fname).getCanonicalFile().getParentFile(); }
+    catch (IOException e) { throw (RuntimeException)sneakyThrow(e); }
     fac.addListener(new Listener() {
       @Override public void contextCreated(Context cx) {
         cx.setOptimizationLevel(9);
@@ -52,9 +57,10 @@ public class JsScope {
         global.defineFunctionProperties(JsFunctions.JS_METHODS, JsFunctions.class, DONTENUM);
         jsHttp = new JsHttp(global, tester);
         putProperty(global, "req", jsHttp);
-//        putProperty(global, "log", javaToJS(getLogger(JS_LOGGER_NAME), global));
+        putProperty(global, "jsScope", javaToJS(JsScope.this, global));
         return global;
       }});
+    evaluateFile(fname);
   }
   public void initDone() {
     fac.call(new ContextAction() { @Override public Object run(Context cx) {

@@ -81,8 +81,7 @@ public class StressTester implements Runnable
     this.channel = channel(netty);
     log.debug("Connected");
     try {
-      this.jsScope = new JsScope(this);
-      jsScope.evaluateFile(fname);
+      this.jsScope = new JsScope(this, fname);
       final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
       b.setIdleConnectionInPoolTimeoutInMs((int)SECONDS.toMillis(10));
       b.setMaxRequestRetry(0);
