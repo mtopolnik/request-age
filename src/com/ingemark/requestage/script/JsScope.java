@@ -22,6 +22,7 @@ import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ContextFactory.Listener;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -90,7 +91,6 @@ public class JsScope {
         } catch (IOException e) { return sneakyThrow(e); }
       }
     });
-
   }
 
   static class BetterWrapFactory extends WrapFactory {
@@ -102,12 +102,17 @@ public class JsScope {
         }
         return obj;
       }
-      return
+      final Object ret =
         obj != null && obj.getClass().isArray()? new NativeArray((Object[])obj)
       : obj instanceof List? new ScriptableList(scope, (List) obj)
       : obj instanceof Map? new ScriptableMap(scope, (Map) obj)
       : obj instanceof Text? ((Text)obj).getValue()
       : super.wrap(cx, scope, obj, staticType);
+      if (ret instanceof Scriptable) {
+        final Scriptable sret = (Scriptable) ret;
+        if (sret.getPrototype() == null) sret.setPrototype(new NativeObject());
+      }
+      return ret;
     }
   }
 }
