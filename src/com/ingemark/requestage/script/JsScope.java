@@ -21,6 +21,7 @@ import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ContextFactory.Listener;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -58,6 +59,7 @@ public class JsScope {
         jsHttp = new JsHttp(global, tester);
         putProperty(global, "req", jsHttp);
         putProperty(global, "jsScope", javaToJS(JsScope.this, global));
+        putProperty(global, "scriptBase", javaToJS(scriptBase, global));
         return global;
       }});
     evaluateFile(fname);
@@ -100,7 +102,9 @@ public class JsScope {
         }
         return obj;
       }
-      return obj instanceof List? new ScriptableList(scope, (List) obj)
+      return
+        obj != null && obj.getClass().isArray()? new NativeArray((Object[])obj)
+      : obj instanceof List? new ScriptableList(scope, (List) obj)
       : obj instanceof Map? new ScriptableMap(scope, (Map) obj)
       : obj instanceof Text? ((Text)obj).getValue()
       : super.wrap(cx, scope, obj, staticType);
