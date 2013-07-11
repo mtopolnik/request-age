@@ -123,6 +123,7 @@ public class HistoryView extends ViewPart implements Listener
     }
     ser.setSymbolType(PlotSymbolType.NONE);
     ser.setYSeries(h.history(histKey));
+    chart.getAxisSet().getYAxis(0).enableLogScale(true);
     final Date[] xs = h.timestamps();
     ser.setXDateSeries(xs);
     final IAxisSet axes = chart.getAxisSet();
