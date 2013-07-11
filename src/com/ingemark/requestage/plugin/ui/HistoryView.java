@@ -22,7 +22,6 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.part.ViewPart;
@@ -41,7 +40,7 @@ public class HistoryView extends ViewPart implements Listener
   private static final long MIN_HIST_RANGE = MINUTES.toMillis(2);
   private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_GREEN, SWT.COLOR_RED,
     SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW };
-  public static final String[] yTitles = {"1/resp_time", "pending_reqs", "reqs_per_sec"};
+  public static final String[] yTitles = {"1/resp_time","pending_reqs","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
   private Chart chart;
@@ -51,17 +50,20 @@ public class HistoryView extends ViewPart implements Listener
     final Display disp = parent.getDisplay();
     parent.setLayout(new GridLayout(1, false));
     parent.setBackground(color(SWT.COLOR_WHITE));
-    final Group radios = new Group(parent, SWT.NONE);
+    final Composite radios = new Composite(parent, SWT.NONE);
     gridData().align(CENTER, FILL).applyTo(radios);
-    radios.setLayout(new GridLayout(3,false));
+    radios.setBackground(parent.getBackground());
+    radios.setLayout(new GridLayout(yTitles.length,false));
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
     boolean selected = true;
     for (int i = 0; i < History.keys.length; i++) {
+      System.out.println(i);
       final String key = History.keys[i], title = yTitles[i];
       final Button radio = new Button(radios, SWT.RADIO);
       gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
+      radio.setBackground(radios.getBackground());
       radio.setText(title);
       radio.addSelectionListener(new SelectionListener() {
         @Override public void widgetSelected(SelectionEvent e) {
@@ -147,6 +149,8 @@ public class HistoryView extends ViewPart implements Listener
     final Shell s = new Shell(d);
     s.setLayout(new GridLayout(1,true));
     new HistoryView().createPartControl(s);
+//    s.pack();
+    s.layout();
     s.open();
     while (!s.isDisposed()) if (!d.readAndDispatch()) d.sleep();
     d.dispose();
