@@ -21,9 +21,8 @@ import com.ingemark.requestage.Stats;
 public class History {
   static final Logger log = LoggerFactory.getLogger(History.class);
   private static final int FULL_SIZE = 1<<11, BUFSIZ = 8*TIMESLOTS_PER_SEC;
-  static final String REQS_PER_SEC = "reqsPerSec", PENDING_REQS = "pendingReqs",
-      SERVING_INTENSITY = "avgServIntensty";
-  public static final String[] keys = {SERVING_INTENSITY, PENDING_REQS, REQS_PER_SEC};
+  public static final String[] keys = {
+    "avgServIntensty", "pendingReqs", "reqsPerSec", "failsPerSec"};
   private static final Map<String, Field> statFields = new HashMap<String, Field>(); static {
     try { for (String key : keys) statFields.put(key, Stats.class.getField(key)); }
     catch (Exception e) { sneakyThrow(e); }
