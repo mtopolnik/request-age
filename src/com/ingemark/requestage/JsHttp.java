@@ -114,17 +114,19 @@ public class JsHttp extends BaseFunction
       return wrapper;
     }
     public void go() { go0(null, true); }
-    public void go(Callable f) { go0(f, false); }
-    public void goDiscardingBody(Callable f) { go0(f, true); }
+    public void go(Object f) { go0(f, false); }
+    public void goDiscardingBody(Object f) { go0(f, true); }
 
     private Scriptable brb(String method, String url) {
       brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
       return wrapper;
     }
 
-    private void go0(Callable f, boolean discardBody) {
-      if (f == null) discardBody = true;
-      if (index >= 0) executeInit(this, f, discardBody); else executeTest(this, f, discardBody);
+    private void go0(Object f, boolean discardBody) {
+      final Callable c;
+      if (f instanceof Callable) c = (Callable)f;
+      else { c = null; discardBody = true; }
+      if (index >= 0) executeInit(this, c, discardBody); else executeTest(this, c, discardBody);
     }
 
     private void executeInit(ReqBuilder reqBuilder, Callable f, final boolean discardBody) {
