@@ -18,6 +18,8 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -134,6 +136,11 @@ public class Util
     } else {
       return Context.javaToJS(obj, scope);
     }
+  }
+  public static NativeJavaObject wrapper(Scriptable scope, Object wrapped) {
+    final NativeJavaObject wrapper = new NativeJavaObject(scope, wrapped, wrapped.getClass());
+    wrapper.setPrototype(new NativeObject());
+    return wrapper;
   }
   public static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 

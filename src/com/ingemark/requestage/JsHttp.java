@@ -5,6 +5,7 @@ import static com.ingemark.requestage.StressTester.fac;
 import static com.ingemark.requestage.Util.nettySend;
 import static com.ingemark.requestage.Util.now;
 import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.wrapper;
 import static com.ingemark.requestage.script.JsFunctions.parseXml;
 import static com.ingemark.requestage.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
@@ -20,6 +21,7 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.NativeJSON;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -68,27 +70,31 @@ public class JsHttp extends BaseFunction
 
   public void initDone() { index = -1; }
 
-  @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-    return new ReqBuilder(ScriptRuntime.toString(args[0]));
+  @Override public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
+    return new ReqBuilder(scope, ScriptRuntime.toString(args[0]));
   }
   @Override public int getArity() { return 1; }
 
   public class ReqBuilder {
+    final NativeJavaObject wrapper;
     final String name;
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
-    ReqBuilder(String name) { this.name = name; }
-    ReqBuilder(String method, String url) { this(null); brb(method, url); }
+    ReqBuilder(Scriptable scope, String name) {
+      this.wrapper = wrapper(scope, this);
+      this.name = name;
+    }
+    ReqBuilder(Scriptable scope, String method, String url) { this(scope, null); brb(method, url); }
 
-    public ReqBuilder get(String url) { return brb("GET", url); }
-    public ReqBuilder put(String url) { return brb("PUT", url); }
-    public ReqBuilder post(String url) { return brb("POST", url); }
-    public ReqBuilder delete(String url) { return brb("DELETE", url); }
-    public ReqBuilder head(String url) { return brb("HEAD", url); }
-    public ReqBuilder options(String url) { return brb("OPTIONS", url); }
+    public Scriptable get(String url) { return brb("GET", url); }
+    public Scriptable put(String url) { return brb("PUT", url); }
+    public Scriptable post(String url) { return brb("POST", url); }
+    public Scriptable delete(String url) { return brb("DELETE", url); }
+    public Scriptable head(String url) { return brb("HEAD", url); }
+    public Scriptable options(String url) { return brb("OPTIONS", url); }
 
-    public ReqBuilder body(final Object body) {
+    public Scriptable body(final Object body) {
       if (body instanceof JdomBuilder) {
         brb.addHeader("Content-Type", "text/xml;charset=UTF-8");
         brb.setBody(body.toString());
@@ -100,21 +106,21 @@ public class JsHttp extends BaseFunction
         }});
       }
       else brb.setBody(body.toString());
-      return this;
+      return wrapper;
     }
 
-    private ReqBuilder brb(String method, String url) {
-      brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
-      return this;
-    }
-
-    public ReqBuilder accept(String qualifier) {
+    public Scriptable accept(String qualifier) {
       acceptor = acceptors.get(qualifier);
-      return this;
+      return wrapper;
     }
     public void go() { go0(null, true); }
     public void go(Callable f) { go0(f, false); }
     public void goDiscardingBody(Callable f) { go0(f, true); }
+
+    private Scriptable brb(String method, String url) {
+      brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
+      return wrapper;
+    }
 
     private void go0(Callable f, boolean discardBody) {
       if (f == null) discardBody = true;
@@ -231,8 +237,8 @@ public class JsHttp extends BaseFunction
 
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
-      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return new ReqBuilder(m, ScriptRuntime.toString(args[0]));
+      public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
+        return new ReqBuilder(scope, m, ScriptRuntime.toString(args[0]));
       }
     });
   }

@@ -1,13 +1,16 @@
 package com.ingemark.requestage.script;
 
 import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.script.JdomBuilder.jdomBuilder;
 import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
+import static com.ingemark.requestage.script.UrlBuilder.urlBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Collections.newSetFromMap;
 import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;
 import static org.jdom2.output.Format.getPrettyFormat;
 import static org.mozilla.javascript.Context.getCurrentContext;
+import static org.mozilla.javascript.ScriptRuntime.constructError;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -82,16 +85,16 @@ public class JsFunctions {
     final String uri = cast(_uri, String.class);
     return uri != null? getNamespace(prefix, uri) : nsmap.get(prefix);
   }
-  public static JdomBuilder xml(Object root, Object ns) {
-    root = cast(root, Object.class);
+  public static Scriptable xml(Context _1, Scriptable scope, Object[] args, Function _3) {
+    final Object root = cast(args[0], Object.class);
     if (root == null) throw new NullPointerException("First argument is null/undefined");
     final String name = cast(root, String.class);
-    if (name != null) return new JdomBuilder(name, cast(ns, Namespace.class));
+    if (name != null) return jdomBuilder(scope, name, cast(args[1], Namespace.class));
     final Element el = cast(root, Element.class);
-    if (el != null) return new JdomBuilder(el);
+    if (el != null) return jdomBuilder(scope, el);
     final Document doc = cast(el, Document.class);
-    if (doc != null) return new JdomBuilder(doc);
-    throw new IllegalArgumentException("Got " + root.getClass().getName() +
+    if (doc != null) return jdomBuilder(scope, doc);
+    throw constructError("TypeError", "Got " + root.getClass().getName() +
         "; supporting Document, Element,  or String");
   }
   public static Document parseXml(Object in) {
@@ -114,7 +117,7 @@ public class JsFunctions {
     final boolean parseable =
         o instanceof Response || o instanceof String || o instanceof InputStream;
     if (!(parseable || isJdom(o)))
-      throw new IllegalArgumentException(
+      throw constructError("TypeError",
           "Got " + o.getClass().getName() + ". Supporting HTTP Response, String, " +
       		"InputStream, JdomBuilder, or JDOM2 Document/Content");
     return new Object() {
@@ -151,8 +154,8 @@ public class JsFunctions {
     }
     return p;
   }
-  public static UrlBuilder url(Context _1, Scriptable scope, Object[] args, Function _3) {
-    return new UrlBuilder(scope, args);
+  public static Object url(Context _1, Scriptable scope, Object[] args, Function _3) {
+    return urlBuilder(scope, args[0].toString());
   }
 
   public static Object spy(Context _1, Scriptable _2, Object[] args, Function _3) {
