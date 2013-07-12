@@ -44,13 +44,14 @@ public class HistoryView extends ViewPart implements Listener
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
   private Chart chart;
+  private Composite radios;
   private String histKey;
 
   @Override public void createPartControl(Composite parent) {
     final Display disp = parent.getDisplay();
     parent.setLayout(new GridLayout(1, false));
     parent.setBackground(color(SWT.COLOR_WHITE));
-    final Composite radios = new Composite(parent, SWT.NONE);
+    radios = new Composite(parent, SWT.NONE);
     gridData().align(CENTER, FILL).applyTo(radios);
     radios.setBackground(parent.getBackground());
     radios.setLayout(new GridLayout(yTitles.length,false));
@@ -82,7 +83,6 @@ public class HistoryView extends ViewPart implements Listener
     final IAxisSet axes = chart.getAxisSet();
     final IAxis y = axes.getYAxis(0);
     y.getTick().setForeground(color(SWT.COLOR_BLACK));
-    y.enableLogScale(true);
     final ITitle yTitle = y.getTitle();
     yTitle.setFont(disp.getSystemFont());
     yTitle.setForeground(color(SWT.COLOR_BLACK));
@@ -123,7 +123,6 @@ public class HistoryView extends ViewPart implements Listener
     }
     ser.setSymbolType(PlotSymbolType.NONE);
     ser.setYSeries(h.history(histKey));
-//    chart.getAxisSet().getYAxis(0).enableLogScale(true);
     final Date[] xs = h.timestamps();
     ser.setXDateSeries(xs);
     final IAxisSet axes = chart.getAxisSet();
@@ -138,7 +137,7 @@ public class HistoryView extends ViewPart implements Listener
     chart.redraw();
   }
 
-  @Override public void setFocus() { }
+  @Override public void setFocus() { radios.setFocus(); }
 
   @Override public void dispose() {
     globalEventHub().removeListener(EVT_INIT_HIST, this);

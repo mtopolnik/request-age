@@ -33,7 +33,7 @@ import com.ingemark.requestage.Stats;
 public class ReportDialog
 {
   private static final String[] headers = {
-    "name","req rate","succ rate","fail rate","resp time","resp stdev"};
+    "name","req rate","pending","succ rate","fail rate","resp time","resp stdev"};
   private static final String format; static {
     final StringBuilder b = new StringBuilder();
     for (int i = 0; i < 6; i++) b.append("%s\t");
@@ -76,16 +76,32 @@ public class ReportDialog
     for (String h: headers) {
       final TableColumn col = new TableColumn(t, SWT.NONE);
       col.setText(h);
+      col.setAlignment(SWT.RIGHT);
     }
+    int rpsTotal = 0, pendingTotal = 0, succTotal = 0, failTotal = 0;
     for (Stats stats : statsList) {
       final TableItem it = new TableItem(t, SWT.NONE);
       int i = 0;
       it.setText(i++, stats.name);
       it.setText(i++, ""+stats.reqsPerSec);
+      it.setText(i++, ""+stats.pendingReqs);
       it.setText(i++, ""+stats.succRespPerSec);
       it.setText(i++, ""+stats.failsPerSec);
       it.setText(i++, timeFormat(stats.avgRespTime));
       it.setText(i++, timeFormat(stats.stdevRespTime));
+      rpsTotal += stats.reqsPerSec;
+      pendingTotal += stats.pendingReqs;
+      succTotal += stats.succRespPerSec;
+      failTotal += stats.failsPerSec;
+    }
+    {
+      final TableItem total = new TableItem(t, SWT.NONE);
+      int i = 0;
+      total.setText(i++, "TOTAL");
+      total.setText(i++, ""+rpsTotal);
+      total.setText(i++, ""+pendingTotal);
+      total.setText(i++, ""+succTotal);
+      total.setText(i++, ""+failTotal);
     }
     for (int i = 0; i < headers.length; i++) t.getColumn(i).pack();
 
