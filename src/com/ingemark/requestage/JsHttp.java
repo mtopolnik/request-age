@@ -71,7 +71,7 @@ public class JsHttp extends BaseFunction
   public void initDone() { index = -1; }
 
   @Override public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
-    return new ReqBuilder(scope, ScriptRuntime.toString(args[0]));
+    return new ReqBuilder(scope, ScriptRuntime.toString(args[0])).wrapper;
   }
   @Override public int getArity() { return 1; }
 
@@ -238,7 +238,7 @@ public class JsHttp extends BaseFunction
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
       public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
-        return new ReqBuilder(scope, m, ScriptRuntime.toString(args[0]));
+        return new ReqBuilder(scope, m, ScriptRuntime.toString(args[0])).wrapper;
       }
     });
   }

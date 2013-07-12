@@ -89,7 +89,8 @@ public class JsFunctions {
     final Object root = cast(args[0], Object.class);
     if (root == null) throw new NullPointerException("First argument is null/undefined");
     final String name = cast(root, String.class);
-    if (name != null) return jdomBuilder(scope, name, cast(args[1], Namespace.class));
+    final Namespace ns = args.length > 1? cast(args[1], Namespace.class) : null;
+    if (name != null) return jdomBuilder(scope, name, ns);
     final Element el = cast(root, Element.class);
     if (el != null) return jdomBuilder(scope, el);
     final Document doc = cast(el, Document.class);
