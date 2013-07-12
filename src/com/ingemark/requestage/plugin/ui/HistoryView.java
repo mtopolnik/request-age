@@ -123,7 +123,7 @@ public class HistoryView extends ViewPart implements Listener
     }
     ser.setSymbolType(PlotSymbolType.NONE);
     ser.setYSeries(h.history(histKey));
-    chart.getAxisSet().getYAxis(0).enableLogScale(true);
+//    chart.getAxisSet().getYAxis(0).enableLogScale(true);
     final Date[] xs = h.timestamps();
     ser.setXDateSeries(xs);
     final IAxisSet axes = chart.getAxisSet();
@@ -150,7 +150,6 @@ public class HistoryView extends ViewPart implements Listener
     final Shell s = new Shell(d);
     s.setLayout(new GridLayout(1,true));
     new HistoryView().createPartControl(s);
-//    s.pack();
     s.layout();
     s.open();
     while (!s.isDisposed()) if (!d.readAndDispatch()) d.sleep();

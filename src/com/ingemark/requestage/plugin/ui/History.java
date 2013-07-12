@@ -6,7 +6,6 @@ import static com.ingemark.requestage.Util.event;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
-import static java.lang.Math.max;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
@@ -47,8 +46,7 @@ public class History {
     if (++bufIndex == bufLimit) {
       bufIndex = 0;
       timestamps[index] = new Date();
-      for (String key : keys) histories.get(key)[index] =
-          max(1e-6, arrayMean(histBufs.get(key), bufLimit));
+      for (String key : keys) histories.get(key)[index] = arrayMean(histBufs.get(key), bufLimit);
       globalEventHub().notifyListeners(EVT_HISTORY_UPDATE, event(this));
       if (++index == FULL_SIZE) {
         squeezeDates(timestamps);
