@@ -30,7 +30,7 @@ public class UrlBuilder
       throw new IllegalStateException("Cannot add path segments after query params");
     for (Object seg : segs) {
       if (b.charAt(b.length()-1) != '/') b.append('/');
-      if (seg != null) b.append(seg);
+      if (seg != null) b.append(encode(seg));
     }
     return wrapper;
   }
@@ -46,8 +46,8 @@ public class UrlBuilder
   }
   @Override public String toString() { return b.toString(); }
 
-  static String encode(String s) {
-    try { return URLEncoder.encode(s, "UTF-8"); }
+  static String encode(Object s) {
+    try { return URLEncoder.encode(s.toString(), "UTF-8"); }
     catch (UnsupportedEncodingException e) { return sneakyThrow(e); }
   }
 }
