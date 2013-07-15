@@ -56,7 +56,7 @@ public class JsHttp extends BaseFunction
     );
   private final StressTester tester;
   volatile int index;
-  volatile Acceptor acceptor = acceptors.get("any");
+  volatile Acceptor acceptor = acceptors.get("success");
 
   public JsHttp(ScriptableObject parentScope, StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));
