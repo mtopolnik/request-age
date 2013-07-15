@@ -137,9 +137,11 @@ public class JsHttp extends BaseFunction
 
     private void executeInit(ReqBuilder reqBuilder, Callable f, final boolean discardBody) {
       if (reqBuilder.name != null) {
-        log.debug("Adding " + reqBuilder.name + " under " + index);
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
-        tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+        if (tester.lsmap.get(reqBuilder.name) == null) {
+          log.debug("Adding " + reqBuilder.name + " under " + index);
+          tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+        }
       }
       try {
         handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
