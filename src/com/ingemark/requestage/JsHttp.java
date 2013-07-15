@@ -58,10 +58,16 @@ public class JsHttp extends BaseFunction
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("success");
 
-  public JsHttp(ScriptableObject parentScope, StressTester tester) {
+  public JsHttp(ScriptableObject parentScope, final StressTester tester) {
     super(parentScope, getFunctionPrototype(parentScope));
     this.tester = tester;
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
+    putProperty(this, "declare", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        for (Object name : args)
+          tester.lsmap.put(name.toString(), new LiveStats(index++, name.toString()));
+        return null;
+      }});
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         return acceptor = acceptors.get(args[0]);
