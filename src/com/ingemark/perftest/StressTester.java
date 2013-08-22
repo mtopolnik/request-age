@@ -68,6 +68,7 @@ public class StressTester implements Runnable
       return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
   }});
   final AsyncHttpClient client;
+  boolean explicitLsMap;
   final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();
   final JsScope jsScope;
   private final ClientBootstrap netty;

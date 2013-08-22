@@ -53,14 +53,24 @@ public class JsHttp extends BaseFunction
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("any");
 
-  public JsHttp(ScriptableObject parentScope, StressTester tester) {
+  public JsHttp(ScriptableObject parentScope, final StressTester testr) {
     super(parentScope, getFunctionPrototype(parentScope));
-    this.tester = tester;
+    this.tester = testr;
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return acceptor = acceptors.get(args[0]);
+        acceptor = acceptors.get(args[0]);
+        return JsHttp.this;
     }});
+    putProperty(this, "declare", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        if (!testr.lsmap.isEmpty())
+          throw ScriptRuntime.constructError("LateDeclare",
+              "Must declare the request names before creating any named request");
+        testr.explicitLsMap = true;
+        for (Object o : args) declareReq(o.toString());
+        return JsHttp.this;
+      }});
   }
 
   public void initDone() { index = -1; }
@@ -69,6 +79,11 @@ public class JsHttp extends BaseFunction
     return new ReqBuilder(ScriptRuntime.toString(args[0]));
   }
   @Override public int getArity() { return 1; }
+
+  private void declareReq(String name) {
+    log.debug("Adding " + name + " under " + index);
+    tester.lsmap.put(name, new LiveStats(index++, name));
+  }
 
   public class ReqBuilder {
     final String name;
@@ -115,9 +130,8 @@ public class JsHttp extends BaseFunction
 
     private void executeInit(ReqBuilder reqBuilder, Callable f) {
       if (reqBuilder.name != null) {
-        log.debug("Adding " + reqBuilder.name + " under " + index);
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
-        tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
+        if (!tester.explicitLsMap) declareReq(reqBuilder.name);
       }
       try { handleResponse(reqBuilder.brb.execute().get(), f); }
       catch (Exception e) { sneakyThrow(e); }
