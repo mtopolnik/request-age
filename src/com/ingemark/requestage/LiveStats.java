@@ -1,22 +1,28 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.StressTester.HIST_SIZE;
-import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
-import static com.ingemark.perftest.Util.toIndex;
+import static com.ingemark.requestage.StressTester.HIST_SIZE;
+import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.Util.toIndex;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class LiveStats {
+  private static final double NANOSEC_TO_SEC = 1.0/SECONDS.toNanos(1);
+  private static final int
+    RESPTIMES_SIZE = 50, RESPTIME_SAMPLING_PERIOD = 2*(int)SECONDS.toNanos(1)/RESPTIMES_SIZE;
   public final int index;
   public final String name;
   volatile Throwable lastException;
-  final char[] histogram = new char[HIST_SIZE];
+  private int respTimesIndex, timeSlot = Integer.MAX_VALUE;
+  final float[] respTimes = new float[RESPTIMES_SIZE];
   final int[]
       reqs = new int[TIMESLOTS_PER_SEC],
       succs = new int[TIMESLOTS_PER_SEC],
       fails = new int[TIMESLOTS_PER_SEC];
   final AtomicInteger pendingReqs = new AtomicInteger();
-  int timeSlot = Integer.MAX_VALUE;
+  private long respTimeLastSampled;
+  private final char[] histogram = new char[HIST_SIZE];
 
   LiveStats(int index, String name) { this.index = index; this.name = name; }
 
@@ -26,10 +32,13 @@ public class LiveStats {
     reqs[toIndex(reqs, timeSlot)]++;
     return timeSlot;
   }
-  synchronized void deregisterReq(int startSlot, Throwable t) {
+  synchronized void deregisterReq(int startSlot, long now, long start, Throwable t) {
     pendingReqs.decrementAndGet();
-    final char[] hist = histogram;
-    if (startSlot-timeSlot < hist.length) hist[toIndex(hist, startSlot)]--;
+    if (now-respTimeLastSampled >= RESPTIME_SAMPLING_PERIOD) {
+      respTimeLastSampled = now;
+      respTimes[respTimesIndex++ % RESPTIMES_SIZE] = (float)((now-start)*NANOSEC_TO_SEC);
+    }
+    if (startSlot-timeSlot < histogram.length) histogram[toIndex(histogram, startSlot)]--;
     final int[] ary =  t == null? succs : fails;
     ary[toIndex(ary, timeSlot)]++;
     if (t != null) lastException = t;
@@ -46,11 +55,8 @@ public class LiveStats {
       return timeSlot % guiUpdateDivisor == 0? new Stats(this) : null;
     } finally {
       timeSlot--;
-      final int histIndex = toIndex(histogram, timeSlot);
-      histogram[histIndex] = (char)
-          (reqs[toIndex(reqs, timeSlot)] =
-          succs[toIndex(succs, timeSlot)] =
-          fails[toIndex(fails, timeSlot)] = 0);
+      reqs[toIndex(reqs, timeSlot)] = succs[toIndex(succs, timeSlot)] =
+          fails[toIndex(fails, timeSlot)] = histogram[toIndex(histogram, timeSlot)] = 0;
     }
   }
 }

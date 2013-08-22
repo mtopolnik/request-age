@@ -1,22 +1,28 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.Message.DIVISOR;
-import static com.ingemark.perftest.Message.ERROR;
-import static com.ingemark.perftest.Message.EXCEPTION;
-import static com.ingemark.perftest.Message.INIT;
-import static com.ingemark.perftest.Message.INITED;
-import static com.ingemark.perftest.Message.INTENSITY;
-import static com.ingemark.perftest.Message.SHUTDOWN;
-import static com.ingemark.perftest.Message.STATS;
-import static com.ingemark.perftest.StressTester.TIMESLOTS_PER_SEC;
-import static com.ingemark.perftest.StressTester.launchTester;
-import static com.ingemark.perftest.Util.arraySum;
-import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.now;
-import static com.ingemark.perftest.Util.swtSend;
-import static com.ingemark.perftest.Util.toIndex;
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_ERROR;
-import static com.ingemark.perftest.plugin.StressTestPlugin.EVT_INIT_HIST;
+import static com.ingemark.requestage.Message.DIVISOR;
+import static com.ingemark.requestage.Message.ERROR;
+import static com.ingemark.requestage.Message.EXCEPTION;
+import static com.ingemark.requestage.Message.INIT;
+import static com.ingemark.requestage.Message.INITED;
+import static com.ingemark.requestage.Message.INTENSITY;
+import static com.ingemark.requestage.Message.SHUTDOWN;
+import static com.ingemark.requestage.Message.STATS;
+import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.StressTester.launchTester;
+import static com.ingemark.requestage.Util.arraySum;
+import static com.ingemark.requestage.Util.event;
+import static com.ingemark.requestage.Util.nettySend;
+import static com.ingemark.requestage.Util.now;
+import static com.ingemark.requestage.Util.showView;
+import static com.ingemark.requestage.Util.swtSend;
+import static com.ingemark.requestage.Util.toIndex;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.HISTORY_VIEW_ID;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
+import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -30,6 +36,7 @@ import static org.jboss.netty.channel.Channels.pipelineFactory;
 import static org.jboss.netty.handler.codec.serialization.ClassResolvers.softCachingResolver;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,7 +48,6 @@ import org.eclipse.debug.core.Launch;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -53,16 +59,15 @@ import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.plugin.StressTestPlugin;
-import com.ingemark.perftest.plugin.ui.InfoDialog;
-import com.ingemark.perftest.plugin.ui.ProgressDialog.ProgressMonitor;
+import com.ingemark.requestage.plugin.ui.InfoDialog;
+import com.ingemark.requestage.plugin.ui.ProgressDialog.ProgressMonitor;
 
 public class StressTestServer implements IStressTestServer
 {
   static final Logger log = getLogger(StressTestServer.class);
   public static final int NETTY_PORT = 49131;
   private final Control eventReceiver;
-  private final String filename;
+  public final String filename;
   private final AtomicBoolean shuttingDown = new AtomicBoolean();
   private volatile ServerBootstrap netty;
   private volatile Channel channel;
@@ -79,6 +84,8 @@ public class StressTestServer implements IStressTestServer
     this.eventReceiver = c;
     this.filename = filename;
   }
+
+  @Override public String testName() { return new File(filename).getName(); }
 
   @Override public void start() {
     this.initThread = currentThread();
@@ -135,11 +142,15 @@ public class StressTestServer implements IStressTestServer
             refreshDivisorChanged();
             if (!pm.isCanceled()) {
               pm.done();
-              swtSend(EVT_INIT_HIST, msg.value);
+              Display.getDefault().asyncExec(new Runnable() { public void run() {
+                requestAgeView.statsParent.notifyListeners(EVT_INIT_HIST, event(msg.value));
+                showView(HISTORY_VIEW_ID);
+                globalEventHub().notifyListeners(EVT_INIT_HIST, null);
+              }});
             }
             break;
           case ERROR:
-            swtSend(EVT_ERROR, msg.value);
+            swtSend(requestAgeView.statsParent, EVT_ERROR, msg.value);
             break;
           case EXCEPTION:
             InfoDialog.show((DialogInfo) msg.value);
@@ -221,11 +232,7 @@ public class StressTestServer implements IStressTestServer
       public void run() {
         final long start = NANOSECONDS.toMillis(now());
         if (eventReceiver.isDisposed()) return;
-        for (Stats s : stats) {
-          final Event e = new Event();
-          e.data = s;
-          eventReceiver.notifyListeners(StressTestPlugin.STATS_EVTYPE_BASE + s.index, e);
-        }
+        for (Stats s : stats) eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, event(s));
         final Rectangle area = eventReceiver.getBounds();
         eventReceiver.redraw(0, 0, area.width, area.height, true);
 //        eventReceiver.update();
@@ -274,6 +281,7 @@ public class StressTestServer implements IStressTestServer
     @Override public void shutdown(Runnable r) { r.run(); }
     @Override public void send(Message msg) { }
     @Override public IStressTestServer progressMonitor(ProgressMonitor ipm) { return this; }
+    @Override public String testName() { return ""; }
   };
 
 

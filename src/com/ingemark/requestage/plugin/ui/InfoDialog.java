@@ -1,6 +1,6 @@
-package com.ingemark.perftest.plugin.ui;
+package com.ingemark.requestage.plugin.ui;
 
-import static com.ingemark.perftest.Util.gridData;
+import static com.ingemark.requestage.Util.gridData;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
 
 import org.eclipse.swt.SWT;
@@ -16,7 +16,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchWindow;
 
-import com.ingemark.perftest.DialogInfo;
+import com.ingemark.requestage.DialogInfo;
 
 public class InfoDialog {
   public static void show(final DialogInfo i) {

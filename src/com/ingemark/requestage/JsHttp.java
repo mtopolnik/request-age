@@ -1,11 +1,13 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import static com.ingemark.perftest.Message.INIT;
-import static com.ingemark.perftest.StressTester.fac;
-import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.script.JsFunctions.parseXml;
-import static com.ingemark.perftest.script.JsFunctions.prettyXml;
+import static com.ingemark.requestage.Message.INIT;
+import static com.ingemark.requestage.StressTester.fac;
+import static com.ingemark.requestage.Util.nettySend;
+import static com.ingemark.requestage.Util.now;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.wrapper;
+import static com.ingemark.requestage.script.JsFunctions.parseXml;
+import static com.ingemark.requestage.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptRuntime.constructError;
@@ -19,6 +21,7 @@ import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.NativeJSON;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -27,11 +30,13 @@ import org.mozilla.javascript.json.JsonParser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ingemark.perftest.script.JdomBuilder;
+import com.ingemark.requestage.script.JdomBuilder;
+import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncCompletionHandlerBase;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.AsyncHttpClientConfig.Builder;
+import com.ning.http.client.HttpResponseBodyPart;
 import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
@@ -51,12 +56,18 @@ public class JsHttp extends BaseFunction
     );
   private final StressTester tester;
   volatile int index;
-  volatile Acceptor acceptor = acceptors.get("any");
+  volatile Acceptor acceptor = acceptors.get("success");
 
   public JsHttp(ScriptableObject parentScope, final StressTester testr) {
     super(parentScope, getFunctionPrototype(parentScope));
     this.tester = testr;
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
+    putProperty(this, "declare", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        for (Object name : args)
+          tester.lsmap.put(name.toString(), new LiveStats(index++, name.toString()));
+        return null;
+      }});
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         acceptor = acceptors.get(args[0]);
@@ -75,8 +86,8 @@ public class JsHttp extends BaseFunction
 
   public void initDone() { index = -1; }
 
-  @Override public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-    return new ReqBuilder(ScriptRuntime.toString(args[0]));
+  @Override public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
+    return new ReqBuilder(scope, ScriptRuntime.toString(args[0])).wrapper;
   }
   @Override public int getArity() { return 1; }
 
@@ -86,21 +97,25 @@ public class JsHttp extends BaseFunction
   }
 
   public class ReqBuilder {
+    final NativeJavaObject wrapper;
     final String name;
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
-    ReqBuilder(String name) { this.name = name; }
-    ReqBuilder(String method, String url) { this(null); brb(method, url); }
+    ReqBuilder(Scriptable scope, String name) {
+      this.wrapper = wrapper(scope, this);
+      this.name = name;
+    }
+    ReqBuilder(Scriptable scope, String method, String url) { this(scope, null); brb(method, url); }
 
-    public ReqBuilder get(String url) { return brb("GET", url); }
-    public ReqBuilder put(String url) { return brb("PUT", url); }
-    public ReqBuilder post(String url) { return brb("POST", url); }
-    public ReqBuilder delete(String url) { return brb("DELETE", url); }
-    public ReqBuilder head(String url) { return brb("HEAD", url); }
-    public ReqBuilder options(String url) { return brb("OPTIONS", url); }
+    public Scriptable get(String url) { return brb("GET", url); }
+    public Scriptable put(String url) { return brb("PUT", url); }
+    public Scriptable post(String url) { return brb("POST", url); }
+    public Scriptable delete(String url) { return brb("DELETE", url); }
+    public Scriptable head(String url) { return brb("HEAD", url); }
+    public Scriptable options(String url) { return brb("OPTIONS", url); }
 
-    public ReqBuilder body(final Object body) {
+    public Scriptable body(final Object body) {
       if (body instanceof JdomBuilder) {
         brb.addHeader("Content-Type", "text/xml;charset=UTF-8");
         brb.setBody(body.toString());
@@ -112,51 +127,70 @@ public class JsHttp extends BaseFunction
         }});
       }
       else brb.setBody(body.toString());
-      return this;
+      return wrapper;
     }
 
-    private ReqBuilder brb(String method, String url) {
-      brb = tester.client.prepareConnect(url).setMethod(method);
-      return this;
-    }
-
-    public ReqBuilder accept(String qualifier) {
+    public Scriptable accept(String qualifier) {
       acceptor = acceptors.get(qualifier);
-      return this;
+      return wrapper;
     }
-    public void go() { go(null); }
+    public void go() { go0(null, true); }
+    public void go(Object f) { go0(f, false); }
+    public void goDiscardingBody(Object f) { go0(f, true); }
 
-    public void go(Callable f) { if (index >= 0) executeInit(this, f); else executeTest(this, f); }
+    private Scriptable brb(String method, String url) {
+      brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
+      return wrapper;
+    }
 
-    private void executeInit(ReqBuilder reqBuilder, Callable f) {
+    private void go0(Object f, boolean discardBody) {
+      final Callable c;
+      if (f instanceof Callable) c = (Callable)f;
+      else { c = null; discardBody = true; }
+      if (index >= 0) executeInit(this, c, discardBody); else executeTest(this, c, discardBody);
+    }
+
+    private void executeInit(ReqBuilder reqBuilder, Callable f, final boolean discardBody) {
       if (reqBuilder.name != null) {
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
         if (!tester.explicitLsMap) declareReq(reqBuilder.name);
       }
-      try { handleResponse(reqBuilder.brb.execute().get(), f); }
-      catch (Exception e) { sneakyThrow(e); }
+      try {
+        handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
+          public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
+            return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart); }}
+        ).get(), f);
+      } catch (Exception e) { sneakyThrow(e); }
     }
 
-    private void executeTest(ReqBuilder reqBuilder, final Callable f) {
-      final LiveStats liveStats = tester.lsmap.get(reqBuilder.name);
+    private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
+      final String reqName = reqBuilder.name;
+      final LiveStats liveStats = reqName != null? tester.lsmap.get(reqName) : mockLiveStats;
+      if (liveStats == null) throw constructError("NotRegistered",
+          String.format("Request %s was not registered in init phase", reqName));
       final int startSlot = liveStats.registerReq();
+      final long start = now();
       try {
-        reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
-          @Override public Response onCompleted(final Response resp) throws IOException {
-            return (Response) fac.call(new ContextAction() {
+        reqBuilder.brb.execute(new AsyncCompletionHandler<Void>() {
+          public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
+            return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart);
+          }
+          @Override public Void onCompleted(final Response resp) {
+            fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
                 Throwable failure = null;
                 try { handleResponse(resp, f); }
                 catch (Throwable t) { failure = t; }
-                finally { liveStats.deregisterReq(startSlot, failure); }
-                return resp;
+                finally { liveStats.deregisterReq(startSlot, now(), start, failure); }
+                return null;
               }
             });
+            return null;
           }
           @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, t);
+            liveStats.deregisterReq(startSlot, now(), start, t);
           }
-        });
+      });
       } catch (IOException e) { sneakyThrow(e); }
     }
 
@@ -166,6 +200,10 @@ public class JsHttp extends BaseFunction
       if (f != null) tester.jsScope.call(f, betterResponse(resp));
     }
   }
+  static final LiveStats mockLiveStats = new LiveStats(0, "") {
+    @Override int registerReq() { return -1; }
+    @Override void deregisterReq(int startSlot, long now, long start, Throwable t) { }
+  };
 
   public Scriptable betterAhccBuilder(final AsyncHttpClientConfig.Builder b) {
     return (Scriptable)fac.call(new ContextAction() {
@@ -206,6 +244,7 @@ public class JsHttp extends BaseFunction
       catch (ParseException e) { return sneakyThrow(e); }
     }
     public String stringBody() { return responseBody(this.r); }
+    @Override public String toString() { return stringBody(); }
   }
 
   static String responseBody(Response r) {
@@ -220,8 +259,8 @@ public class JsHttp extends BaseFunction
 
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
-      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return new ReqBuilder(m, ScriptRuntime.toString(args[0]));
+      public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
+        return new ReqBuilder(scope, m, ScriptRuntime.toString(args[0])).wrapper;
       }
     });
   }

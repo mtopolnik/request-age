@@ -1,21 +1,25 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
+
+import static org.eclipse.ui.PlatformUI.getWorkbench;
 
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jface.layout.GridDataFactory;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Cursor;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Shell;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -24,7 +28,6 @@ import org.ringojs.wrappers.ScriptableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ingemark.perftest.plugin.ui.RequestAgeView;
 import com.ning.http.client.Response;
 
 public class Util
@@ -45,6 +48,27 @@ public class Util
     int sum = 0;
     for (int cnt : array) sum += cnt;
     return sum;
+  }
+  public static double arrayMean(float[] array) {
+    return arrayMean(array, array.length);
+  }
+  public static double arrayMean(float[] array, int limit) {
+    double avg = 0;
+    for (int i = 0; i < limit; i++) avg += (double) array[i] / limit;
+    return avg;
+  }
+  public static double arrayStdev(double avg, float[] array) {
+    double sumSq = 0;
+    for (double d : array) {
+      final double dev = d - avg;
+      sumSq += dev * (dev/(double) array.length);
+    }
+    return Math.sqrt(sumSq);
+  }
+  public static float[] reciprocalArray(float[] array) {
+    final float[] ret = new float[array.length];
+    for (int i = 0; i < array.length; i++) ret[i] = array[i] == 0? 0 : 1/array[i];
+    return ret;
   }
   public static long now() { return System.nanoTime(); }
 
@@ -74,12 +98,13 @@ public class Util
     nettySend(channel, msg, false);
   }
 
-  static void swtSend(final int evtype, final Serializable value) {
+  static void swtSend(final Control eventReceiver, final int evtype, final Serializable value) {
     Display.getDefault().asyncExec(new Runnable() { public void run() {
-      final Event e = new Event();
-      e.data = value;
-      RequestAgeView.instance.statsParent.notifyListeners(evtype, e);
+      eventReceiver.notifyListeners(evtype, event(value));
     }});
+  }
+  public static Event event(Object data) {
+    final Event e = new Event(); e.data = data; return e;
   }
   public static <R> R sneakyThrow(Throwable t) {
     return Util.<RuntimeException, R>sneakyThrow0(t);
@@ -87,6 +112,14 @@ public class Util
   @SuppressWarnings("unchecked")
   private static <E extends Throwable, R> R sneakyThrow0(Throwable t) throws E { throw (E)t; }
 
+  public static <T> T spy(String msg, final T r) {
+    final Class<?> c = r.getClass();
+    log.debug(msg + " {}", c.isArray()? new Object() {
+      public String toString() { return c.getComponentType().isPrimitive()?
+                                 Arrays.toString((double[])r) : Arrays.toString((Object[])r);}}
+      : r);
+    return r;
+  }
 
   public static Object javaToJS(Object obj, Scriptable scope) {
     if (obj instanceof Scriptable) {
@@ -104,24 +137,24 @@ public class Util
       return Context.javaToJS(obj, scope);
     }
   }
+  public static NativeJavaObject wrapper(Scriptable scope, Object wrapped) {
+    final NativeJavaObject wrapper = new NativeJavaObject(scope, wrapped, wrapped.getClass());
+    wrapper.setPrototype(new NativeObject());
+    return wrapper;
+  }
   public static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 
-  private static final String BUSYID_NAME = "SWT BusyIndicator";
-  private static int nextBusyId = Integer.MIN_VALUE;
-  public static Object nextBusyId() { return nextBusyId++; }
-  public static void busyIndicator(boolean state, Object busyId) {
-    final Display disp = Display.getCurrent();
-    final Cursor cursorToSet = state? disp.getSystemCursor(SWT.CURSOR_WAIT) : null;
-    for (Shell shell : disp.getShells())
-      if (shell.getData(BUSYID_NAME) == (state? null : busyId)) {
-        shell.setCursor(cursorToSet);
-        shell.setData(BUSYID_NAME, state? busyId : null);
-      }
+  public static void showView(String id) {
+    try {
+      getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(id);
+    } catch (Exception e) { sneakyThrow(e); }
   }
+
   public static String excToString(Throwable t) {
     if (t == null) return "";
     final StringWriter sw = new StringWriter(256);
     t.printStackTrace(new PrintWriter(sw));
     return sw.toString();
   }
+  public static Color color(int id) { return Display.getCurrent().getSystemColor(id); }
 }

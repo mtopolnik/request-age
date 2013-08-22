@@ -1,20 +1,20 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
 import static ch.qos.logback.classic.Level.INFO;
-import static com.ingemark.perftest.Message.DIVISOR;
-import static com.ingemark.perftest.Message.ERROR;
-import static com.ingemark.perftest.Message.EXCEPTION;
-import static com.ingemark.perftest.Message.INITED;
-import static com.ingemark.perftest.Message.INTENSITY;
-import static com.ingemark.perftest.Message.SHUTDOWN;
-import static com.ingemark.perftest.Message.STATS;
-import static com.ingemark.perftest.StressTestServer.NETTY_PORT;
-import static com.ingemark.perftest.Util.excToString;
-import static com.ingemark.perftest.Util.join;
-import static com.ingemark.perftest.Util.nettySend;
-import static com.ingemark.perftest.Util.sneakyThrow;
-import static com.ingemark.perftest.plugin.StressTestPlugin.stressTestPlugin;
-import static com.ingemark.perftest.script.JsScope.JS_LOGGER_NAME;
+import static com.ingemark.requestage.Message.DIVISOR;
+import static com.ingemark.requestage.Message.ERROR;
+import static com.ingemark.requestage.Message.EXCEPTION;
+import static com.ingemark.requestage.Message.INITED;
+import static com.ingemark.requestage.Message.INTENSITY;
+import static com.ingemark.requestage.Message.SHUTDOWN;
+import static com.ingemark.requestage.Message.STATS;
+import static com.ingemark.requestage.StressTestServer.NETTY_PORT;
+import static com.ingemark.requestage.Util.excToString;
+import static com.ingemark.requestage.Util.join;
+import static com.ingemark.requestage.Util.nettySend;
+import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
+import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -53,7 +53,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.mozilla.javascript.ContextFactory;
 import org.slf4j.Logger;
 
-import com.ingemark.perftest.script.JsScope;
+import com.ingemark.requestage.script.JsScope;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 
@@ -82,9 +82,11 @@ public class StressTester implements Runnable
     this.channel = channel(netty);
     log.debug("Connected");
     try {
-      this.jsScope = new JsScope(this);
-      jsScope.evaluateFile(fname);
+      this.jsScope = new JsScope(this, fname);
       final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
+      b.setIdleConnectionInPoolTimeoutInMs((int)SECONDS.toMillis(10));
+      b.setMaxRequestRetry(0);
+      b.setRequestTimeoutInMs((int)SECONDS.toMillis(20));
       jsScope.call("conf", jsScope.jsHttp.betterAhccBuilder(b));
       this.client = new AsyncHttpClient(b.build());
     } catch (Throwable t) {
@@ -92,15 +94,6 @@ public class StressTester implements Runnable
       shutdown();
       throw t;
     }
-  }
-
-  LiveStats livestats(String name) {
-    final LiveStats liveStats = lsmap.get(name);
-    return liveStats != null? liveStats : new LiveStats(0, name) {
-      @Override synchronized int registerReq() {
-        return super.registerReq();
-      }
-    };
   }
 
   Channel channel(ClientBootstrap netty) {
@@ -149,7 +142,7 @@ public class StressTester implements Runnable
       jsScope.call("init");
       log.debug("Initialized");
       jsScope.initDone();
-      nettySend(channel, new Message(INITED, collectIndices()), true);
+      nettySend(channel, new Message(INITED, lsmap.size()), true);
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
@@ -185,12 +178,6 @@ public class StressTester implements Runnable
       nettySend(channel, new Message(ERROR, excToString(t)));
       asyncShutdown();
     }
-  }
-
-  ArrayList<Integer> collectIndices() {
-    final ArrayList<Integer> ret = new ArrayList<Integer>();
-    for (LiveStats ls : lsmap.values()) if (ls.name != null) ret.add(ls.index);
-    return ret;
   }
 
   List<Stats> stats() {
@@ -236,7 +223,7 @@ public class StressTester implements Runnable
 
   public static Process launchTester(String scriptFile) {
     try {
-      final String bpath = getBundleFile(stressTestPlugin().bundle()).getAbsolutePath();
+      final String bpath = getBundleFile(requestAgePlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
       log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);
@@ -253,6 +240,6 @@ public class StressTester implements Runnable
         public void run() { System.out.println("Stress Tester shut down");
       }});
       new StressTester(args[0]).runTest();
-    } catch (Throwable t) { log.error("", t); }
+    } catch (Throwable t) { log.error("Top-level error", t); }
   }
 }

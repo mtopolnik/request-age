@@ -1,9 +1,10 @@
-package com.ingemark.perftest;
+package com.ingemark.requestage;
 
-import com.ingemark.perftest.plugin.ui.ProgressDialog.ProgressMonitor;
+import com.ingemark.requestage.plugin.ui.ProgressDialog.ProgressMonitor;
 
 
 public interface IStressTestServer {
+  String testName();
   void intensity(int intensity);
   void shutdown(Runnable andThen);
   void send(Message msg);
