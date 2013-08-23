@@ -38,7 +38,7 @@ public class HistogramViewer implements PaintListener
     FULL_TOTAL_BAR_HEIGHT = 100,
     HIST_HEIGHT_SCALE = 1,
     METER_SCALE = 50;
-  static final int DESIRED_HEIGHT = 200;
+  static final int DESIRED_HEIGHT = 235;
   static int minDesiredWidth;
   final int histYoffset;
   final Canvas canvas;
@@ -81,7 +81,7 @@ public class HistogramViewer implements PaintListener
     loop: for (int exp = 0;; exp++)
       for (int i = 2; i <= 10; i += 2) {
         final int label = (int)pow(10, exp)*i;
-        if (label >= 3000) break loop;
+        if (label >= 11000) break loop;
         final int y = histYoffset + tickMarkY(exp, i);
         drawHorLine(color(SWT.COLOR_BLACK), TICKMARK_X, y, TICKMARK_LEN);
         if (i == 10) printString(String.valueOf(label), 8+TICKMARK_X, y-labelOffset);
@@ -126,7 +126,7 @@ public class HistogramViewer implements PaintListener
     final Point ext = gc.stringExtent(stats.name);
     printString(stats.name,
         HIST_XOFFSET + max((HIST_SIZE*HIST_BAR_WIDTH-ext.x)/2, 0),
-        5 + tickMarkY(3, 2), true);
+        5 + tickMarkY(3, 9), true);
   }
 
   private void paintHistogram() {
