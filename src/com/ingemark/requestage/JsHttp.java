@@ -165,9 +165,7 @@ public class JsHttp extends BaseFunction
 
     private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
-      final LiveStats liveStats = reqName != null? tester.lsmap.get(reqName) : mockLiveStats;
-      if (liveStats == null) throw constructError("NotRegistered",
-          String.format("Request %s was not registered in init phase", reqName));
+      final LiveStats liveStats = resolveLiveStats(reqName);
       final int startSlot = liveStats.registerReq();
       final long start = now();
       try {
@@ -192,6 +190,11 @@ public class JsHttp extends BaseFunction
           }
       });
       } catch (IOException e) { sneakyThrow(e); }
+    }
+    private LiveStats resolveLiveStats(String reqName) {
+      LiveStats ret = null;
+      if (reqName != null) ret = tester.lsmap.get(reqName);
+      return ret != null? ret : mockLiveStats;
     }
 
     private void handleResponse(Response resp, Callable f) {
