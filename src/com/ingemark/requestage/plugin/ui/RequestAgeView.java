@@ -48,7 +48,7 @@ import com.ingemark.requestage.StressTestServer;
 public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
-  private static final int MIN_THROTTLE = 10, MAX_THROTTLE = 115, THROTTLE_SCALE_FACTOR = 3;
+  private static final int MIN_THROTTLE = 10, MAX_THROTTLE = 135, THROTTLE_SCALE_FACTOR = 3;
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView requestAgeView;
   public Composite statsParent;

@@ -60,7 +60,6 @@ public class HistoryView extends ViewPart implements Listener
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
     boolean selected = true;
     for (int i = 0; i < History.keys.length; i++) {
-      System.out.println(i);
       final String key = History.keys[i], title = yTitles[i];
       final Button radio = new Button(radios, SWT.RADIO);
       gridData().align(FILL, FILL).grab(true, true).applyTo(radio);

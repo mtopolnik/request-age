@@ -58,9 +58,9 @@ public class JsHttp extends BaseFunction
   volatile int index;
   volatile Acceptor acceptor = acceptors.get("success");
 
-  public JsHttp(ScriptableObject parentScope, final StressTester tester) {
+  public JsHttp(ScriptableObject parentScope, final StressTester testr) {
     super(parentScope, getFunctionPrototype(parentScope));
-    this.tester = tester;
+    this.tester = testr;
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
     putProperty(this, "declare", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
@@ -70,8 +70,18 @@ public class JsHttp extends BaseFunction
       }});
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        return acceptor = acceptors.get(args[0]);
+        acceptor = acceptors.get(args[0]);
+        return JsHttp.this;
     }});
+    putProperty(this, "declare", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        if (!testr.lsmap.isEmpty())
+          throw ScriptRuntime.constructError("LateDeclare",
+              "Must declare the request names before creating any named request");
+        testr.explicitLsMap = true;
+        for (Object o : args) declareReq(o.toString());
+        return JsHttp.this;
+      }});
   }
 
   public void initDone() { index = -1; }
@@ -80,6 +90,11 @@ public class JsHttp extends BaseFunction
     return new ReqBuilder(scope, ScriptRuntime.toString(args[0])).wrapper;
   }
   @Override public int getArity() { return 1; }
+
+  private void declareReq(String name) {
+    log.debug("Adding " + name + " under " + index);
+    tester.lsmap.put(name, new LiveStats(index++, name));
+  }
 
   public class ReqBuilder {
     final NativeJavaObject wrapper;
@@ -138,10 +153,7 @@ public class JsHttp extends BaseFunction
     private void executeInit(ReqBuilder reqBuilder, Callable f, final boolean discardBody) {
       if (reqBuilder.name != null) {
         nettySend(tester.channel, new Message(INIT, reqBuilder.name));
-        if (tester.lsmap.get(reqBuilder.name) == null) {
-          log.debug("Adding " + reqBuilder.name + " under " + index);
-          tester.lsmap.put(reqBuilder.name, new LiveStats(index++, reqBuilder.name));
-        }
+        if (!tester.explicitLsMap) declareReq(reqBuilder.name);
       }
       try {
         handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
@@ -153,9 +165,7 @@ public class JsHttp extends BaseFunction
 
     private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
-      final LiveStats liveStats = reqName != null? tester.lsmap.get(reqName) : mockLiveStats;
-      if (liveStats == null) throw constructError("NotRegistered",
-          String.format("Request %s was not registered in init phase", reqName));
+      final LiveStats liveStats = resolveLiveStats(reqName);
       final int startSlot = liveStats.registerReq();
       final long start = now();
       try {
@@ -180,6 +190,11 @@ public class JsHttp extends BaseFunction
           }
       });
       } catch (IOException e) { sneakyThrow(e); }
+    }
+    private LiveStats resolveLiveStats(String reqName) {
+      LiveStats ret = null;
+      if (reqName != null) ret = tester.lsmap.get(reqName);
+      return ret != null? ret : mockLiveStats;
     }
 
     private void handleResponse(Response resp, Callable f) {
