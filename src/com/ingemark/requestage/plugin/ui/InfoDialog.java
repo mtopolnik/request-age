@@ -19,7 +19,7 @@ import org.eclipse.ui.IWorkbenchWindow;
 import com.ingemark.requestage.DialogInfo;
 
 public class InfoDialog {
-  public static void show(final DialogInfo i) {
+  public static void show(final DialogInfo info) {
     final Display disp = Display.getDefault();
     disp.asyncExec(new Runnable() { public void run() {
       final Shell top = new Shell(disp);
@@ -30,10 +30,11 @@ public class InfoDialog {
       b.x += 20; b.y += 20; b.height -= 40; b.width = mainBounds.width;
       top.setBounds(b);
       top.setLayout(new GridLayout(1, false));
-      top.setText(i.title);
+      top.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
+      top.setText(info.title);
       final Text t = new Text(top, SWT.H_SCROLL | SWT.V_SCROLL);
       gridData().align(SWT.FILL, SWT.FILL).grab(true, true).applyTo(t);
-      t.setText(i.msg);
+      t.setText(info.msg);
       t.setEditable(false);
       final Button ok = new Button(top, SWT.NONE);
       top.setDefaultButton(ok);
