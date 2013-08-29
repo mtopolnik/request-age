@@ -19,7 +19,7 @@ import org.mozilla.javascript.Scriptable;
 
 public class UrlBuilder
 {
-  private static final Pattern urlBaseRegex = Pattern.compile("(.+?)://(.+?)(/.*?)?\\?(.*)");
+  private static final Pattern urlBaseRegex = Pattern.compile("(.+?)://(.+?)(/.*?)?(?:\\?(.*))?");
   private final NativeJavaObject wrapper;
   private final StringBuilder
     pathBuilder = new StringBuilder(16),
