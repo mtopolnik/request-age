@@ -36,9 +36,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.jdt.launching.IVMInstall;
@@ -60,15 +64,22 @@ import com.ning.http.client.AsyncHttpClientConfig;
 
 public class StressTester implements Runnable
 {
+  static class MyThreadFac implements ThreadFactory {
+    private final String template;
+    MyThreadFac(String name) { this.template = "StressTester " + name + " #"; }
+    final AtomicInteger i = new AtomicInteger();
+    public Thread newThread(Runnable r) {
+      return new Thread(r, template + i.getAndIncrement());
+   }
+  }
+
   static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
   final ScheduledExecutorService sched =
-      newScheduledThreadPool(2 + 2*getRuntime().availableProcessors(), new ThreadFactory(){
-        final AtomicInteger i = new AtomicInteger();
-        public Thread newThread(Runnable r) {
-          return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
-      }});
+      newScheduledThreadPool(2, new MyThreadFac("scheduler"));
+  final ExecutorService pool = new ThreadPoolExecutor(1, 2*getRuntime().availableProcessors(),
+      10, SECONDS, new ArrayBlockingQueue<Runnable>(20*getRuntime().availableProcessors(), false));
   final AsyncHttpClient client;
   boolean explicitLsMap;
   final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();
@@ -174,14 +185,16 @@ public class StressTester implements Runnable
   }
 
   @Override public void run() {
-    sched.execute(new Runnable() { public void run() {
-      try { jsScope.call("test"); }
-      catch (Throwable t) {
-        log.error("Stress testing error", t);
-        nettySend(channel, new Message(ERROR, excToString(t)));
-        asyncShutdown();
-      }
-    }});
+    try {
+      pool.execute(new Runnable() { public void run() {
+        try { jsScope.call("test"); }
+        catch (Throwable t) {
+          log.error("Stress testing error", t);
+          nettySend(channel, new Message(ERROR, excToString(t)));
+          asyncShutdown();
+        }
+      }});
+    } catch (RejectedExecutionException e) {}
   }
 
   List<Stats> stats() {
@@ -196,6 +209,7 @@ public class StressTester implements Runnable
   void shutdown() {
     log.info("Shutting down");
     sched.shutdown();
+    pool.shutdown();
     if (client != null) client.close();
     log.debug("HTTP Client shut down");
     netty.shutdown();
