@@ -40,7 +40,7 @@ public class HistoryView extends ViewPart implements Listener
   private static final long MIN_HIST_RANGE = MINUTES.toMillis(2);
   private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_GREEN, SWT.COLOR_RED,
     SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW };
-  public static final String[] yTitles = {"1/resp_time","pending_reqs","reqs/sec","fails/sec"};
+  public static final String[] yTitles = {"resp_time","pending_reqs","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
   private Chart chart;
