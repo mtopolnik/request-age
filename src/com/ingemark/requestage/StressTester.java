@@ -249,7 +249,7 @@ public class StressTester implements Runnable
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
       log.debug("Launching {} with classpath {}", StressTester.class.getSimpleName(), cp);
-      return new ProcessBuilder(java(), "-Xmx128m", "-XX:+UseConcMarkSweepGC",
+      return new ProcessBuilder(java(), "-Xmx256m", "-XX:+UseConcMarkSweepGC",
           "-cp", cp, StressTester.class.getName(), scriptFile)
       .start();
     } catch (IOException e) { return sneakyThrow(e); }
