@@ -15,6 +15,7 @@ import static com.ingemark.requestage.Util.nettySend;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.script.JsScope.JS_LOGGER_NAME;
+import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -62,11 +63,12 @@ public class StressTester implements Runnable
   static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
-  final ScheduledExecutorService sched = newScheduledThreadPool(2, new ThreadFactory(){
-    final AtomicInteger i = new AtomicInteger();
-    public Thread newThread(Runnable r) {
-      return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
-  }});
+  final ScheduledExecutorService sched =
+      newScheduledThreadPool(2*getRuntime().availableProcessors(), new ThreadFactory(){
+        final AtomicInteger i = new AtomicInteger();
+        public Thread newThread(Runnable r) {
+          return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
+      }});
   final AsyncHttpClient client;
   boolean explicitLsMap;
   final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();
@@ -172,12 +174,14 @@ public class StressTester implements Runnable
   }
 
   @Override public void run() {
-    try { jsScope.call("test"); }
-    catch (Throwable t) {
-      log.error("Stress testing error", t);
-      nettySend(channel, new Message(ERROR, excToString(t)));
-      asyncShutdown();
-    }
+    sched.execute(new Runnable() { public void run() {
+      try { jsScope.call("test"); }
+      catch (Throwable t) {
+        log.error("Stress testing error", t);
+        nettySend(channel, new Message(ERROR, excToString(t)));
+        asyncShutdown();
+      }
+    }});
   }
 
   List<Stats> stats() {
