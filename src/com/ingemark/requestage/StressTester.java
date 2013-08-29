@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -79,7 +78,8 @@ public class StressTester implements Runnable
   final ScheduledExecutorService sched =
       newScheduledThreadPool(2, new MyThreadFac("scheduler"));
   final ExecutorService pool = new ThreadPoolExecutor(1, 2*getRuntime().availableProcessors(),
-      10, SECONDS, new ArrayBlockingQueue<Runnable>(20*getRuntime().availableProcessors(), false));
+      10, SECONDS, new ArrayBlockingQueue<Runnable>(200*getRuntime().availableProcessors(), false),
+      new MyThreadFac("pool"), new ThreadPoolExecutor.DiscardOldestPolicy());
   final AsyncHttpClient client;
   boolean explicitLsMap;
   final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();
@@ -189,12 +189,16 @@ public class StressTester implements Runnable
       pool.execute(new Runnable() { public void run() {
         try { jsScope.call("test"); }
         catch (Throwable t) {
-          log.error("Stress testing error", t);
+          log.error("Error in thread pool", t);
           nettySend(channel, new Message(ERROR, excToString(t)));
           asyncShutdown();
         }
       }});
-    } catch (RejectedExecutionException e) {}
+    } catch (Throwable t) {
+      log.error("Error in scheduler", t);
+      nettySend(channel, new Message(ERROR, excToString(t)));
+      asyncShutdown();
+    }
   }
 
   List<Stats> stats() {
