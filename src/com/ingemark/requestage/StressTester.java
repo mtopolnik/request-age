@@ -64,7 +64,7 @@ public class StressTester implements Runnable
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
   final ScheduledExecutorService sched =
-      newScheduledThreadPool(2*getRuntime().availableProcessors(), new ThreadFactory(){
+      newScheduledThreadPool(2 + 2*getRuntime().availableProcessors(), new ThreadFactory(){
         final AtomicInteger i = new AtomicInteger();
         public Thread newThread(Runnable r) {
           return new Thread(r, "StressTester scheduler #"+i.getAndIncrement());
