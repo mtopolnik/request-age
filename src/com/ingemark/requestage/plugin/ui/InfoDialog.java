@@ -34,6 +34,7 @@ public class InfoDialog {
       top.setText(info.title);
       final Text t = new Text(top, SWT.H_SCROLL | SWT.V_SCROLL);
       gridData().align(SWT.FILL, SWT.FILL).grab(true, true).applyTo(t);
+      t.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
       t.setText(info.msg);
       t.setEditable(false);
       final Button ok = new Button(top, SWT.NONE);
