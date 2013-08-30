@@ -7,7 +7,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,7 +24,7 @@ public class UrlBuilder
     pathBuilder = new StringBuilder(16),
     qparamsBuilder = new StringBuilder(16);
   private final String scheme, authority;
-  private boolean withinQuery;
+  private String fragment;
 
   private UrlBuilder(Scriptable scope, String urlBase) {
     wrapper = new NativeJavaObject(scope, this, getClass());
@@ -34,9 +33,8 @@ public class UrlBuilder
     if (!m.matches())
       throw ScriptRuntime.constructError("IllegalUrl", "The URL " + urlBase + " is invalid");
     scheme = m.group(1); authority = m.group(2);
-    pathBuilder.append(m.group(3));
-    qparamsBuilder.append(m.group(4));
-    if (m.group(4).length() > 0) withinQuery = true;
+    if (m.group(3) != null) pathBuilder.append(m.group(3));
+    if (m.group(4) != null) qparamsBuilder.append(m.group(4));
   }
 
   static Scriptable urlBuilder(Scriptable scope, String urlBase) {
@@ -44,8 +42,6 @@ public class UrlBuilder
   }
 
   public Scriptable s(Object... segs) {
-    if (withinQuery)
-      throw new IllegalStateException("Cannot add path segments after query params");
     for (Object seg : segs) {
       if (pathBuilder.charAt(pathBuilder.length()-1) != '/') pathBuilder.append('/');
       if (seg != null) {
@@ -59,40 +55,45 @@ public class UrlBuilder
     return wrapper;
   }
   public Scriptable pp(Object... pps) {
-    if (withinQuery)
-      throw new IllegalStateException("Cannot add path params after query params");
-      for (int i = 0; i < pps.length;) {
-        pathBuilder.append(';');
-        final Object pv = pps[i++], p, v;
-        if (pv instanceof List) {
-          final Iterator it = ((List)pv).iterator();
-          p = it.next(); v = it.next();
-        } else { p = pv; v = pps[i++]; }
-        pathBuilder.append(p.toString()).append('=').append(v.toString());
+    for (int i = 0; i < pps.length;) {
+      final Object p = pps[i++], v;
+      if (p instanceof List) {
+        final List l = (List)p;
+        q(l.toArray(new Object[l.size()]));
+        continue;
+      }
+      v = pps[i++];
+      pathBuilder.append(';').append(p.toString()).append('=').append(v.toString());
     }
     return wrapper;
   }
   public Scriptable q(Object... qps) {
     for (int i = 0; i < qps.length;) {
-      qparamsBuilder.append(withinQuery? '&' : '?');
-      withinQuery = true;
-      final Object pv = qps[i++], p, v;
-      if (pv instanceof List) {
-        final Iterator it = ((List)pv).iterator();
-        p = it.next(); v = it.next();
-      } else { p = pv; v = qps[i++]; }
-      qparamsBuilder.append(encode(p.toString())).append('=').append(encode(v.toString()));
+      final Object p = qps[i++], v;
+      if (p instanceof List) {
+        final List l = (List)p;
+        q(l.toArray(new Object[l.size()]));
+        continue;
+      }
+      v = qps[i++];
+      if (qparamsBuilder.length() > 0) qparamsBuilder.append('&');
+      qparamsBuilder.append(urlEncode(p)).append('=').append(urlEncode(v));
     }
     return wrapper;
   }
+  public Scriptable frag(Object frag) {
+    fragment = frag != null? frag.toString() : null;
+    return wrapper;
+  }
+
   @Override public String toString() {
     try {
-      return new URI(scheme, authority, pathBuilder.toString(), qparamsBuilder.toString(), null)
+      return new URI(scheme, authority, pathBuilder.toString(), qparamsBuilder.toString(), fragment)
         .toASCIIString();
     } catch (URISyntaxException e) { return sneakyThrow(e); }
   }
 
-  static String encode(Object s) {
+  static String urlEncode(Object s) {
     try { return URLEncoder.encode(s.toString(), "UTF-8"); }
     catch (UnsupportedEncodingException e) { return sneakyThrow(e); }
   }
