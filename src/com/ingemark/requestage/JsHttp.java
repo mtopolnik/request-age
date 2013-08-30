@@ -15,6 +15,7 @@ import static org.mozilla.javascript.ScriptRuntime.constructError;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
@@ -169,7 +170,15 @@ public class JsHttp extends BaseFunction
       } catch (Exception e) { sneakyThrow(e); }
     }
 
-    private void executeTest(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
+    private void executeTest(
+        final ReqBuilder reqBuilder, final Callable f, final boolean discardBody)
+    {
+      if (reqBuilder.sleepLow > 0)
+        tester.sched.schedule(new Runnable() { @Override public void run() {
+          executeTest0(reqBuilder, f, discardBody);
+        }}, randomizeSleep(reqBuilder), TimeUnit.MILLISECONDS);
+    }
+    private void executeTest0(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
       final LiveStats liveStats = resolveLiveStats(reqName);
       final int startSlot = liveStats.registerReq();
@@ -259,11 +268,13 @@ public class JsHttp extends BaseFunction
   static String responseBody(Response r) {
     try { return r.getResponseBody(); } catch (IOException e) { return sneakyThrow(e); }
   }
-
   private static Map<String, Acceptor> hashMap(Object... kvs) {
     final Map<String, Acceptor> r = new HashMap<String, Acceptor>();
     for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
     return r;
+  }
+  static long randomizeSleep(ReqBuilder r) {
+    return (long) (1000*(r.sleepLow + Math.random()*(r.sleepHigh-r.sleepLow)));
   }
 
   private void defineHttpMethods(String... methods) {
