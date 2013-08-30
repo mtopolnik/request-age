@@ -75,11 +75,14 @@ public class StressTester implements Runnable
   static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
-  final ScheduledExecutorService sched =
-      newScheduledThreadPool(2, new MyThreadFac("scheduler"));
-  final ExecutorService pool = new ThreadPoolExecutor(1, 2*getRuntime().availableProcessors(),
-      10, SECONDS, new ArrayBlockingQueue<Runnable>(200*getRuntime().availableProcessors(), false),
-      new MyThreadFac("pool"), new ThreadPoolExecutor.DiscardOldestPolicy());
+  final ScheduledExecutorService sched;
+  final ExecutorService pool; {
+    final int cpus = getRuntime().availableProcessors();
+    sched = newScheduledThreadPool(cpus, new MyThreadFac("scheduler"));
+    pool = new ThreadPoolExecutor(cpus, 4*cpus,
+      10, SECONDS, new ArrayBlockingQueue<Runnable>(20*cpus, false),
+      new MyThreadFac("pool"), new ThreadPoolExecutor.DiscardPolicy());
+  }
   final AsyncHttpClient client;
   boolean explicitLsMap;
   final Map<String, LiveStats> lsmap = new HashMap<String, LiveStats>();

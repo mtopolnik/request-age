@@ -99,6 +99,7 @@ public class JsHttp extends BaseFunction
   public class ReqBuilder {
     final NativeJavaObject wrapper;
     final String name;
+    double sleepLow, sleepHigh;
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
@@ -132,6 +133,11 @@ public class JsHttp extends BaseFunction
 
     public Scriptable accept(String qualifier) {
       acceptor = acceptors.get(qualifier);
+      return wrapper;
+    }
+    public Scriptable sleep(double time) { return sleep(time, time); }
+    public Scriptable sleep(double lowTime, double highTime) {
+      sleepLow = lowTime; sleepHigh = highTime;
       return wrapper;
     }
     public void go() { go0(null, true); }
