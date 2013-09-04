@@ -177,6 +177,7 @@ public class JsHttp extends BaseFunction
         tester.sched.schedule(new Runnable() { @Override public void run() {
           executeTest0(reqBuilder, f, discardBody);
         }}, randomizeSleep(reqBuilder), TimeUnit.MILLISECONDS);
+      else executeTest0(reqBuilder, f, discardBody);
     }
     private void executeTest0(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
       final String reqName = reqBuilder.name;
