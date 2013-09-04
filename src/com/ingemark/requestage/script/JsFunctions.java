@@ -163,7 +163,11 @@ public class JsFunctions {
     if (args.length == 0) return null;
     final Object ret = args[args.length-1];
     if (debug && !jsLogger.isDebugEnabled()) return ret;
-    if (args.length == 1) { jsLogger.debug(logArg(args[0]).toString()); return ret; }
+    if (args.length == 1) {
+      final String msg = logArg(args[0]).toString();
+      if (debug) jsLogger.debug(msg); else jsLogger.info(msg);
+      return ret;
+    }
     final Object[] logArgs = new Object[args.length-1];
     final int start = args.length-1;
     for (int i = start; i < args.length; i++) logArgs[i-start] = logArg(args[i]);
@@ -177,7 +181,6 @@ public class JsFunctions {
   public static Object infoSpy(Context _1, Scriptable _2, Object[] args, Function _3) {
     return spy0(false, args);
   }
-
   private static Object logArg(Object in) {
     if (in instanceof NativeJavaObject) in = ((NativeJavaObject)in).unwrap();
     return in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
