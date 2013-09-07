@@ -14,6 +14,7 @@ import static org.mozilla.javascript.ScriptRuntime.constructError;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -34,10 +35,13 @@ import org.slf4j.LoggerFactory;
 import com.ingemark.requestage.script.JdomBuilder;
 import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncCompletionHandlerBase;
+import com.ning.http.client.AsyncHandler;
 import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.AsyncHttpClientConfig.Builder;
 import com.ning.http.client.HttpResponseBodyPart;
+import com.ning.http.client.HttpResponseHeaders;
+import com.ning.http.client.HttpResponseStatus;
 import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Response;
 
@@ -100,7 +104,7 @@ public class JsHttp extends BaseFunction
   public class ReqBuilder {
     final NativeJavaObject wrapper;
     final String name;
-    double sleepLow, sleepHigh;
+    double delayLow, delayHigh;
     public BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
@@ -136,9 +140,9 @@ public class JsHttp extends BaseFunction
       acceptor = acceptors.get(qualifier);
       return wrapper;
     }
-    public Scriptable sleep(double time) { return sleep(time, time); }
-    public Scriptable sleep(double lowTime, double highTime) {
-      sleepLow = lowTime; sleepHigh = highTime;
+    public Scriptable delay(double time) { return delay(time, time); }
+    public Scriptable delay(double lowTime, double highTime) {
+      delayLow = lowTime; delayHigh = highTime;
       return wrapper;
     }
     public void go() { go0(null, true); }
@@ -166,17 +170,17 @@ public class JsHttp extends BaseFunction
         handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
           public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
             return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart); }}
-        ).get(), f);
+        ).get(), -1, f);
       } catch (Exception e) { sneakyThrow(e); }
     }
 
     private void executeTest(
         final ReqBuilder reqBuilder, final Callable f, final boolean discardBody)
     {
-      if (reqBuilder.sleepLow > 0)
+      if (reqBuilder.delayLow > 0)
         tester.sched.schedule(new Runnable() { @Override public void run() {
           executeTest0(reqBuilder, f, discardBody);
-        }}, randomizeSleep(reqBuilder), TimeUnit.MILLISECONDS);
+        }}, randomizeDelay(reqBuilder), TimeUnit.MILLISECONDS);
       else executeTest0(reqBuilder, f, discardBody);
     }
     private void executeTest0(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
@@ -186,23 +190,35 @@ public class JsHttp extends BaseFunction
       final long start = now();
       try {
         reqBuilder.brb.execute(new AsyncCompletionHandler<Void>() {
+          volatile int respSize;
+          @Override public AsyncHandler.STATE onStatusReceived(HttpResponseStatus status)
+              throws Exception {
+            respSize += status.getProtocolText().length() + status.getStatusText().length() + 7;
+            return super.onStatusReceived(status);
+          }
+          @Override public STATE onHeadersReceived(HttpResponseHeaders headers) throws Exception {
+            for (Map.Entry<String, List<String>> e : headers.getHeaders())
+              for (String s : e.getValue()) respSize += e.getKey().length() + s.length() + 4;
+            return super.onHeadersReceived(headers);
+          }
           public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
+            respSize += bodyPart.getBodyByteBuffer().remaining();
             return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart);
           }
           @Override public Void onCompleted(final Response resp) {
             fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
                 Throwable failure = null;
-                try { handleResponse(resp, f); }
+                try { handleResponse(resp, respSize, f); }
                 catch (Throwable t) { failure = t; }
-                finally { liveStats.deregisterReq(startSlot, now(), start, failure); }
+                finally { liveStats.deregisterReq(startSlot, now(), start, respSize, failure); }
                 return null;
               }
             });
             return null;
           }
           @Override public void onThrowable(Throwable t) {
-            liveStats.deregisterReq(startSlot, now(), start, t);
+            liveStats.deregisterReq(startSlot, now(), start, respSize, t);
           }
       });
       } catch (IOException e) { sneakyThrow(e); }
@@ -213,15 +229,15 @@ public class JsHttp extends BaseFunction
       return ret != null? ret : mockLiveStats;
     }
 
-    private void handleResponse(Response resp, Callable f) {
+    private void handleResponse(Response resp, int respSize, Callable f) {
       if (!acceptor.acceptable(resp))
         throw constructError("FailedResponse", resp.getStatusCode() + " " + resp.getStatusText());
-      if (f != null) tester.jsScope.call(f, betterResponse(resp));
+      if (f != null) tester.jsScope.call(f, betterResponse(resp, respSize));
     }
   }
   static final LiveStats mockLiveStats = new LiveStats(0, "") {
     @Override int registerReq() { return -1; }
-    @Override void deregisterReq(int startSlot, long now, long start, Throwable t) { }
+    @Override void deregisterReq(int startSlot, long now, long start, int size, Throwable t) { }
   };
 
   public Scriptable betterAhccBuilder(final AsyncHttpClientConfig.Builder b) {
@@ -247,14 +263,15 @@ public class JsHttp extends BaseFunction
     return new ProxyServer(parts[0], parts.length > 1? Integer.valueOf(parts[1]) : 80);
   }
 
-  Scriptable betterResponse(Response r) {
-    final Scriptable br = (Scriptable) javaToJS(new BetterResponse(r), getParentScope());
+  Scriptable betterResponse(Response r, int size) {
+    final Scriptable br = (Scriptable) javaToJS(new BetterResponse(r, size), getParentScope());
     br.setPrototype((Scriptable) javaToJS(r, getParentScope()));
     return br;
   }
   public class BetterResponse {
     private final Response r;
-    BetterResponse(Response r) { this.r = r; }
+    public final int size;
+    BetterResponse(Response r, int size) { this.r = r; this.size = size; }
     public Object xmlBody() { return parseXml(this.r); }
     public Object prettyXmlBody() { return prettyXml(r); }
     public Object jsonBody() {
@@ -274,8 +291,8 @@ public class JsHttp extends BaseFunction
     for (int i = 0; i < kvs.length;) r.put((String)kvs[i++], (Acceptor)kvs[i++]);
     return r;
   }
-  static long randomizeSleep(ReqBuilder r) {
-    return (long) (1000*(r.sleepLow + Math.random()*(r.sleepHigh-r.sleepLow)));
+  static long randomizeDelay(ReqBuilder r) {
+    return (long) (1000*(r.delayLow + Math.random()*(r.delayHigh-r.delayLow)));
   }
 
   private void defineHttpMethods(String... methods) {

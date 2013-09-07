@@ -10,18 +10,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LiveStats {
   private static final double NANOSEC_TO_SEC = 1.0/SECONDS.toNanos(1);
   private static final int
-    RESPTIMES_SIZE = 50, RESPTIME_SAMPLING_PERIOD = 2*(int)SECONDS.toNanos(1)/RESPTIMES_SIZE;
+    RESPMETRICS_SIZE = 50, RESPMETRICS_SAMPLING_PERIOD = 2*(int)SECONDS.toNanos(1)/RESPMETRICS_SIZE;
   public final int index;
   public final String name;
   volatile Throwable lastException;
-  private int respTimesIndex, timeSlot = Integer.MAX_VALUE;
-  final float[] respTimes = new float[RESPTIMES_SIZE];
+  private int respMetricsIndex, timeSlot = Integer.MAX_VALUE;
+  final float[] respTimes = new float[RESPMETRICS_SIZE], respSizes = new float[RESPMETRICS_SIZE];
   final int[]
       reqs = new int[TIMESLOTS_PER_SEC],
       succs = new int[TIMESLOTS_PER_SEC],
       fails = new int[TIMESLOTS_PER_SEC];
   final AtomicInteger pendingReqs = new AtomicInteger();
-  private long respTimeLastSampled;
+  private long respMetricsLastSampled;
   private final char[] histogram = new char[HIST_SIZE];
 
   LiveStats(int index, String name) { this.index = index; this.name = name; }
@@ -32,11 +32,12 @@ public class LiveStats {
     reqs[toIndex(reqs, timeSlot)]++;
     return timeSlot;
   }
-  synchronized void deregisterReq(int startSlot, long now, long start, Throwable t) {
+  synchronized void deregisterReq(int startSlot, long now, long start, int respSize, Throwable t) {
     pendingReqs.decrementAndGet();
-    if (now-respTimeLastSampled >= RESPTIME_SAMPLING_PERIOD) {
-      respTimeLastSampled = now;
-      respTimes[respTimesIndex++ % RESPTIMES_SIZE] = (float)((now-start)*NANOSEC_TO_SEC);
+    if (now-respMetricsLastSampled >= RESPMETRICS_SAMPLING_PERIOD) {
+      respMetricsLastSampled = now;
+      respTimes[respMetricsIndex % RESPMETRICS_SIZE] = (float)((now-start)*NANOSEC_TO_SEC);
+      respSizes[respMetricsIndex++ % RESPMETRICS_SIZE] = respSize;
     }
     if (startSlot-timeSlot < histogram.length) histogram[toIndex(histogram, startSlot)]--;
     final int[] ary =  t == null? succs : fails;

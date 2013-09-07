@@ -159,6 +159,12 @@ public class JsFunctions {
     return urlBuilder(scope, args[0].toString());
   }
 
+  public static Object spy(Context _1, Scriptable _2, Object[] args, Function _3) {
+    return spy0(true, args);
+  }
+  public static Object infoSpy(Context _1, Scriptable _2, Object[] args, Function _3) {
+    return spy0(false, args);
+  }
   private static Object spy0(boolean debug, Object[] args) {
     if (args.length == 0) return null;
     final Object ret = args[args.length-1];
@@ -174,12 +180,6 @@ public class JsFunctions {
     if (debug) jsLogger.debug(args[0].toString(), logArgs);
     else jsLogger.info(args[0].toString(), logArgs);
     return ret;
-  }
-  public static Object spy(Context _1, Scriptable _2, Object[] args, Function _3) {
-    return spy0(true, args);
-  }
-  public static Object infoSpy(Context _1, Scriptable _2, Object[] args, Function _3) {
-    return spy0(false, args);
   }
   private static Object logArg(Object in) {
     if (in instanceof NativeJavaObject) in = ((NativeJavaObject)in).unwrap();

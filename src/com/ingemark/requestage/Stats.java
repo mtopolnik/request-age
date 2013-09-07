@@ -13,13 +13,13 @@ public class Stats implements Serializable
   public final int index;
   public final String name;
   public final char[] histogram;
-  public final float avgRespTime, stdevRespTime, avgServIntensty, stdevServIntensty;
+  public final float avgRespTime, stdevRespTime, avgServIntensty, stdevServIntensty, avgRespSize;
   public final int reqsPerSec, succRespPerSec, failsPerSec, pendingReqs;
   public Stats() {
     index = 0;
     name = "<empty>";
     histogram = new char[0];
-    avgRespTime = stdevRespTime = avgServIntensty = stdevServIntensty = reqsPerSec =
+    avgRespTime = stdevRespTime = avgServIntensty = stdevServIntensty = avgRespSize = reqsPerSec =
         succRespPerSec = failsPerSec = pendingReqs = 0;
   }
   Stats(LiveStats live) {
@@ -29,9 +29,10 @@ public class Stats implements Serializable
     succRespPerSec = arraySum(live.succs);
     failsPerSec = arraySum(live.fails);
     final float[] intenArray = reciprocalArray(live.respTimes);
-    final double avgResp = arrayMean(live.respTimes), avgInten = arrayMean(intenArray);
-    avgRespTime = (float)avgResp;
-    stdevRespTime = (float)arrayStdev(avgResp, live.respTimes);
+    final double avgTime = arrayMean(live.respTimes), avgInten = arrayMean(intenArray);
+    avgRespSize = (float)arrayMean(live.respSizes);
+    avgRespTime = (float)avgTime;
+    stdevRespTime = (float)arrayStdev(avgTime, live.respTimes);
     avgServIntensty = (float)avgInten;
     stdevServIntensty = (float)arrayStdev(avgInten, intenArray);
     pendingReqs = live.pendingReqs.get();

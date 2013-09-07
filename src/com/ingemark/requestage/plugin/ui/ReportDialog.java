@@ -33,14 +33,15 @@ import com.ingemark.requestage.Stats;
 public class ReportDialog
 {
   private static final String[] headers = {
-    "name","req rate","pending","succ rate","fail rate","resp time","resp stdev"};
+    "name","req rate","pending","succ rate","fail rate","resp time","resp stdev","resp size",
+    "thruput"};
   private static final String format; static {
     final StringBuilder b = new StringBuilder();
     for (int i = 0; i < 6; i++) b.append("%s\t");
     format = b.append("\n").toString();
   }
   private static final DateFormat dateTimeFormat = getDateTimeInstance(MEDIUM, MEDIUM);
-  private static final DecimalFormat respTimeFormat = new DecimalFormat("@##");
+  private static final DecimalFormat threeDigitFormat = new DecimalFormat("@##");
 
   static void show(String testName, List<Stats> statsList) {
     final Display disp = Display.getCurrent();
@@ -78,8 +79,9 @@ public class ReportDialog
       col.setText(h);
       col.setAlignment(SWT.RIGHT);
     }
-    int rpsTotal = 0, pendingTotal = 0, succTotal = 0, failTotal = 0;
+    int rpsTotal = 0, pendingTotal = 0, succTotal = 0, failTotal = 0, bytePerSecTotal = 0;
     for (Stats stats : statsList) {
+      final float bytePerSec = stats.avgRespSize * (stats.succRespPerSec+stats.failsPerSec);
       final TableItem it = new TableItem(t, SWT.NONE);
       int i = 0;
       it.setText(i++, stats.name);
@@ -89,10 +91,13 @@ public class ReportDialog
       it.setText(i++, ""+stats.failsPerSec);
       it.setText(i++, timeFormat(stats.avgRespTime));
       it.setText(i++, timeFormat(stats.stdevRespTime));
+      it.setText(i++, ""+byteFormat(stats.avgRespSize));
+      it.setText(i++, ""+byteFormat(bytePerSec)+"/s");
       rpsTotal += stats.reqsPerSec;
       pendingTotal += stats.pendingReqs;
       succTotal += stats.succRespPerSec;
       failTotal += stats.failsPerSec;
+      bytePerSecTotal += bytePerSec;
     }
     {
       final TableItem total = new TableItem(t, SWT.NONE);
@@ -102,6 +107,10 @@ public class ReportDialog
       total.setText(i++, ""+pendingTotal);
       total.setText(i++, ""+succTotal);
       total.setText(i++, ""+failTotal);
+      total.setText(i++, "");
+      total.setText(i++, "");
+      total.setText(i++, "");
+      total.setText(i++, ""+byteFormat(bytePerSecTotal)+"/s");
     }
     for (int i = 0; i < headers.length; i++) t.getColumn(i).pack();
 
@@ -111,7 +120,12 @@ public class ReportDialog
   }
 
   private static String timeFormat(float f) {
-    return f >= 1? respTimeFormat.format(f) + " s" : respTimeFormat.format(f*1000)+" ms";
+    return f >= 1? threeDigitFormat.format(f) + " s" : threeDigitFormat.format(f*1000)+" ms";
+  }
+  private static String byteFormat(float f) {
+    return f >= 1000000? threeDigitFormat.format(f/1000000) + " MB"
+         : f >= 1000? threeDigitFormat.format(f/1000) + " kB"
+         : threeDigitFormat.format(f)+" B";
   }
 
   private static Object[] reportRow(Stats stats) {
