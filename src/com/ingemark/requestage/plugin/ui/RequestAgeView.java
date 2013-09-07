@@ -33,6 +33,7 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
@@ -156,8 +157,10 @@ public class RequestAgeView extends ViewPart
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
               showView(REQUESTAGE_VIEW_ID);
-              viewParent.layout(true);
-              viewParent.redraw();
+              Display.getCurrent().asyncExec(new Runnable() { public void run() {
+                viewParent.layout(true);
+                viewParent.redraw();
+              }});
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
@@ -166,7 +169,7 @@ public class RequestAgeView extends ViewPart
               InfoDialog.show(new DialogInfo("Stress testing error", ((String)e.data)));
             }
           });
-          shutdownAndThen(new Runnable() { @Override public void run() {
+          shutdownAndThen(new Runnable() { public void run() {
             testServer = new StressTestServer(statsParent, (String)event.data)
               .progressMonitor(pd.pm());
             testServer.start();
@@ -183,7 +186,7 @@ public class RequestAgeView extends ViewPart
   public void shutdownAndNewStatsParent() {
     newStatsParent();
     pd = new ProgressDialog("Shutting down Stress Test", 15, DO_NOTHING).cancelable(false);
-    shutdownAndThen(new Runnable() {@Override public void run() { pd.pm().done(); }});
+    shutdownAndThen(new Runnable() { public void run() { pd.pm().done(); }});
   }
 
   private void shutdownAndThen(Runnable andThen) {
