@@ -21,8 +21,7 @@
             fastViewWidthRatio="1"
             icon="img/requestage.gif"
             id="com.ingemark.requestage.views.HistoryView"
-            name="RequestAge History"
-            restorable="true">
+            name="RequestAge History">
       </view>
    </extension>
    <extension point="org.eclipse.ui.perspectiveExtensions">
@@ -47,6 +46,18 @@
                minimized="false"
                relationship="stack"
                relative="org.eclipse.ui.views.ProblemView">
+         </view>
+      </perspectiveExtension>
+      <perspectiveExtension
+            targetID="org.eclipse.ui.resourcePerspective">
+         <view relative="org.eclipse.ui.navigator.ProjectExplorer" relationship="stack"
+            id="com.ingemark.requestage.views.RequestAgeView">
+         </view>
+         <view
+               id="com.ingemark.requestage.views.HistoryView"
+               minimized="false"
+               relationship="stack"
+               relative="org.eclipse.ui.views.TaskList">
          </view>
       </perspectiveExtension>
    </extension>

@@ -156,10 +156,13 @@ public class RequestAgeView extends ViewPart
               });
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
-              showView(REQUESTAGE_VIEW_ID);
               Display.getCurrent().asyncExec(new Runnable() { public void run() {
-                viewParent.layout(true);
-                viewParent.redraw();
+                showView(REQUESTAGE_VIEW_ID);
+                Display.getCurrent().asyncExec(new Runnable() { public void run() {
+                  viewParent.notifyListeners(SWT.Resize, null);
+                  viewParent.layout(true);
+                  viewParent.redraw();
+                }});
               }});
           }});
           statsParent.addListener(EVT_ERROR, new Listener() {
