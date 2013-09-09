@@ -51,7 +51,7 @@ public class JdomBuilder
 
   public Scriptable el(String name) { return el(name, null); }
   public Scriptable el(String name, Namespace ns) { push(nsEl(name, ns)); return wrapper; }
-  public Scriptable empty(String name, Object... atts) {
+  public Scriptable emptyel(String name, Object... atts) {
     el(name); att(atts); end(name);
     return wrapper;
   }
