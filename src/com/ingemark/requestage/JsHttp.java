@@ -67,12 +67,6 @@ public class JsHttp extends BaseFunction
     super(parentScope, getFunctionPrototype(parentScope));
     this.tester = testr;
     defineHttpMethods("get", "put", "post", "delete", "head", "options");
-    putProperty(this, "declare", new Callable() {
-      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
-        for (Object name : args)
-          tester.lsmap.put(name.toString(), new LiveStats(index++, name.toString()));
-        return null;
-      }});
     putProperty(this, "acceptableStatus", new Callable() {
       public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
         acceptor = acceptors.get(args[0]);
