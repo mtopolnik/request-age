@@ -43,7 +43,9 @@ public class UrlBuilder
 
   public Scriptable s(Object... segs) {
     for (Object seg : segs) {
-      if (pathBuilder.charAt(pathBuilder.length()-1) != '/') pathBuilder.append('/');
+      if (pathBuilder.length() == 0 ||
+          pathBuilder.charAt(pathBuilder.length()-1) != '/')
+        pathBuilder.append('/');
       if (seg != null) {
         if (seg instanceof Collection) {
           final Collection colseg = (Collection)seg;
