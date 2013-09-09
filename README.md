@@ -9,7 +9,7 @@ These are the main features:
 - minimalist, yet information-packed GUI;
 - geared towards developing intuition about the tested system through rich interaction and visualisation.
 
-Read more on the project's [wiki](wiki).
+Read more on the project's [wiki](https://github.com/mtopolnik/perftest-eclipse-plugin/wiki).
 
 
 © 2013 Marko Topolnik, Inge-mark d.o.o. Licensed under the [Eclipse Public License](http://www.eclipse.org/legal/epl-v10.html).
