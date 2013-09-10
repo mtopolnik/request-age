@@ -2,12 +2,10 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Util.gridData;
-import static com.ingemark.requestage.Util.showView;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.REQUESTAGE_VIEW_ID;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
@@ -33,7 +31,6 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
@@ -156,15 +153,9 @@ public class RequestAgeView extends ViewPart
               });
               throttle.setSelection(MIN_THROTTLE);
               applyThrottle();
-              Display.getCurrent().asyncExec(new Runnable() { public void run() {
-                showView(REQUESTAGE_VIEW_ID);
-                Display.getCurrent().asyncExec(new Runnable() { public void run() {
-                  viewParent.notifyListeners(SWT.Resize, null);
-                  viewParent.layout(true);
-                  viewParent.redraw();
-                }});
-              }});
-          }});
+              viewParent.layout(true);
+              statsParent.layout(true);
+            }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
               enableActions(false);

@@ -1,7 +1,9 @@
 package com.ingemark.requestage.plugin;
 
 import static com.ingemark.requestage.Util.event;
+import static com.ingemark.requestage.Util.showView;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.REQUESTAGE_VIEW_ID;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 
 import org.eclipse.core.resources.IFile;
@@ -20,6 +22,7 @@ public class LaunchShortcut implements ILaunchShortcut
     launch(((FileEditorInput)editor.getEditorInput()).getFile());
   }
   void launch(IFile in) {
+    showView(REQUESTAGE_VIEW_ID);
     requestAgeView.statsParent.notifyListeners(EVT_RUN_SCRIPT,
         event(in.getLocation().toOSString()));
   }
