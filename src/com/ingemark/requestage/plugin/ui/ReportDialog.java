@@ -34,7 +34,7 @@ public class ReportDialog
 {
   private static final String[] headers = {
     "name","req rate","pending","succ rate","fail rate","resp time","resp stdev","resp size",
-    "thruput"};
+    "bandwidth"};
   private static final String format; static {
     final StringBuilder b = new StringBuilder();
     for (int i = 0; i < 6; i++) b.append("%s\t");
