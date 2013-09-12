@@ -9,7 +9,6 @@ import static com.ingemark.requestage.Util.wrapper;
 import static com.ingemark.requestage.script.JsFunctions.parseXml;
 import static com.ingemark.requestage.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
-import static org.mozilla.javascript.Context.javaToJS;
 import static org.mozilla.javascript.ScriptRuntime.constructError;
 
 import java.io.IOException;
@@ -99,21 +98,25 @@ public class JsHttp extends BaseFunction
     final NativeJavaObject wrapper;
     final String name;
     double delayLow, delayHigh;
-    public BoundRequestBuilder brb;
+    private final BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
     ReqBuilder(Scriptable scope, String name) {
-      this.wrapper = wrapper(scope, this);
+      this.brb = tester.client.prepareConnect("");
+      this.wrapper = wrapper(scope, this, wrapper(scope, brb, null));
       this.name = name;
     }
-    ReqBuilder(Scriptable scope, String method, String url) { this(scope, null); brb(method, url); }
+    ReqBuilder(Scriptable scope, String method, String url) {
+      this(scope, null);
+      initBrb(method, url);
+    }
 
-    public Scriptable get(String url) { return brb("GET", url); }
-    public Scriptable put(String url) { return brb("PUT", url); }
-    public Scriptable post(String url) { return brb("POST", url); }
-    public Scriptable delete(String url) { return brb("DELETE", url); }
-    public Scriptable head(String url) { return brb("HEAD", url); }
-    public Scriptable options(String url) { return brb("OPTIONS", url); }
+    public Scriptable get(String url) { return initBrb("GET", url); }
+    public Scriptable put(String url) { return initBrb("PUT", url); }
+    public Scriptable post(String url) { return initBrb("POST", url); }
+    public Scriptable delete(String url) { return initBrb("DELETE", url); }
+    public Scriptable head(String url) { return initBrb("HEAD", url); }
+    public Scriptable options(String url) { return initBrb("OPTIONS", url); }
 
     public Scriptable body(final Object body) {
       if (body instanceof JdomBuilder) {
@@ -143,8 +146,8 @@ public class JsHttp extends BaseFunction
     public void go(Object f) { go0(f, false); }
     public void goDiscardingBody(Object f) { go0(f, true); }
 
-    private Scriptable brb(String method, String url) {
-      brb = tester.client.prepareConnect(url).setMethod(method.toUpperCase());
+    private Scriptable initBrb(String method, String url) {
+      brb.setUrl(url).setMethod(method.toUpperCase());
       return wrapper;
     }
 
@@ -234,18 +237,16 @@ public class JsHttp extends BaseFunction
     @Override void deregisterReq(int startSlot, long now, long start, int size, Throwable t) { }
   };
 
-  public Scriptable betterAhccBuilder(final AsyncHttpClientConfig.Builder b) {
+  public Scriptable configBuilder(final AsyncHttpClientConfig.Builder b) {
     return (Scriptable)fac.call(new ContextAction() {
       @Override public Object run(Context cx) {
-        final Scriptable bb = (Scriptable) javaToJS(new BetterAhccBuilder(b), getParentScope());
-        bb.setPrototype((Scriptable) javaToJS(b, getParentScope()));
-        return bb;
+        return wrapper(getParentScope(), new ConfigBuilder(b), wrapper(getParentScope(), b, null));
       }
     });
   }
-  public class BetterAhccBuilder {
+  public class ConfigBuilder {
     private final Builder b;
-    BetterAhccBuilder(Builder b) { this.b = b; }
+    ConfigBuilder(Builder b) { this.b = b; }
     public Object proxy(String proxyStr) {
       b.setProxyServer(toProxyServer(proxyStr));
       return this;
@@ -258,9 +259,8 @@ public class JsHttp extends BaseFunction
   }
 
   Scriptable betterResponse(Response r, int size) {
-    final Scriptable br = (Scriptable) javaToJS(new BetterResponse(r, size), getParentScope());
-    br.setPrototype((Scriptable) javaToJS(r, getParentScope()));
-    return br;
+    return wrapper(getParentScope(), new BetterResponse(r, size),
+        wrapper(getParentScope(), r, null));
   }
   public class BetterResponse {
     private final Response r;

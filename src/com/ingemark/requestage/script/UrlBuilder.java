@@ -1,6 +1,7 @@
 package com.ingemark.requestage.script;
 
 import static com.ingemark.requestage.Util.sneakyThrow;
+import static com.ingemark.requestage.Util.wrapper;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -12,7 +13,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.mozilla.javascript.NativeJavaObject;
-import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
@@ -27,8 +27,7 @@ public class UrlBuilder
   private String fragment;
 
   private UrlBuilder(Scriptable scope, String urlBase) {
-    wrapper = new NativeJavaObject(scope, this, getClass());
-    wrapper.setPrototype(new NativeObject());
+    wrapper = wrapper(scope, this);
     final Matcher m = urlBaseRegex.matcher(urlBase);
     if (!m.matches())
       throw ScriptRuntime.constructError("IllegalUrl", "The URL " + urlBase + " is invalid");
