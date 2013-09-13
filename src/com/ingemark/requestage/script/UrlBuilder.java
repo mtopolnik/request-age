@@ -1,7 +1,7 @@
 package com.ingemark.requestage.script;
 
+import static com.ingemark.requestage.Util.builderWrapper;
 import static com.ingemark.requestage.Util.sneakyThrow;
-import static com.ingemark.requestage.Util.wrapper;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -12,22 +12,19 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 
 public class UrlBuilder
 {
   private static final Pattern urlBaseRegex = Pattern.compile("(.+?)://(.+?)(/.*?)?(?:\\?(.*))?");
-  private final NativeJavaObject wrapper;
   private final StringBuilder
     pathBuilder = new StringBuilder(16),
     qparamsBuilder = new StringBuilder(16);
   private final String scheme, authority;
   private String fragment;
 
-  private UrlBuilder(Scriptable scope, String urlBase) {
-    wrapper = wrapper(scope, this);
+  private UrlBuilder(String urlBase) {
     final Matcher m = urlBaseRegex.matcher(urlBase);
     if (!m.matches())
       throw ScriptRuntime.constructError("IllegalUrl", "The URL " + urlBase + " is invalid");
@@ -37,10 +34,10 @@ public class UrlBuilder
   }
 
   static Scriptable urlBuilder(Scriptable scope, String urlBase) {
-    return new UrlBuilder(scope, urlBase).wrapper;
+    return builderWrapper(scope, new UrlBuilder(urlBase));
   }
 
-  public Scriptable s(Object... segs) {
+  public UrlBuilder s(Object... segs) {
     for (Object seg : segs) {
       if (pathBuilder.length() == 0 ||
           pathBuilder.charAt(pathBuilder.length()-1) != '/')
@@ -53,9 +50,9 @@ public class UrlBuilder
         else pathBuilder.append(seg);
       }
     }
-    return wrapper;
+    return this;
   }
-  public Scriptable pp(Object... pps) {
+  public UrlBuilder pp(Object... pps) {
     for (int i = 0; i < pps.length;) {
       final Object p = pps[i++], v;
       if (p instanceof List) {
@@ -66,9 +63,9 @@ public class UrlBuilder
       v = pps[i++];
       pathBuilder.append(';').append(p.toString()).append('=').append(v.toString());
     }
-    return wrapper;
+    return this;
   }
-  public Scriptable q(Object... qps) {
+  public UrlBuilder q(Object... qps) {
     for (int i = 0; i < qps.length;) {
       final Object p = qps[i++], v;
       if (p instanceof List) {
@@ -80,11 +77,11 @@ public class UrlBuilder
       if (qparamsBuilder.length() > 0) qparamsBuilder.append('&');
       qparamsBuilder.append(urlEncode(p)).append('=').append(urlEncode(v));
     }
-    return wrapper;
+    return this;
   }
-  public Scriptable frag(Object frag) {
+  public UrlBuilder frag(Object frag) {
     fragment = frag != null? frag.toString() : null;
-    return wrapper;
+    return this;
   }
 
   @Override public String toString() {

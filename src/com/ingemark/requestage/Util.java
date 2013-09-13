@@ -137,13 +137,15 @@ public class Util
       return Context.javaToJS(obj, scope);
     }
   }
-  public static NativeJavaObject wrapper(Scriptable scope, Object wrapped, Scriptable prototype) {
-    final NativeJavaObject wrapper = new NativeJavaObject(scope, wrapped, wrapped.getClass());
-    if (prototype != null) wrapper.setPrototype(prototype);
+  public static NativeJavaObject builderWrapper(Scriptable scope, Object wrapped, Object proto) {
+    final NativeJavaObject wrapper = new NativeJavaObjectPreserveThis(scope, wrapped);
+    if (proto != null)
+      wrapper.setPrototype(proto instanceof Scriptable?
+          (Scriptable)proto : new NativeJavaObjectPreserveThis(scope, proto, wrapper));
     return wrapper;
   }
-  public static NativeJavaObject wrapper(Scriptable scope, Object wrapped) {
-    return wrapper(scope, wrapped, new NativeObject());
+  public static NativeJavaObject builderWrapper(Scriptable scope, Object wrapped) {
+    return builderWrapper(scope, wrapped, new NativeObject());
   }
   public static GridDataFactory gridData() { return GridDataFactory.fillDefaults(); }
 

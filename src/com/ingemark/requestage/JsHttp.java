@@ -2,10 +2,10 @@ package com.ingemark.requestage;
 
 import static com.ingemark.requestage.Message.INIT;
 import static com.ingemark.requestage.StressTester.fac;
+import static com.ingemark.requestage.Util.builderWrapper;
 import static com.ingemark.requestage.Util.nettySend;
 import static com.ingemark.requestage.Util.now;
 import static com.ingemark.requestage.Util.sneakyThrow;
-import static com.ingemark.requestage.Util.wrapper;
 import static com.ingemark.requestage.script.JsFunctions.parseXml;
 import static com.ingemark.requestage.script.JsFunctions.prettyXml;
 import static org.mozilla.javascript.Context.getCurrentContext;
@@ -23,6 +23,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -84,8 +85,9 @@ public class JsHttp extends BaseFunction
 
   public void initDone() { index = -1; }
 
-  @Override public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
-    return new ReqBuilder(scope, ScriptRuntime.toString(args[0])).wrapper;
+  @Override public Scriptable call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
+    final BoundRequestBuilder brb = tester.client.prepareConnect("");
+    return builderWrapper(scope, new ReqBuilder(scope, brb, ScriptRuntime.toString(args[0])), brb);
   }
   @Override public int getArity() { return 1; }
 
@@ -95,30 +97,28 @@ public class JsHttp extends BaseFunction
   }
 
   public class ReqBuilder {
-    final NativeJavaObject wrapper;
     final String name;
     double delayLow, delayHigh;
     private final BoundRequestBuilder brb;
     private Acceptor acceptor = JsHttp.this.acceptor;
 
-    ReqBuilder(Scriptable scope, String name) {
-      this.brb = tester.client.prepareConnect("");
-      this.wrapper = wrapper(scope, this, wrapper(scope, brb, null));
+    ReqBuilder(Scriptable scope, BoundRequestBuilder brb, String name) {
+      this.brb = brb;
       this.name = name;
     }
-    ReqBuilder(Scriptable scope, String method, String url) {
-      this(scope, null);
+    ReqBuilder(Scriptable scope, BoundRequestBuilder brb, String method, String url) {
+      this(scope, brb, null);
       initBrb(method, url);
     }
 
-    public Scriptable get(String url) { return initBrb("GET", url); }
-    public Scriptable put(String url) { return initBrb("PUT", url); }
-    public Scriptable post(String url) { return initBrb("POST", url); }
-    public Scriptable delete(String url) { return initBrb("DELETE", url); }
-    public Scriptable head(String url) { return initBrb("HEAD", url); }
-    public Scriptable options(String url) { return initBrb("OPTIONS", url); }
+    public ReqBuilder get(String url) { return initBrb("GET", url); }
+    public ReqBuilder put(String url) { return initBrb("PUT", url); }
+    public ReqBuilder post(String url) { return initBrb("POST", url); }
+    public ReqBuilder delete(String url) { return initBrb("DELETE", url); }
+    public ReqBuilder head(String url) { return initBrb("HEAD", url); }
+    public ReqBuilder options(String url) { return initBrb("OPTIONS", url); }
 
-    public Scriptable body(final Object body) {
+    public ReqBuilder body(final Object body) {
       if (body instanceof JdomBuilder) {
         brb.addHeader("Content-Type", "text/xml;charset=UTF-8");
         brb.setBody(body.toString());
@@ -130,25 +130,25 @@ public class JsHttp extends BaseFunction
         }});
       }
       else brb.setBody(body.toString());
-      return wrapper;
+      return this;
     }
 
-    public Scriptable accept(String qualifier) {
+    public ReqBuilder accept(String qualifier) {
       acceptor = acceptors.get(qualifier);
-      return wrapper;
+      return this;
     }
-    public Scriptable delay(double time) { return delay(time, time); }
-    public Scriptable delay(double lowTime, double highTime) {
+    public ReqBuilder delay(double time) { return delay(time, time); }
+    public ReqBuilder delay(double lowTime, double highTime) {
       delayLow = lowTime; delayHigh = highTime;
-      return wrapper;
+      return this;
     }
     public void go() { go0(null, true); }
     public void go(Object f) { go0(f, false); }
     public void goDiscardingBody(Object f) { go0(f, true); }
 
-    private Scriptable initBrb(String method, String url) {
+    private ReqBuilder initBrb(String method, String url) {
       brb.setUrl(url).setMethod(method.toUpperCase());
-      return wrapper;
+      return this;
     }
 
     private void go0(Object f, boolean discardBody) {
@@ -240,14 +240,14 @@ public class JsHttp extends BaseFunction
   public Scriptable configBuilder(final AsyncHttpClientConfig.Builder b) {
     return (Scriptable)fac.call(new ContextAction() {
       @Override public Object run(Context cx) {
-        return wrapper(getParentScope(), new ConfigBuilder(b), wrapper(getParentScope(), b, null));
+        return builderWrapper(getParentScope(), new ConfigBuilder(b), b);
       }
     });
   }
   public class ConfigBuilder {
     private final Builder b;
     ConfigBuilder(Builder b) { this.b = b; }
-    public Object proxy(String proxyStr) {
+    public ConfigBuilder proxy(String proxyStr) {
       b.setProxyServer(toProxyServer(proxyStr));
       return this;
     }
@@ -259,8 +259,12 @@ public class JsHttp extends BaseFunction
   }
 
   Scriptable betterResponse(Response r, int size) {
-    return wrapper(getParentScope(), new BetterResponse(r, size),
-        wrapper(getParentScope(), r, null));
+    final Scriptable wrapped = new NativeJavaObject(
+        getParentScope(), new BetterResponse(r, size), BetterResponse.class);
+    final NativeJavaObject protoWrapper = new NativeJavaObject(getParentScope(), r, Response.class);
+    protoWrapper.setPrototype(new NativeObject());
+    wrapped.setPrototype(protoWrapper);
+    return wrapped;
   }
   public class BetterResponse {
     private final Response r;
@@ -292,7 +296,9 @@ public class JsHttp extends BaseFunction
   private void defineHttpMethods(String... methods) {
     for (final String m : methods) putProperty(this, m, new Callable() {
       public Object call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
-        return new ReqBuilder(scope, m, ScriptRuntime.toString(args[0])).wrapper;
+        final BoundRequestBuilder brb = tester.client.prepareConnect("");
+        return builderWrapper(
+            scope, new ReqBuilder(scope, brb, m, ScriptRuntime.toString(args[0])), brb);
       }
     });
   }
