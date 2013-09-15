@@ -2,6 +2,7 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.Util.now;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
@@ -17,6 +18,7 @@ import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.signum;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.ArrayList;
@@ -60,6 +62,7 @@ public class RequestAgeView extends ViewPart
   volatile History[] histories = {};
   private Composite viewParent;
   private Label scriptsRunning;
+  private long numbersLastUpdated;
   private ProgressDialog pd;
   private Scale throttle;
   private Action stopAction, reportAction;
@@ -123,7 +126,11 @@ public class RequestAgeView extends ViewPart
               log.debug("Init histogram");
               statsParent.addListener(EVT_SCRIPTS_RUNNING, new Listener() {
                 public void handleEvent(Event e) {
-                  scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
+                  final long now = now();
+                  if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
+                    numbersLastUpdated = now;
+                    scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
+                  }
                 }
               });
               final int size = (Integer)event.data;
