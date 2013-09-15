@@ -169,7 +169,7 @@ public class JsHttp extends BaseFunction
         handleResponse(reqBuilder.brb.execute(new AsyncCompletionHandlerBase() {
           public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception {
             return discardBody? STATE.CONTINUE : super.onBodyPartReceived(bodyPart); }}
-        ).get(), -1, f);
+        ).get(), -1, f, null);
       } catch (Exception e) { sneakyThrow(e); }
     }
 
@@ -212,7 +212,7 @@ public class JsHttp extends BaseFunction
             fac.call(new ContextAction() {
               @Override public Object run(Context cx) {
                 Throwable failure = null;
-                try { handleResponse(resp, respSize, f); }
+                try { handleResponse(resp, respSize, f, pendingExecs); }
                 catch (Throwable t) { failure = t; }
                 finally {
                   if (pendingExecs.decrementAndGet() == 0) tester.scriptsRunning.decrementAndGet();
@@ -236,10 +236,15 @@ public class JsHttp extends BaseFunction
       return ret != null? ret : mockLiveStats;
     }
 
-    private void handleResponse(Response resp, int respSize, Callable f) {
+    private void handleResponse(Response resp, int respSize, Callable f, AtomicInteger pendingExecs)
+    {
       if (!acceptor.acceptable(resp))
         throw constructError("FailedResponse", resp.getStatusCode() + " " + resp.getStatusText());
-      if (f != null) tester.jsScope.call(f, betterResponse(resp, respSize));
+      if (f != null) {
+        PENDING_EXECUTIONS.set(pendingExecs);
+        try { tester.jsScope.call(f, betterResponse(resp, respSize)); }
+        finally { PENDING_EXECUTIONS.set(null); }
+      }
     }
   }
   static final LiveStats mockLiveStats = new LiveStats(0, "") {
