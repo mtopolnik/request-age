@@ -1,4 +1,4 @@
-package com.ingemark.requestage;
+package com.ingemark.requestage.script;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
