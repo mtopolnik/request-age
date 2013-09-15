@@ -35,6 +35,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeJavaObject;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
@@ -175,18 +176,19 @@ public class JsFunctions {
       return ret;
     }
     final Object[] logArgs = new Object[args.length-1];
-    final int start = args.length-1;
-    for (int i = start; i < args.length; i++) logArgs[i-start] = logArg(args[i]);
+    for (int i = 1; i < args.length; i++) logArgs[i-1] = logArg(args[i]);
     if (debug) jsLogger.debug(args[0].toString(), logArgs);
     else jsLogger.info(args[0].toString(), logArgs);
     return ret;
   }
   private static Object logArg(Object in) {
     if (in instanceof NativeJavaObject) in = ((NativeJavaObject)in).unwrap();
-    return in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
-      ((Scriptable)in).getParentScope(), in, null, " ")
-    : isJdom(in)? prettyXml(in)
-    : in;
+    return
+        in instanceof Function? ScriptRuntime.toString(in)
+      : in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
+          ((Scriptable)in).getParentScope(), in, null, " ")
+      : isJdom(in)? prettyXml(in)
+      : in;
   }
 
   private static boolean isJdom(final Object o) {
