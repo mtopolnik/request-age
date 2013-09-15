@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Callable;
@@ -47,6 +48,7 @@ import com.ning.http.client.Response;
 
 public class JsHttp extends BaseFunction
 {
+  static final ThreadLocal<AtomicInteger> PENDING_EXECUTIONS = new ThreadLocal<AtomicInteger>();
   private static final Logger log = LoggerFactory.getLogger(JsHttp.class);
   private static final Map<String, Acceptor> acceptors = hashMap(
       "any", new Acceptor() { public boolean acceptable(Response r) { return true; } },
@@ -174,13 +176,17 @@ public class JsHttp extends BaseFunction
     private void executeTest(
         final ReqBuilder reqBuilder, final Callable f, final boolean discardBody)
     {
+      final AtomicInteger pendingExecs = PENDING_EXECUTIONS.get();
+      pendingExecs.incrementAndGet();
       if (reqBuilder.delayLow > 0)
         tester.sched.schedule(new Runnable() { @Override public void run() {
-          executeTest0(reqBuilder, f, discardBody);
+          executeTest0(reqBuilder, f, pendingExecs, discardBody);
         }}, randomizeDelay(reqBuilder), TimeUnit.MILLISECONDS);
-      else executeTest0(reqBuilder, f, discardBody);
+      else executeTest0(reqBuilder, f, pendingExecs, discardBody);
     }
-    private void executeTest0(ReqBuilder reqBuilder, final Callable f, final boolean discardBody) {
+    private void executeTest0(ReqBuilder reqBuilder, final Callable f,
+        final AtomicInteger pendingExecs, final boolean discardBody)
+    {
       final String reqName = reqBuilder.name;
       final LiveStats liveStats = resolveLiveStats(reqName);
       final int startSlot = liveStats.registerReq();
@@ -208,13 +214,17 @@ public class JsHttp extends BaseFunction
                 Throwable failure = null;
                 try { handleResponse(resp, respSize, f); }
                 catch (Throwable t) { failure = t; }
-                finally { liveStats.deregisterReq(startSlot, now(), start, respSize, failure); }
+                finally {
+                  if (pendingExecs.decrementAndGet() == 0) tester.scriptsRunning.decrementAndGet();
+                  liveStats.deregisterReq(startSlot, now(), start, respSize, failure);
+                }
                 return null;
               }
             });
             return null;
           }
           @Override public void onThrowable(Throwable t) {
+            if (pendingExecs.decrementAndGet() == 0) tester.scriptsRunning.decrementAndGet();
             liveStats.deregisterReq(startSlot, now(), start, respSize, t);
           }
       });

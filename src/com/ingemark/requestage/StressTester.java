@@ -71,7 +71,6 @@ public class StressTester implements Runnable
       return new Thread(r, template + i.getAndIncrement());
    }
   }
-
   static final Logger log = getLogger(StressTester.class);
   public static final int TIMESLOTS_PER_SEC = 20, HIST_SIZE = 200;
   static final ContextFactory fac = ContextFactory.getGlobal();
@@ -90,6 +89,7 @@ public class StressTester implements Runnable
   private final ClientBootstrap netty;
   final Channel channel;
   private volatile int intensity = 0, updateDivisor = 1;
+  final AtomicInteger scriptsRunning = new AtomicInteger();
   private ScheduledFuture<?> testTask;
 
   public StressTester(final String fname) throws Throwable {
@@ -162,9 +162,9 @@ public class StressTester implements Runnable
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
-        final List<Stats> stats = stats();
-        if (stats.isEmpty()) return;
-        nettySend(channel, new Message(STATS, stats.toArray(new Stats[stats.size()])));
+        final List<Stats> statsList = stats();
+        if (statsList.isEmpty()) return;
+        nettySend(channel, new Message(STATS, new StatsHolder(statsList, scriptsRunning.get())));
       }}, MILLISECONDS.toMicros(100), SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
     }
     catch (Throwable t) {
@@ -190,11 +190,20 @@ public class StressTester implements Runnable
   @Override public void run() {
     try {
       pool.execute(new Runnable() { public void run() {
-        try { jsScope.call("test"); }
+        final AtomicInteger count = new AtomicInteger(1);
+        JsHttp.PENDING_EXECUTIONS.set(count);
+        try {
+          scriptsRunning.incrementAndGet();
+          jsScope.call("test");
+        }
         catch (Throwable t) {
           log.error("Error in thread pool", t);
           nettySend(channel, new Message(ERROR, excToString(t)));
           asyncShutdown();
+        }
+        finally {
+          if (count.decrementAndGet() == 0) scriptsRunning.decrementAndGet();
+          JsHttp.PENDING_EXECUTIONS.set(null);
         }
       }});
     } catch (Throwable t) {

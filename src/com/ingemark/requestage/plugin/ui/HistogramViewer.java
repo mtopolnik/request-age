@@ -4,6 +4,7 @@ import static com.ingemark.requestage.StressTester.HIST_SIZE;
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.requestage.Util.color;
 import static com.ingemark.requestage.Util.now;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static java.lang.Math.log10;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -40,14 +41,14 @@ public class HistogramViewer implements PaintListener
     METER_SCALE = 50;
   static final int DESIRED_HEIGHT = 235;
   static int minDesiredWidth;
-  final int histYoffset;
   final Canvas canvas;
-  final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
-  GC gc;
-  Image backdrop;
   Stats stats = new Stats();
-  long numbersLastUpdated;
-  int printedReqsPerSec, printedPendingReqs;
+  private final int histYoffset;
+  private final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
+  private GC gc;
+  private Image backdrop;
+  private long numbersLastUpdated;
+  private int printedReqsPerSec, printedPendingReqs;
 
   HistogramViewer(Composite parent) {
     final Display d = Display.getCurrent();
@@ -84,7 +85,7 @@ public class HistogramViewer implements PaintListener
         if (label >= 11000) break loop;
         final int y = histYoffset + tickMarkY(exp, i);
         drawHorLine(color(SWT.COLOR_BLACK), TICKMARK_X, y, TICKMARK_LEN);
-        if (i == 10) printString(String.valueOf(label), 8+TICKMARK_X, y-labelOffset);
+        if (i == 10) printString(threeDigitFormat(label, false), 8+TICKMARK_X, y-labelOffset);
       }
     for (int i = 0;; i++) {
       final int barIndex = i*TIMESLOTS_PER_SEC;
@@ -146,7 +147,7 @@ public class HistogramViewer implements PaintListener
   }
 
   private void paintMeterBars() {
-    printString(String.valueOf(printedReqsPerSec), 2, 0);
+    printString(threeDigitFormat(printedReqsPerSec, false), 2, 0);
     int a = toMeter(stats.reqsPerSec), b = toMeter(stats.succRespPerSec + stats.failsPerSec);
     paintRect(colReqBar, 0, histYoffset, 5, a);
     final Color color;
@@ -167,7 +168,7 @@ public class HistogramViewer implements PaintListener
     lastTotalBarHeight = stats.pendingReqs%FULL_TOTAL_BAR_HEIGHT;
     paintBar(colTotalReq, HIST_SIZE, fullTotalBars, FULL_TOTAL_BAR_HEIGHT);
     paintBar(colTotalReq, HIST_SIZE+ fullTotalBars, 1, lastTotalBarHeight);
-    final String s = String.valueOf(printedPendingReqs);
+    final String s = threeDigitFormat(printedPendingReqs, false);
     final int totalReqsCenter = TOTAL_REQS_OFFSET + ((fullTotalBars+1)*HIST_BAR_WIDTH) / 2;
     final Point ext = gc.stringExtent(s);
     final int labelBase = histYoffset+FULL_TOTAL_BAR_HEIGHT+5;

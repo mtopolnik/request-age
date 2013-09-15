@@ -19,6 +19,7 @@ import static com.ingemark.requestage.Util.swtSend;
 import static com.ingemark.requestage.Util.toIndex;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_SCRIPTS_RUNNING;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.HISTORY_VIEW_ID;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
@@ -156,7 +157,7 @@ public class StressTestServer implements IStressTestServer
             InfoDialog.show((DialogInfo) msg.value);
             break;
           case STATS:
-            receivedStats((Stats[])msg.value);
+            receivedStats((StatsHolder)msg.value);
             break;
           }
         }
@@ -226,13 +227,15 @@ public class StressTestServer implements IStressTestServer
     maxRefreshTime = (980 * refreshDivisor) / TIMESLOTS_PER_SEC;
   }
 
-  void receivedStats(final Stats[] stats) {
+  void receivedStats(final StatsHolder value) {
     final long enqueuedAt = NANOSECONDS.toMillis(now());
     Display.getDefault().asyncExec(new Runnable() {
       public void run() {
         final long start = NANOSECONDS.toMillis(now());
         if (eventReceiver.isDisposed()) return;
-        for (Stats s : stats) eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, event(s));
+        eventReceiver.notifyListeners(EVT_SCRIPTS_RUNNING, event(value.scriptsRunning));
+        for (Stats s : value.statsAry)
+          eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, event(s));
         final Rectangle area = eventReceiver.getBounds();
         eventReceiver.redraw(0, 0, area.width, area.height, true);
 //        eventReceiver.update();

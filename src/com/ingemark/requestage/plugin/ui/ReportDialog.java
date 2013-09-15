@@ -1,6 +1,7 @@
 package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.text.DateFormat.MEDIUM;
 import static java.text.DateFormat.getDateTimeInstance;
@@ -27,7 +28,6 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
-import com.ibm.icu.text.DecimalFormat;
 import com.ingemark.requestage.Stats;
 
 public class ReportDialog
@@ -41,7 +41,6 @@ public class ReportDialog
     format = b.append("\n").toString();
   }
   private static final DateFormat dateTimeFormat = getDateTimeInstance(MEDIUM, MEDIUM);
-  private static final DecimalFormat threeDigitFormat = new DecimalFormat("@##");
 
   static void show(String testName, List<Stats> statsList) {
     final Display disp = Display.getCurrent();
@@ -89,10 +88,10 @@ public class ReportDialog
       it.setText(i++, ""+stats.pendingReqs);
       it.setText(i++, ""+stats.succRespPerSec);
       it.setText(i++, ""+stats.failsPerSec);
-      it.setText(i++, timeFormat(stats.avgRespTime));
-      it.setText(i++, timeFormat(stats.stdevRespTime));
-      it.setText(i++, ""+byteFormat(stats.avgRespSize));
-      it.setText(i++, ""+byteFormat(bytePerSec)+"/s");
+      it.setText(i++, threeDigitFormat(stats.avgRespTime)+"s");
+      it.setText(i++, threeDigitFormat(stats.stdevRespTime)+"s");
+      it.setText(i++, threeDigitFormat(stats.avgRespSize)+"B");
+      it.setText(i++, threeDigitFormat(bytePerSec)+"B/s");
       rpsTotal += stats.reqsPerSec;
       pendingTotal += stats.pendingReqs;
       succTotal += stats.succRespPerSec;
@@ -110,22 +109,13 @@ public class ReportDialog
       total.setText(i++, "");
       total.setText(i++, "");
       total.setText(i++, "");
-      total.setText(i++, ""+byteFormat(bytePerSecTotal)+"/s");
+      total.setText(i++, ""+threeDigitFormat(bytePerSecTotal)+"B/s");
     }
     for (int i = 0; i < headers.length; i++) t.getColumn(i).pack();
 
     top.pack();
     top.setVisible(true);
     top.setFocus();
-  }
-
-  private static String timeFormat(float f) {
-    return f >= 1? threeDigitFormat.format(f) + " s" : threeDigitFormat.format(f*1000)+" ms";
-  }
-  private static String byteFormat(float f) {
-    return f >= 1000000? threeDigitFormat.format(f/1000000) + " MB"
-         : f >= 1000? threeDigitFormat.format(f/1000) + " kB"
-         : threeDigitFormat.format(f)+" B";
   }
 
   private static Object[] reportRow(Stats stats) {

@@ -2,11 +2,15 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_SCRIPTS_RUNNING;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.averageCharWidth;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.lineHeight;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
@@ -31,7 +35,9 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
 import org.eclipse.ui.part.ViewPart;
@@ -53,13 +59,15 @@ public class RequestAgeView extends ViewPart
   private volatile IStressTestServer testServer = StressTestServer.NULL;
   volatile History[] histories = {};
   private Composite viewParent;
+  private Label scriptsRunning;
   private ProgressDialog pd;
   private Scale throttle;
   private Action stopAction, reportAction;
 
   public void createPartControl(Composite p) {
     this.viewParent = new Composite(p, SWT.NONE);
-    final Color colWhite = p.getDisplay().getSystemColor(SWT.COLOR_WHITE);
+    final Display disp = p.getDisplay();
+    final Color colWhite = disp.getSystemColor(SWT.COLOR_WHITE);
     viewParent.setBackground(colWhite);
     requestAgeView = this;
     viewParent.setLayout(new GridLayout(2, false));
@@ -74,7 +82,11 @@ public class RequestAgeView extends ViewPart
     final IToolBarManager toolbar = getViewSite().getActionBars().getToolBarManager();
     toolbar.add(stopAction);
     toolbar.add(reportAction);
-    throttle = new Scale(viewParent, SWT.VERTICAL);
+    final Composite leftSide = new Composite(viewParent, SWT.NONE);
+    leftSide.setLayout(new GridLayout(1, false));
+    scriptsRunning = new Label(leftSide, SWT.NONE);
+    gridData().minSize(7*averageCharWidth(), lineHeight()).grab(true,false).applyTo(scriptsRunning);
+    throttle = new Scale(leftSide, SWT.VERTICAL);
     throttle.setBackground(colWhite);
     throttle.setMinimum(MIN_THROTTLE);
     throttle.setMaximum(MAX_THROTTLE);
@@ -109,6 +121,11 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
+              statsParent.addListener(EVT_SCRIPTS_RUNNING, new Listener() {
+                public void handleEvent(Event e) {
+                  scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
+                }
+              });
               final int size = (Integer)event.data;
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
