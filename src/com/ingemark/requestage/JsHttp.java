@@ -62,7 +62,7 @@ public class JsHttp extends BaseFunction
       }}
     );
   private final StressTester tester;
-  volatile int index;
+  volatile int index, maxThrottle = 2000;
   volatile Acceptor acceptor = acceptors.get("success");
 
   public JsHttp(ScriptableObject parentScope, final StressTester testr) {
@@ -83,9 +83,14 @@ public class JsHttp extends BaseFunction
         for (Object o : args) declareReq(o.toString());
         return JsHttp.this;
       }});
+    putProperty(this, "maxThrottle", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        maxThrottle = ((Number)args[0]).intValue();
+        return JsHttp.this;
+      }});
   }
 
-  public void initDone() { index = -1; }
+  public int initDone() { index = -1; return maxThrottle; }
 
   @Override public Scriptable call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
     final BoundRequestBuilder brb = tester.client.prepareConnect("");

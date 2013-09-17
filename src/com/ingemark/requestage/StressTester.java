@@ -157,8 +157,8 @@ public class StressTester implements Runnable
       log.debug("Initializing test");
       jsScope.call("init");
       log.debug("Initialized");
-      jsScope.initDone();
-      nettySend(channel, new Message(INITED, lsmap.size()), true);
+      final int maxThrottle = jsScope.initDone();
+      nettySend(channel, new Message(INITED, new InitInfo(lsmap.size(), maxThrottle)), true);
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {

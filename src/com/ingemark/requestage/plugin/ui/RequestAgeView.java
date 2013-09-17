@@ -3,7 +3,6 @@ package com.ingemark.requestage.plugin.ui;
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Util.gridData;
 import static com.ingemark.requestage.Util.now;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
@@ -13,6 +12,7 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.averageCharWidth;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.lineHeight;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.DESIRED_HEIGHT;
 import static com.ingemark.requestage.plugin.ui.HistogramViewer.minDesiredWidth;
 import static java.lang.Math.max;
@@ -47,6 +47,7 @@ import org.slf4j.Logger;
 
 import com.ingemark.requestage.DialogInfo;
 import com.ingemark.requestage.IStressTestServer;
+import com.ingemark.requestage.InitInfo;
 import com.ingemark.requestage.Message;
 import com.ingemark.requestage.Stats;
 import com.ingemark.requestage.StressTestServer;
@@ -54,7 +55,8 @@ import com.ingemark.requestage.StressTestServer;
 public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
-  private static final int MIN_THROTTLE = 10, MAX_THROTTLE = 135, THROTTLE_SCALE_FACTOR = 3;
+  private static final double THROTTLE_SCALING_FACTOR = 0.03;
+  private static final int MIN_THROTTLE = 1;
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView requestAgeView;
   public Composite statsParent;
@@ -90,9 +92,8 @@ public class RequestAgeView extends ViewPart
     scriptsRunning = new Label(leftSide, SWT.NONE);
     gridData().minSize(7*averageCharWidth(), lineHeight()).grab(true,false).applyTo(scriptsRunning);
     throttle = new Scale(leftSide, SWT.VERTICAL);
+    throttle.setMinimum(toThrottleSelection(MIN_THROTTLE));
     throttle.setBackground(colWhite);
-    throttle.setMinimum(MIN_THROTTLE);
-    throttle.setMaximum(MAX_THROTTLE);
     throttle.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
     });
@@ -107,6 +108,7 @@ public class RequestAgeView extends ViewPart
   }
 
   void newStatsParent() {
+    scriptsRunning.setText("");
     if (statsParent != null) statsParent.dispose();
     statsParent = new Composite(viewParent, SWT.NONE);
     gridData().grab(true, true).applyTo(statsParent);
@@ -133,7 +135,9 @@ public class RequestAgeView extends ViewPart
                   }
                 }
               });
-              final int size = (Integer)event.data;
+              final InitInfo info = (InitInfo)event.data;
+              final int size = info.histCount;
+              throttle.setMaximum(toThrottleSelection(info.maxThrottle));
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
               for (int i = 0; i < size; i++) {
@@ -175,7 +179,7 @@ public class RequestAgeView extends ViewPart
                 }
                 @Override public void controlMoved(ControlEvent e) {}
               });
-              throttle.setSelection(MIN_THROTTLE);
+              throttle.setSelection(toThrottleSelection(MIN_THROTTLE));
               applyThrottle();
               viewParent.layout(true);
               statsParent.layout(true);
@@ -221,13 +225,14 @@ public class RequestAgeView extends ViewPart
     return b.toString();
   }
 
-  static int pow(int in) { return (int)Math.pow(10, in/100d); }
-
   @Override public void dispose() { shutdownAndThen(DO_NOTHING);}
 
   @Override public void setFocus() { throttle.setFocus(); }
 
   private void applyThrottle() {
-    testServer.intensity(pow(THROTTLE_SCALE_FACTOR*throttle.getSelection()));
+    testServer.intensity((int)Math.pow(10, THROTTLE_SCALING_FACTOR*throttle.getSelection()));
+  }
+  private static int toThrottleSelection(int target) {
+    return (int) (Math.log10(target) / THROTTLE_SCALING_FACTOR);
   }
 }

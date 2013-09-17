@@ -39,11 +39,11 @@ public class HistogramViewer implements PaintListener
     FULL_TOTAL_BAR_HEIGHT = 100,
     HIST_HEIGHT_SCALE = 1,
     METER_SCALE = 50;
-  static final int DESIRED_HEIGHT = 235;
+  static final int DESIRED_HEIGHT = 285;
   static int minDesiredWidth;
+  private static int histYoffset;
   final Canvas canvas;
   Stats stats = new Stats();
-  private final int histYoffset;
   private final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
   private GC gc;
   private Image backdrop;
@@ -63,12 +63,13 @@ public class HistogramViewer implements PaintListener
     canvas.addListener(SWT.Resize, new Listener() { public void handleEvent(Event event) {
       recreateBackdrop();
     }});
-    gc = new GC(canvas);
-    final FontMetrics fm = gc.getFontMetrics();
-    histYoffset = 10 + fm.getHeight();
-    minDesiredWidth = TOTAL_REQS_OFFSET + 6*fm.getAverageCharWidth();
-    gc.dispose();
-    gc = null;
+    if (minDesiredWidth == 0) {
+      final GC gc = new GC(canvas);
+      final FontMetrics fm = gc.getFontMetrics();
+      histYoffset = 10 + fm.getHeight();
+      minDesiredWidth = TOTAL_REQS_OFFSET + 6*fm.getAverageCharWidth();
+      gc.dispose();
+    }
   }
 
   private void recreateBackdrop() {
@@ -82,8 +83,8 @@ public class HistogramViewer implements PaintListener
     loop: for (int exp = 0;; exp++)
       for (int i = 2; i <= 10; i += 2) {
         final int label = (int)pow(10, exp)*i;
-        if (label >= 11000) break loop;
         final int y = histYoffset + tickMarkY(exp, i);
+        if (y >= area.height + 1) break loop;
         drawHorLine(color(SWT.COLOR_BLACK), TICKMARK_X, y, TICKMARK_LEN);
         if (i == 10) printString(threeDigitFormat(label, false), 8+TICKMARK_X, y-labelOffset);
       }

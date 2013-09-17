@@ -65,11 +65,10 @@ public class JsScope {
       }});
     evaluateFile(fname);
   }
-  public void initDone() {
-    fac.call(new ContextAction() { @Override public Object run(Context cx) {
-      ((JsHttp)global.get("req")).initDone();
+  public int initDone() {
+    return (Integer) fac.call(new ContextAction() { @Override public Object run(Context cx) {
       global.sealObject();
-      return null;
+      return ((JsHttp)global.get("req")).initDone();
     }});
   }
   public Object call(final Callable fn, final Object... args) {
