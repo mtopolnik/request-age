@@ -55,8 +55,6 @@ import com.ingemark.requestage.StressTestServer;
 public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
-  private static final double THROTTLE_SCALING_FACTOR = 0.03;
-  private static final int MIN_THROTTLE = 1;
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
   public static RequestAgeView requestAgeView;
   public Composite statsParent;
@@ -67,6 +65,7 @@ public class RequestAgeView extends ViewPart
   private long numbersLastUpdated;
   private ProgressDialog pd;
   private Scale throttle;
+  private double throttleScalingFactor;
   private Action stopAction, reportAction;
 
   public void createPartControl(Composite p) {
@@ -92,7 +91,8 @@ public class RequestAgeView extends ViewPart
     scriptsRunning = new Label(leftSide, SWT.NONE);
     gridData().minSize(7*averageCharWidth(), lineHeight()).grab(true,false).applyTo(scriptsRunning);
     throttle = new Scale(leftSide, SWT.VERTICAL);
-    throttle.setMinimum(toThrottleSelection(MIN_THROTTLE));
+    throttle.setMinimum(0);
+    throttle.setMaximum(100);
     throttle.setBackground(colWhite);
     throttle.addSelectionListener(new SelectionAdapter() {
       @Override public void widgetSelected(SelectionEvent e) { applyThrottle(); }
@@ -137,7 +137,7 @@ public class RequestAgeView extends ViewPart
               });
               final InitInfo info = (InitInfo)event.data;
               final int size = info.histCount;
-              throttle.setMaximum(toThrottleSelection(info.maxThrottle));
+              throttleScalingFactor = info.maxThrottle/100.0;
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
               for (int i = 0; i < size; i++) {
@@ -179,7 +179,7 @@ public class RequestAgeView extends ViewPart
                 }
                 @Override public void controlMoved(ControlEvent e) {}
               });
-              throttle.setSelection(toThrottleSelection(MIN_THROTTLE));
+              throttle.setSelection(0);
               applyThrottle();
               viewParent.layout(true);
               statsParent.layout(true);
@@ -230,9 +230,6 @@ public class RequestAgeView extends ViewPart
   @Override public void setFocus() { throttle.setFocus(); }
 
   private void applyThrottle() {
-    testServer.intensity((int)Math.pow(10, THROTTLE_SCALING_FACTOR*throttle.getSelection()));
-  }
-  private static int toThrottleSelection(int target) {
-    return (int) (Math.log10(target) / THROTTLE_SCALING_FACTOR);
+    testServer.intensity((int) (throttleScalingFactor * throttle.getSelection()));
   }
 }
