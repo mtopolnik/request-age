@@ -260,8 +260,9 @@ public class StressTester implements Runnable
     return "java";
   }
 
-  public static Process launchTester(String scriptFile) {
+  public static Process launchTester(String scriptFname) {
     try {
+      final File scriptFile = new File(scriptFname);
       final List<String> command = new ArrayList<String>();
       command.add(java());
       final BufferedReader r = new BufferedReader(new FileReader(scriptFile));
@@ -273,9 +274,9 @@ public class StressTester implements Runnable
       final String bpath = getBundleFile(requestAgePlugin().bundle()).getAbsolutePath();
       final String slash = File.separator;
       final String cp = join(File.pathSeparator, bpath, bpath+slash+"bin", bpath+slash+"lib");
-      command.addAll(asList("-cp", cp, StressTester.class.getName(), scriptFile));
+      command.addAll(asList("-cp", cp, StressTester.class.getName(), scriptFname));
       log.debug("Launching {}", command);
-      return new ProcessBuilder(command).start();
+      return new ProcessBuilder(command).directory(scriptFile.getParentFile()).start();
     } catch (IOException e) { return sneakyThrow(e); }
   }
 
