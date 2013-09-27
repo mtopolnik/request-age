@@ -28,7 +28,6 @@ import org.ringojs.wrappers.ScriptableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.icu.text.DecimalFormat;
 import com.ingemark.requestage.script.NativeJavaObjectPreserveThis;
 import com.ning.http.client.Response;
 
