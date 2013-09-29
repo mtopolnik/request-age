@@ -105,7 +105,7 @@ public class StressTester implements Runnable
     try {
       this.jsScope = new JsScope(this, fname);
       final AsyncHttpClientConfig.Builder b = new AsyncHttpClientConfig.Builder();
-      b.setIdleConnectionInPoolTimeoutInMs((int)SECONDS.toMillis(10));
+      b.setIdleConnectionInPoolTimeoutInMs((int)SECONDS.toMillis(2));
       b.setMaxRequestRetry(0);
       b.setRequestTimeoutInMs((int)SECONDS.toMillis(20));
       jsScope.call("conf", jsScope.jsHttp.configBuilder(b));
