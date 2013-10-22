@@ -214,7 +214,7 @@ public class StressTestServer implements IStressTestServer
       sched.schedule(new Runnable() { @Override public void run() {
         if (!shutdownDone(andThen)) try {
           log.debug("Shutdown still not done. Destroying subprocess.");
-          subprocess.destroy();
+          if (subprocess != null) subprocess.destroy();
         }
         catch (Throwable t) { log.error("Error destroying stress tester subprocess", t); }
       }}, initThread!=null && initThread.isAlive()? 10 : 5, TimeUnit.SECONDS);
