@@ -3,10 +3,8 @@ package com.ingemark.requestage.script;
 import static com.ingemark.requestage.Util.builderWrapper;
 import static com.ingemark.requestage.Util.sneakyThrow;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -75,7 +73,7 @@ public class UrlBuilder
       }
       v = qps[i++];
       if (qparamsBuilder.length() > 0) qparamsBuilder.append('&');
-      qparamsBuilder.append(urlEncode(p)).append('=').append(urlEncode(v));
+      qparamsBuilder.append(p).append('=').append(v);
     }
     return this;
   }
@@ -89,10 +87,5 @@ public class UrlBuilder
       return new URI(scheme, authority, pathBuilder.toString(), qparamsBuilder.toString(), fragment)
         .toASCIIString();
     } catch (URISyntaxException e) { return sneakyThrow(e); }
-  }
-
-  static String urlEncode(Object s) {
-    try { return URLEncoder.encode(s.toString(), "UTF-8"); }
-    catch (UnsupportedEncodingException e) { return sneakyThrow(e); }
   }
 }
