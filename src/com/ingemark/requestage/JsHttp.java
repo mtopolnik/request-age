@@ -99,6 +99,7 @@ public class JsHttp extends BaseFunction
   @Override public int getArity() { return 1; }
 
   private void declareReq(String name) {
+    if (tester.lsmap.containsKey(name)) return;
     log.debug("Adding " + name + " under " + index);
     tester.lsmap.put(name, new LiveStats(index++, name));
   }
