@@ -33,13 +33,19 @@ import org.swtchart.ILineSeries.PlotSymbolType;
 import org.swtchart.ISeries;
 import org.swtchart.ISeriesSet;
 import org.swtchart.ITitle;
+import org.swtchart.LineStyle;
 import org.swtchart.Range;
+
+import com.ingemark.requestage.plugin.ui.History.RespTimeHistory;
 
 public class HistoryView extends ViewPart implements Listener
 {
   private static final long MIN_HIST_RANGE = MINUTES.toMillis(2);
   private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_GREEN, SWT.COLOR_RED,
-    SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW };
+    SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW, SWT.COLOR_DARK_BLUE,
+    SWT.COLOR_DARK_GREEN, SWT.COLOR_DARK_RED, SWT.COLOR_DARK_CYAN, SWT.COLOR_DARK_MAGENTA,
+    SWT.COLOR_DARK_YELLOW, SWT.COLOR_GRAY, SWT.COLOR_BLACK };
+  private static final String RESP_SCATTER_TITLE = "resp_time_scatter";
   public static final String[] yTitles = {"resp_time","pending_reqs","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
@@ -54,29 +60,19 @@ public class HistoryView extends ViewPart implements Listener
     radios = new Composite(parent, SWT.NONE);
     gridData().align(CENTER, FILL).applyTo(radios);
     radios.setBackground(parent.getBackground());
-    radios.setLayout(new GridLayout(yTitles.length,false));
+    radios.setLayout(new GridLayout(yTitles.length + 1,false));
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
     boolean selected = true;
     for (int i = 0; i < History.keys.length; i++) {
       final String key = History.keys[i], title = yTitles[i];
-      final Button radio = new Button(radios, SWT.RADIO);
-      gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
-      radio.setBackground(radios.getBackground());
-      radio.setText(title);
-      radio.addSelectionListener(new SelectionListener() {
-        @Override public void widgetSelected(SelectionEvent e) {
-          histKey = key;
-          chart.getAxisSet().getYAxis(0).getTitle().setText(title);
-          pullHistories();
-        }
-        @Override public void widgetDefaultSelected(SelectionEvent e) {}
-      });
+      final Button radio = newRadio(key, title);
       radio.setSelection(selected);
       if (selected) radio.notifyListeners(SWT.Selection, null);
       selected = false;
     }
+    newRadio(RESP_SCATTER_TITLE, RESP_SCATTER_TITLE);
 
     chart.getTitle().setVisible(false);
     final IAxisSet axes = chart.getAxisSet();
@@ -92,6 +88,22 @@ public class HistoryView extends ViewPart implements Listener
     x.getGrid().setForeground(gridColor);
     globalEventHub().addListener(EVT_INIT_HIST, this);
     globalEventHub().addListener(EVT_HISTORY_UPDATE, this);
+  }
+
+  private Button newRadio(final String key, final String title) {
+    final Button radio = new Button(radios, SWT.RADIO);
+    gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
+    radio.setBackground(radios.getBackground());
+    radio.setText(title);
+    radio.addSelectionListener(new SelectionListener() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        histKey = key;
+        chart.getAxisSet().getYAxis(0).getTitle().setText(title);
+        pullHistories();
+      }
+      @Override public void widgetDefaultSelected(SelectionEvent e) {}
+    });
+    return radio;
   }
 
   @Override public void handleEvent(Event event) {
@@ -118,11 +130,24 @@ public class HistoryView extends ViewPart implements Listener
     ILineSeries ser = (ILineSeries) ss.getSeries(h.name);
     if (ser == null) {
       ser = (ILineSeries) ss.createSeries(LINE, h.name);
-      ser.setLineColor(color(colors[color++ % colors.length]));
+      final Color c = color(colors[color++ % colors.length]);
+      ser.setLineColor(c);
+      ser.setSymbolColor(c);
     }
-    ser.setSymbolType(PlotSymbolType.NONE);
-    ser.setYSeries(h.history(histKey));
-    final Date[] xs = h.timestamps();
+    final Date[] xs;
+    if (histKey.equals(RESP_SCATTER_TITLE)) {
+      ser.setLineStyle(LineStyle.NONE);
+      ser.setSymbolType(PlotSymbolType.CIRCLE);
+      ser.setSymbolSize(1);
+      final RespTimeHistory hist = h.respTimeHistory();
+      xs = hist.timestamps;
+      ser.setYSeries(hist.times);
+      chart.getAxisSet().getYAxis(0).enableLogScale(true);
+    } else {
+      ser.setSymbolType(PlotSymbolType.NONE);
+      xs = h.timestamps();
+      ser.setYSeries(h.history(histKey));
+    }
     ser.setXDateSeries(xs);
     final IAxisSet axes = chart.getAxisSet();
     axes.getYAxis(0).adjustRange();

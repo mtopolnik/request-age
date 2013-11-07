@@ -2,15 +2,26 @@ package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.requestage.Util.arrayMean;
+import static com.ingemark.requestage.Util.decodeElapsedMillis;
 import static com.ingemark.requestage.Util.event;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
+import static java.util.Collections.nCopies;
+import gnu.trove.list.array.TDoubleArrayList;
+import gnu.trove.map.hash.TLongObjectHashMap;
+import gnu.trove.procedure.TIntProcedure;
+import gnu.trove.procedure.TLongObjectProcedure;
+import gnu.trove.procedure.TLongProcedure;
+import gnu.trove.set.hash.TIntHashSet;
+import gnu.trove.set.hash.TLongHashSet;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -36,8 +47,22 @@ public class History {
     for (String key : keys) histBufs.put(key, new float[BUFSIZ]);
   }
   private final Date[] timestamps = new Date[FULL_SIZE];
+  private final TLongObjectHashMap<TIntHashSet> respHistory =
+      new TLongObjectHashMap<TIntHashSet>(FULL_SIZE);
+  private final TLongObjectProcedure<TIntHashSet> mergeIntoHistory =
+      new TLongObjectProcedure<TIntHashSet>() {
+        @Override public boolean execute(long start, TIntHashSet times) {
+          final int divisor = effectiveDivisor();
+          final TIntHashSet ts = respHistEntry(start / divisor * divisor);
+          times.forEach(new TIntProcedure() { @Override public boolean execute(int encoded) {
+            ts.add(decodeElapsedMillis(encoded)); return true;
+          }});
+          return true;
+        }
+  };
 
   public void statsUpdate(Stats stats) {
+    stats.respHistory.forEachEntry(mergeIntoHistory);
     if (++calledCount % divisor != 0) return;
     name = stats.name;
     try {
@@ -54,10 +79,10 @@ public class History {
         index /= 2;
         if (bufLimit <= BUFSIZ/2) bufLimit *= 2;
         else divisor *= 2;
+        squeezeRespHistory();
       }
     }
   }
-
   private static void squeeze(double[] array) {
     for (int i = 0; i < array.length/2; i++) array[i] = (array[2*i]+array[2*i+1])/2;
   }
@@ -65,9 +90,58 @@ public class History {
     for (int i = 0; i < array.length/2; i++)
       array[i] = new Date((array[2*i].getTime()+array[2*i+1].getTime())/2);
   }
+  private void squeezeRespHistory() {
+    final TLongHashSet toRemove = new TLongHashSet();
+    final int divisor = effectiveDivisor();
+    respHistory.forEachEntry(new TLongObjectProcedure<TIntHashSet>() {
+      @Override public boolean execute(long timestamp, TIntHashSet times) {
+        if (timestamp % divisor == 0) return true;
+        toRemove.add(timestamp);
+        final long newKey = timestamp / divisor * divisor;
+        final TIntHashSet ts = respHistEntry(newKey);
+        ts.addAll(times);
+        return true;
+      }});
+    toRemove.forEach(new TLongProcedure() { @Override public boolean execute(long t) {
+      respHistory.remove(t);
+      return true;
+    }});
+  }
+  private int effectiveDivisor() { return divisor * (bufLimit / TIMESLOTS_PER_SEC); }
+
+  private TIntHashSet respHistEntry(long timestamp) {
+    TIntHashSet ts = respHistory.get(timestamp);
+    if (ts == null) { ts = new TIntHashSet(); respHistory.put(timestamp, ts); }
+    return ts;
+  }
 
   public double[] history(String id) {
     return Arrays.copyOf(histories.get(id), index);
   }
   public Date[] timestamps() { return Arrays.copyOf(timestamps, index); }
+
+  public RespTimeHistory respTimeHistory() {
+    final List<Date> timestamps = new ArrayList<Date>(2*respHistory.size());
+    final TDoubleArrayList timeList = new TDoubleArrayList(2*respHistory.size());
+    respHistory.forEachEntry(new TLongObjectProcedure<TIntHashSet>() {
+      @Override public boolean execute(long timestamp, TIntHashSet times) {
+        timestamps.addAll(nCopies(times.size(), new Date(timestamp)));
+        times.forEach(new TIntProcedure() { @Override public boolean execute(int t) {
+          timeList.add(t/1000.0); return true;
+        }});
+        return true;
+      }
+    });
+    return new RespTimeHistory(
+        timestamps.toArray(new Date[timestamps.size()]),
+        timeList.toArray());
+  }
+
+  static class RespTimeHistory {
+    Date[] timestamps;
+    double[] times;
+    RespTimeHistory(Date[] timestamps, double[] times) {
+      this.timestamps = timestamps; this.times = times;
+    }
+  }
 }

@@ -4,6 +4,8 @@ import static com.ingemark.requestage.Util.arrayMean;
 import static com.ingemark.requestage.Util.arrayStdev;
 import static com.ingemark.requestage.Util.arraySum;
 import static com.ingemark.requestage.Util.reciprocalArray;
+import gnu.trove.map.hash.TLongObjectHashMap;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.io.Serializable;
 
@@ -15,12 +17,14 @@ public class Stats implements Serializable
   public final char[] histogram;
   public final float avgRespTime, stdevRespTime, avgServIntensty, stdevServIntensty, avgRespSize;
   public final int reqsPerSec, succRespPerSec, failsPerSec, pendingReqs;
+  public final TLongObjectHashMap<TIntHashSet> respHistory;
   public Stats() {
     index = 0;
     name = "<empty>";
     histogram = new char[0];
     avgRespTime = stdevRespTime = avgServIntensty = stdevServIntensty = avgRespSize = reqsPerSec =
         succRespPerSec = failsPerSec = pendingReqs = 0;
+    respHistory = new TLongObjectHashMap<TIntHashSet>();
   }
   Stats(LiveStats live) {
     this.index = live.index;
@@ -37,6 +41,7 @@ public class Stats implements Serializable
     stdevServIntensty = (float)arrayStdev(avgInten, intenArray);
     pendingReqs = live.pendingReqs.get();
     histogram = live.reqHistogram();
+    respHistory = new TLongObjectHashMap<TIntHashSet>(live.respHistory);
   }
   @Override public String toString() {
     return String.format("%s %d %d %d %d",

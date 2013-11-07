@@ -2,8 +2,11 @@ package com.ingemark.requestage;
 
 import static com.ingemark.requestage.StressTester.HIST_SIZE;
 import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
+import static com.ingemark.requestage.Util.encodeElapsedMillis;
 import static com.ingemark.requestage.Util.toIndex;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import gnu.trove.map.hash.TLongObjectHashMap;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,6 +24,7 @@ public class LiveStats {
       succs = new int[TIMESLOTS_PER_SEC],
       fails = new int[TIMESLOTS_PER_SEC];
   final AtomicInteger pendingReqs = new AtomicInteger();
+  final TLongObjectHashMap<TIntHashSet> respHistory = new TLongObjectHashMap();
   private long respMetricsLastSampled;
   private final char[] histogram = new char[HIST_SIZE];
 
@@ -32,7 +36,9 @@ public class LiveStats {
     reqs[toIndex(reqs, timeSlot)]++;
     return timeSlot;
   }
-  synchronized void deregisterReq(int startSlot, long now, long start, int respSize, Throwable t) {
+  synchronized void deregisterReq(
+      int startSlot, long now, long start, long startMillis, int respSize, Throwable t)
+  {
     pendingReqs.decrementAndGet();
     if (now-respMetricsLastSampled >= RESPMETRICS_SAMPLING_PERIOD) {
       respMetricsLastSampled = now;
@@ -43,6 +49,7 @@ public class LiveStats {
     final int[] ary =  t == null? succs : fails;
     ary[toIndex(ary, timeSlot)]++;
     if (t != null) lastException = t;
+    addRespHistory(startMillis/1000*1000, encodeElapsedMillis(now, start));
   }
   synchronized char[] reqHistogram() {
     final char[] hist = histogram, ret = new char[hist.length];
@@ -58,6 +65,12 @@ public class LiveStats {
       timeSlot--;
       reqs[toIndex(reqs, timeSlot)] = succs[toIndex(succs, timeSlot)] =
           fails[toIndex(fails, timeSlot)] = histogram[toIndex(histogram, timeSlot)] = 0;
+      respHistory.clear();
     }
+  }
+  private void addRespHistory(long start, int encodedElapsedMillis) {
+    TIntHashSet ts = respHistory.get(start);
+    if (ts == null) { ts = new TIntHashSet(); respHistory.put(start, ts); }
+    ts.add(encodedElapsedMillis);
   }
 }

@@ -8,6 +8,7 @@ import static com.ingemark.requestage.Util.now;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.script.JsFunctions.parseXml;
 import static com.ingemark.requestage.script.JsFunctions.prettyXml;
+import static java.lang.System.currentTimeMillis;
 import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.ScriptRuntime.constructError;
 
@@ -196,7 +197,7 @@ public class JsHttp extends BaseFunction
       final String reqName = reqBuilder.name;
       final LiveStats liveStats = resolveLiveStats(reqName);
       final int startSlot = liveStats.registerReq();
-      final long start = now();
+      final long start = now(), wallStart = currentTimeMillis();
       try {
         reqBuilder.brb.execute(new AsyncCompletionHandler<Void>() {
           volatile int respSize;
@@ -222,7 +223,7 @@ public class JsHttp extends BaseFunction
                 catch (Throwable t) { failure = t; }
                 finally {
                   if (pendingExecs.decrementAndGet() == 0) tester.scriptsRunning.decrementAndGet();
-                  liveStats.deregisterReq(startSlot, now(), start, respSize, failure);
+                  liveStats.deregisterReq(startSlot, now(), start, wallStart, respSize, failure);
                 }
                 return null;
               }
@@ -231,7 +232,7 @@ public class JsHttp extends BaseFunction
           }
           @Override public void onThrowable(Throwable t) {
             if (pendingExecs.decrementAndGet() == 0) tester.scriptsRunning.decrementAndGet();
-            liveStats.deregisterReq(startSlot, now(), start, respSize, t);
+            liveStats.deregisterReq(startSlot, now(), start, wallStart, respSize, t);
           }
       });
       } catch (IOException e) { sneakyThrow(e); }
@@ -255,7 +256,7 @@ public class JsHttp extends BaseFunction
   }
   static final LiveStats mockLiveStats = new LiveStats(0, "") {
     @Override int registerReq() { return -1; }
-    @Override void deregisterReq(int startSlot, long now, long start, int size, Throwable t) { }
+    @Override void deregisterReq(int _1, long _2, long _3, long _4, int _5, Throwable _6) { }
   };
 
   public Scriptable configBuilder(final AsyncHttpClientConfig.Builder b) {

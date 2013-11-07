@@ -1,5 +1,9 @@
 package com.ingemark.requestage;
 
+import static java.lang.Math.log10;
+import static java.lang.Math.pow;
+import static java.lang.Math.round;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.eclipse.ui.PlatformUI.getWorkbench;
 
 import java.io.PrintWriter;
@@ -73,6 +77,14 @@ public class Util
   }
   public static long now() { return System.nanoTime(); }
 
+  public static int encodeElapsedMillis(long now, long start) {
+    long elapsedMillis = (now-start)/MILLISECONDS.toNanos(1);
+    double scaledLog = log10(elapsedMillis)*20;
+    return (int)round(scaledLog);
+  }
+  public static int decodeElapsedMillis(int encoded) {
+    return (int) pow(10, encoded/20.0);
+  }
   public static String join(String separator, String... parts) {
     final StringBuilder b = new StringBuilder(128);
     String sep = "";
