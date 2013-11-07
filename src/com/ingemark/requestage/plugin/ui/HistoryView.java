@@ -49,6 +49,7 @@ public class HistoryView extends ViewPart implements Listener
   public static final String[] yTitles = {"resp_time","pending_reqs","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private int color;
+  private long start;
   private Chart chart;
   private Composite radios;
   private String histKey;
@@ -112,6 +113,7 @@ public class HistoryView extends ViewPart implements Listener
       final ISeriesSet ss = chart.getSeriesSet();
       for (ISeries s : ss.getSeries()) ss.deleteSeries(s.getId());
       color = 0;
+      start = System.currentTimeMillis();
       break;
     case EVT_HISTORY_UPDATE:
       update((History) event.data);
@@ -135,29 +137,30 @@ public class HistoryView extends ViewPart implements Listener
       ser.setSymbolColor(c);
     }
     final Date[] xs;
+    final long maxTimestamp;
     if (histKey.equals(RESP_SCATTER_TITLE)) {
       ser.setLineStyle(LineStyle.NONE);
       ser.setSymbolType(PlotSymbolType.CIRCLE);
       ser.setSymbolSize(1);
       final RespTimeHistory hist = h.respTimeHistory();
       xs = hist.timestamps;
+      maxTimestamp = hist.maxTimestamp;
       ser.setYSeries(hist.times);
       chart.getAxisSet().getYAxis(0).enableLogScale(true);
     } else {
+      ser.setLineStyle(LineStyle.SOLID);
       ser.setSymbolType(PlotSymbolType.NONE);
       xs = h.timestamps();
+      maxTimestamp = xs.length > 0? xs[xs.length-1].getTime() : 0;
       ser.setYSeries(h.history(histKey));
+      chart.getAxisSet().getYAxis(0).enableLogScale(false);
     }
     ser.setXDateSeries(xs);
     final IAxisSet axes = chart.getAxisSet();
     axes.getYAxis(0).adjustRange();
     final IAxis x = axes.getXAxis(0);
-    if (xs.length == 0 || xs[xs.length-1].getTime()-xs[0].getTime() >= MIN_HIST_RANGE)
-      x.adjustRange();
-    else {
-      final long start = xs[0].getTime();
-      x.setRange(new Range(start, start + MIN_HIST_RANGE));
-    }
+    if (maxTimestamp-start >= MIN_HIST_RANGE) x.adjustRange();
+    else x.setRange(new Range(start, start + MIN_HIST_RANGE));
     chart.redraw();
   }
 

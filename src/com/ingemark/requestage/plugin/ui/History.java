@@ -7,6 +7,7 @@ import static com.ingemark.requestage.Util.event;
 import static com.ingemark.requestage.Util.sneakyThrow;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
+import static java.lang.Math.max;
 import static java.util.Collections.nCopies;
 import gnu.trove.list.array.TDoubleArrayList;
 import gnu.trove.map.hash.TLongObjectHashMap;
@@ -123,8 +124,10 @@ public class History {
   public RespTimeHistory respTimeHistory() {
     final List<Date> timestamps = new ArrayList<Date>(2*respHistory.size());
     final TDoubleArrayList timeList = new TDoubleArrayList(2*respHistory.size());
+    final long[] maxTimestamp = {0};
     respHistory.forEachEntry(new TLongObjectProcedure<TIntHashSet>() {
       @Override public boolean execute(long timestamp, TIntHashSet times) {
+        maxTimestamp[0] = max(maxTimestamp[0], timestamp);
         timestamps.addAll(nCopies(times.size(), new Date(timestamp)));
         times.forEach(new TIntProcedure() { @Override public boolean execute(int t) {
           timeList.add(t/1000.0); return true;
@@ -133,15 +136,19 @@ public class History {
       }
     });
     return new RespTimeHistory(
+        maxTimestamp[0],
         timestamps.toArray(new Date[timestamps.size()]),
         timeList.toArray());
   }
 
   static class RespTimeHistory {
-    Date[] timestamps;
-    double[] times;
-    RespTimeHistory(Date[] timestamps, double[] times) {
-      this.timestamps = timestamps; this.times = times;
+    final long maxTimestamp;
+    final Date[] timestamps;
+    final double[] times;
+    RespTimeHistory(long maxTimestamp, Date[] timestamps, double[] times) {
+      this.maxTimestamp = maxTimestamp;
+      this.timestamps = timestamps;
+      this.times = times;
     }
   }
 }

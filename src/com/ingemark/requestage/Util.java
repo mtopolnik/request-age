@@ -1,6 +1,7 @@
 package com.ingemark.requestage;
 
 import static java.lang.Math.log10;
+import static java.lang.Math.max;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -80,7 +81,7 @@ public class Util
   public static int encodeElapsedMillis(long now, long start) {
     long elapsedMillis = (now-start)/MILLISECONDS.toNanos(1);
     double scaledLog = log10(elapsedMillis)*20;
-    return (int)round(scaledLog);
+    return max(0, (int)round(scaledLog));
   }
   public static int decodeElapsedMillis(int encoded) {
     return (int) pow(10, encoded/20.0);
