@@ -18,12 +18,13 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.part.ViewPart;
 import org.swtchart.Chart;
 import org.swtchart.IAxis;
@@ -36,22 +37,22 @@ import org.swtchart.ITitle;
 import org.swtchart.LineStyle;
 import org.swtchart.Range;
 
+import com.ingemark.requestage.InitInfo;
 import com.ingemark.requestage.plugin.ui.History.RespTimeHistory;
 
 public class HistoryView extends ViewPart implements Listener
 {
   private static final long MIN_HIST_RANGE = MINUTES.toMillis(2);
-  private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_GREEN, SWT.COLOR_RED,
-    SWT.COLOR_CYAN, SWT.COLOR_MAGENTA, SWT.COLOR_YELLOW, SWT.COLOR_DARK_BLUE,
-    SWT.COLOR_DARK_GREEN, SWT.COLOR_DARK_RED, SWT.COLOR_DARK_CYAN, SWT.COLOR_DARK_MAGENTA,
-    SWT.COLOR_DARK_YELLOW, SWT.COLOR_GRAY, SWT.COLOR_BLACK };
+  private static final int[] colors = { SWT.COLOR_BLUE, SWT.COLOR_RED,
+    SWT.COLOR_MAGENTA, SWT.COLOR_DARK_BLUE, SWT.COLOR_DARK_RED, SWT.COLOR_GREEN,
+    SWT.COLOR_DARK_GREEN, SWT.COLOR_DARK_CYAN, SWT.COLOR_DARK_MAGENTA, SWT.COLOR_DARK_YELLOW,
+    SWT.COLOR_GRAY, SWT.COLOR_CYAN, SWT.COLOR_BLACK, SWT.COLOR_YELLOW };
   private static final String RESP_SCATTER_TITLE = "resp_time_scatter";
   public static final String[] yTitles = {"resp_time","pending_reqs","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
-  private int color;
   private long start;
   private Chart chart;
-  private Composite radios;
+  private Composite radios, checkboxes;
   private String histKey;
 
   @Override public void createPartControl(Composite parent) {
@@ -61,7 +62,10 @@ public class HistoryView extends ViewPart implements Listener
     radios = new Composite(parent, SWT.NONE);
     gridData().align(CENTER, FILL).applyTo(radios);
     radios.setBackground(parent.getBackground());
-    radios.setLayout(new GridLayout(yTitles.length + 1,false));
+    radios.setLayout(new RowLayout());
+    checkboxes = new Composite(parent, SWT.NONE);
+    gridData().align(CENTER, FILL).applyTo(checkboxes);
+    checkboxes.setLayout(new RowLayout());
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
@@ -93,7 +97,6 @@ public class HistoryView extends ViewPart implements Listener
 
   private Button newRadio(final String key, final String title) {
     final Button radio = new Button(radios, SWT.RADIO);
-    gridData().align(FILL, FILL).grab(true, true).applyTo(radio);
     radio.setBackground(radios.getBackground());
     radio.setText(title);
     radio.addSelectionListener(new SelectionListener() {
@@ -112,8 +115,25 @@ public class HistoryView extends ViewPart implements Listener
     case EVT_INIT_HIST:
       final ISeriesSet ss = chart.getSeriesSet();
       for (ISeries s : ss.getSeries()) ss.deleteSeries(s.getId());
-      color = 0;
+      for (Control c : checkboxes.getChildren()) c.dispose();
+      int color = 0;
       start = System.currentTimeMillis();
+      for (final String name : ((InitInfo) event.data).histograms) {
+        final ILineSeries ser = (ILineSeries) ss.createSeries(LINE, name);
+        final Color c = color(colors[color++ % colors.length]);
+        ser.setLineColor(c);
+        ser.setSymbolColor(c);
+        final Button check = new Button(checkboxes, SWT.CHECK);
+        check.setText(name);
+        check.setSelection(true);
+        check.addSelectionListener(new SelectionListener() {
+          @Override public void widgetSelected(SelectionEvent e) {
+            ss.getSeries(name).setVisible(check.getSelection());
+          }
+          @Override public void widgetDefaultSelected(SelectionEvent e) {}
+        });
+        checkboxes.getParent().layout();
+      }
       break;
     case EVT_HISTORY_UPDATE:
       update((History) event.data);
@@ -127,21 +147,16 @@ public class HistoryView extends ViewPart implements Listener
   }
 
   private void update(History h) {
-    if (h.name == null) return;
+    final String name = h.name;
+    if (name == null) return;
     final ISeriesSet ss = chart.getSeriesSet();
-    ILineSeries ser = (ILineSeries) ss.getSeries(h.name);
-    if (ser == null) {
-      ser = (ILineSeries) ss.createSeries(LINE, h.name);
-      final Color c = color(colors[color++ % colors.length]);
-      ser.setLineColor(c);
-      ser.setSymbolColor(c);
-    }
+    final ILineSeries ser = (ILineSeries) ss.getSeries(name);
     final Date[] xs;
     final long maxTimestamp;
     if (histKey.equals(RESP_SCATTER_TITLE)) {
       ser.setLineStyle(LineStyle.NONE);
       ser.setSymbolType(PlotSymbolType.CIRCLE);
-      ser.setSymbolSize(1);
+      ser.setSymbolSize(2);
       final RespTimeHistory hist = h.respTimeHistory();
       xs = hist.timestamps;
       maxTimestamp = hist.maxTimestamp;
@@ -169,16 +184,5 @@ public class HistoryView extends ViewPart implements Listener
   @Override public void dispose() {
     globalEventHub().removeListener(EVT_INIT_HIST, this);
     globalEventHub().removeListener(EVT_HISTORY_UPDATE, this);
-  }
-
-  public static void main(String[] args) {
-    final Display d = Display.getDefault();
-    final Shell s = new Shell(d);
-    s.setLayout(new GridLayout(1,true));
-    new HistoryView().createPartControl(s);
-    s.layout();
-    s.open();
-    while (!s.isDisposed()) if (!d.readAndDispatch()) d.sleep();
-    d.dispose();
   }
 }

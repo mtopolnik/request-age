@@ -136,7 +136,7 @@ public class RequestAgeView extends ViewPart
                 }
               });
               final InitInfo info = (InitInfo)event.data;
-              final int size = info.histCount;
+              final int size = info.histograms.length;
               throttleScalingFactor = info.maxThrottle/100.0;
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];

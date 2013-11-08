@@ -146,7 +146,7 @@ public class StressTestServer implements IStressTestServer
               Display.getDefault().asyncExec(new Runnable() { public void run() {
                 requestAgeView.statsParent.notifyListeners(EVT_INIT_HIST, event(msg.value));
                 showView(HISTORY_VIEW_ID);
-                globalEventHub().notifyListeners(EVT_INIT_HIST, null);
+                globalEventHub().notifyListeners(EVT_INIT_HIST, event(msg.value));
               }});
             }
             break;
