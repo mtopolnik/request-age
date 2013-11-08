@@ -1,13 +1,21 @@
 package com.ingemark.requestage.plugin;
 
+import static com.ingemark.requestage.Util.gridData;
+
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.ImageRegistry;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.FontMetrics;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
@@ -82,5 +90,25 @@ public class RequestAgePlugin extends AbstractUIPlugin
   public ImageDescriptor imageDescriptor(String name) {
     return ImageDescriptor.createFromURL(
         FileLocator.find(bundle, new Path("img/" + name), null));
+  }
+
+  public static Button okButton(final Shell parent, final boolean disposeOnClose) {
+    final Button ok = new Button(parent, SWT.NONE);
+    parent.setDefaultButton(ok);
+    ok.setText("OK");
+    gridData().align(SWT.RIGHT, SWT.FILL).applyTo(ok);
+    parent.addListener(SWT.Traverse, new Listener() { public void handleEvent(Event event) {
+      if (event.detail != SWT.TRAVERSE_ESCAPE) return;
+      if (disposeOnClose) parent.close(); else parent.setVisible(false);
+      event.detail = SWT.TRAVERSE_NONE;
+      event.doit = false;
+    }});
+    ok.addSelectionListener(new SelectionListener() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        if (disposeOnClose) parent.close(); else parent.setVisible(false);
+      }
+      @Override public void widgetDefaultSelected(SelectionEvent e) {}
+    });
+    return ok;
   }
 }

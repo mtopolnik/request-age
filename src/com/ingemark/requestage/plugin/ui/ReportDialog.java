@@ -1,6 +1,7 @@
 package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Util.gridData;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.okButton;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.text.DateFormat.MEDIUM;
@@ -14,15 +15,10 @@ import java.util.Date;
 import java.util.List;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
@@ -57,22 +53,7 @@ public class ReportDialog
     gridData().align(FILL, FILL).grab(true, true).applyTo(t);
     t.setLinesVisible(true);
     t.setHeaderVisible(true);
-    final Button ok = new Button(top, SWT.NONE);
-    top.setDefaultButton(ok);
-    ok.setText("OK");
-    gridData().align(SWT.RIGHT, SWT.FILL).applyTo(ok);
-
-    top.addListener(SWT.Traverse, new Listener() { public void handleEvent(Event event) {
-      if (event.detail != SWT.TRAVERSE_ESCAPE) return;
-      top.close();
-      event.detail = SWT.TRAVERSE_NONE;
-      event.doit = false;
-    }});
-    ok.addSelectionListener(new SelectionListener() {
-      @Override public void widgetSelected(SelectionEvent e) { top.close(); }
-      @Override public void widgetDefaultSelected(SelectionEvent e) {}
-    });
-
+    okButton(top, true);
     for (String h: headers) {
       final TableColumn col = new TableColumn(t, SWT.NONE);
       col.setText(h);

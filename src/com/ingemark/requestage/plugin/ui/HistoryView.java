@@ -5,6 +5,7 @@ import static com.ingemark.requestage.Util.gridData;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.okButton;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.eclipse.swt.SWT.CENTER;
@@ -25,6 +26,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.part.ViewPart;
 import org.swtchart.Chart;
 import org.swtchart.IAxis;
@@ -52,8 +54,10 @@ public class HistoryView extends ViewPart implements Listener
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private long start;
   private Chart chart;
-  private Composite radios, checkboxes;
+  private Composite radios;
   private String histKey;
+  private Composite chooser;
+  private boolean chooserShown;
 
   @Override public void createPartControl(Composite parent) {
     final Display disp = parent.getDisplay();
@@ -63,9 +67,6 @@ public class HistoryView extends ViewPart implements Listener
     gridData().align(CENTER, FILL).applyTo(radios);
     radios.setBackground(parent.getBackground());
     radios.setLayout(new RowLayout());
-    checkboxes = new Composite(parent, SWT.NONE);
-    gridData().align(CENTER, FILL).applyTo(checkboxes);
-    checkboxes.setLayout(new RowLayout());
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
@@ -78,6 +79,27 @@ public class HistoryView extends ViewPart implements Listener
       selected = false;
     }
     newRadio(RESP_SCATTER_TITLE, RESP_SCATTER_TITLE);
+    final Shell chooserShell = new Shell(disp, SWT.TITLE | SWT.ON_TOP);
+    chooserShell.setText("Choose visible data series");
+    chooserShell.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
+    chooserShell.setLayout(new GridLayout(1, false));
+    chooser = new Composite(chooserShell, SWT.NONE);
+    chooser.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
+    chooser.setLayout(new RowLayout(SWT.VERTICAL));
+    okButton(chooserShell, false);
+    chooserShell.pack();
+    final Button choose = new Button(radios, SWT.PUSH);
+    choose.setText("Choose series");
+    choose.addSelectionListener(new SelectionListener() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        if (!chooserShown) {
+          chooserShown = true;
+          chooserShell.setLocation(disp.map(choose, null, 0, 0));
+        }
+        chooserShell.setVisible(!chooserShell.isVisible());
+      }
+      @Override public void widgetDefaultSelected(SelectionEvent e) {}
+    });
 
     chart.getTitle().setVisible(false);
     final IAxisSet axes = chart.getAxisSet();
@@ -115,7 +137,7 @@ public class HistoryView extends ViewPart implements Listener
     case EVT_INIT_HIST:
       final ISeriesSet ss = chart.getSeriesSet();
       for (ISeries s : ss.getSeries()) ss.deleteSeries(s.getId());
-      for (Control c : checkboxes.getChildren()) c.dispose();
+      for (Control c : chooser.getChildren()) c.dispose();
       int color = 0;
       start = System.currentTimeMillis();
       for (final String name : ((InitInfo) event.data).histograms) {
@@ -123,7 +145,8 @@ public class HistoryView extends ViewPart implements Listener
         final Color c = color(colors[color++ % colors.length]);
         ser.setLineColor(c);
         ser.setSymbolColor(c);
-        final Button check = new Button(checkboxes, SWT.CHECK);
+        final Button check = new Button(chooser, SWT.CHECK);
+        check.setBackground(check.getDisplay().getSystemColor(SWT.COLOR_WHITE));
         check.setText(name);
         check.setSelection(true);
         check.addSelectionListener(new SelectionListener() {
@@ -132,7 +155,7 @@ public class HistoryView extends ViewPart implements Listener
           }
           @Override public void widgetDefaultSelected(SelectionEvent e) {}
         });
-        checkboxes.getParent().layout();
+        chooser.getParent().pack();
       }
       break;
     case EVT_HISTORY_UPDATE:
