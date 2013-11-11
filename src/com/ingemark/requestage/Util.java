@@ -39,6 +39,7 @@ import com.ning.http.client.Response;
 public class Util
 {
   static final Logger log = LoggerFactory.getLogger(Util.class);
+  public static final int DIVS_PER_DECADE = 20;
 
   public static int toIndex(int[] array, int timeSlot) {
     return toIndex(array.length, timeSlot);
@@ -80,11 +81,11 @@ public class Util
 
   public static int encodeElapsedMillis(long now, long start) {
     long elapsedMillis = (now-start)/MILLISECONDS.toNanos(1);
-    double scaledLog = log10(elapsedMillis)*20;
+    double scaledLog = log10(elapsedMillis)*DIVS_PER_DECADE;
     return max(0, (int)round(scaledLog));
   }
   public static int decodeElapsedMillis(int encoded) {
-    return (int) pow(10, encoded/20.0);
+    return (int) pow(10, encoded/(double)DIVS_PER_DECADE);
   }
   public static String join(String separator, String... parts) {
     final StringBuilder b = new StringBuilder(128);
