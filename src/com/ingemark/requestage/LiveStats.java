@@ -5,8 +5,8 @@ import static com.ingemark.requestage.StressTester.TIMESLOTS_PER_SEC;
 import static com.ingemark.requestage.Util.encodeElapsedMillis;
 import static com.ingemark.requestage.Util.toIndex;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import gnu.trove.map.hash.TIntIntHashMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
-import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,7 +24,7 @@ public class LiveStats {
       succs = new int[TIMESLOTS_PER_SEC],
       fails = new int[TIMESLOTS_PER_SEC];
   final AtomicInteger pendingReqs = new AtomicInteger();
-  final TLongObjectHashMap<TIntHashSet> respHistory = new TLongObjectHashMap();
+  final TLongObjectHashMap<TIntIntHashMap> respHistory = new TLongObjectHashMap();
   private long respMetricsLastSampled;
   private final char[] histogram = new char[HIST_SIZE];
 
@@ -49,7 +49,7 @@ public class LiveStats {
     final int[] ary =  t == null? succs : fails;
     ary[toIndex(ary, timeSlot)]++;
     if (t != null) lastException = t;
-    addRespHistory(startMillis/1000*1000, encodeElapsedMillis(now, start));
+    addRespHistory(startMillis/1000 * 1000, encodeElapsedMillis(now, start));
   }
   synchronized char[] reqHistogram() {
     final char[] hist = histogram, ret = new char[hist.length];
@@ -69,8 +69,8 @@ public class LiveStats {
     }
   }
   private void addRespHistory(long start, int encodedElapsedMillis) {
-    TIntHashSet ts = respHistory.get(start);
-    if (ts == null) { ts = new TIntHashSet(); respHistory.put(start, ts); }
-    ts.add(encodedElapsedMillis);
+    TIntIntHashMap ts = respHistory.get(start);
+    if (ts == null) { ts = new TIntIntHashMap(); respHistory.put(start, ts); }
+    ts.put(encodedElapsedMillis, 1 + ts.get(encodedElapsedMillis));
   }
 }

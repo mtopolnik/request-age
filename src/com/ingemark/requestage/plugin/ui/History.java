@@ -10,6 +10,7 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
 import static java.lang.Math.max;
 import static java.util.Collections.nCopies;
 import gnu.trove.list.array.TDoubleArrayList;
+import gnu.trove.map.hash.TIntIntHashMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
 import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.procedure.TLongObjectProcedure;
@@ -50,9 +51,9 @@ public class History {
   private final Date[] timestamps = new Date[FULL_SIZE];
   private final TLongObjectHashMap<TIntHashSet> respHistory =
       new TLongObjectHashMap<TIntHashSet>(FULL_SIZE);
-  private final TLongObjectProcedure<TIntHashSet> mergeIntoHistory =
-      new TLongObjectProcedure<TIntHashSet>() {
-        @Override public boolean execute(long start, TIntHashSet times) {
+  private final TLongObjectProcedure<TIntIntHashMap> mergeIntoHistory =
+      new TLongObjectProcedure<TIntIntHashMap>() {
+        @Override public boolean execute(long start, TIntIntHashMap times) {
           final int divisor = effectiveDivisor();
           final TIntHashSet ts = respHistEntry(start / divisor * divisor);
           times.forEach(new TIntProcedure() { @Override public boolean execute(int encoded) {
