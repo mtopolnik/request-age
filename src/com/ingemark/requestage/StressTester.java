@@ -62,6 +62,7 @@ import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 import org.mozilla.javascript.ContextFactory;
 import org.slf4j.Logger;
 
+import com.ingemark.requestage.JsHttp.InitParams;
 import com.ingemark.requestage.script.JsScope;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
@@ -162,8 +163,8 @@ public class StressTester implements Runnable
       log.debug("Initializing test");
       jsScope.call("init");
       log.debug("Initialized");
-      final int maxThrottle = jsScope.initDone();
-      nettySend(channel, new Message(INITED, new InitInfo(lsmap, maxThrottle)), true);
+      final InitParams ps = jsScope.initDone();
+      nettySend(channel, new Message(INITED, new InitInfo(lsmap, ps)), true);
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {

@@ -64,6 +64,7 @@ public class JsHttp extends BaseFunction
     );
   private final StressTester tester;
   volatile int index, maxThrottle = 2000;
+  volatile boolean showRunningScriptCount;
   volatile Acceptor acceptor = acceptors.get("success");
 
   public JsHttp(ScriptableObject parentScope, final StressTester testr) {
@@ -89,9 +90,14 @@ public class JsHttp extends BaseFunction
         maxThrottle = ((Number)args[0]).intValue();
         return JsHttp.this;
       }});
+    putProperty(this, "showRunningScriptCount", new Callable() {
+      public Object call(Context _1, Scriptable _2, Scriptable _3, Object[] args) {
+        showRunningScriptCount = args.length == 0 || (Boolean) args[0];
+        return JsHttp.this;
+      }});
   }
 
-  public int initDone() { index = -1; return maxThrottle; }
+  public InitParams initDone() { index = -1; return new InitParams(this); }
 
   @Override public Scriptable call(Context _1, Scriptable scope, Scriptable _3, Object[] args) {
     final BoundRequestBuilder brb = tester.client.prepareConnect("");
@@ -326,4 +332,12 @@ public class JsHttp extends BaseFunction
   }
 
   interface Acceptor { boolean acceptable(Response r); }
+
+  public static class InitParams {
+    final int maxThrottle;
+    final boolean showRunningScriptCount;
+    InitParams(JsHttp ht) {
+      this.maxThrottle = ht.maxThrottle; this.showRunningScriptCount = ht.showRunningScriptCount;
+    }
+  }
 }

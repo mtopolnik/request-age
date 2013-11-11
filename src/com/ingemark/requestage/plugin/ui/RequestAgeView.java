@@ -36,12 +36,14 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.part.ViewPart;
 import org.slf4j.Logger;
 
@@ -62,6 +64,7 @@ public class RequestAgeView extends ViewPart
   volatile History[] histories = {};
   private Composite viewParent;
   private Label scriptsRunning;
+  private boolean showScriptsRunning;
   private long numbersLastUpdated;
   private ProgressDialog pd;
   private Scale throttle;
@@ -131,12 +134,14 @@ public class RequestAgeView extends ViewPart
                   final long now = now();
                   if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
                     numbersLastUpdated = now;
-                    scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
+                    if (showScriptsRunning)
+                      scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
                   }
                 }
               });
               final InitInfo info = (InitInfo)event.data;
               final int size = info.histograms.length;
+              showScriptsRunning = info.showRunningScriptCount;
               throttleScalingFactor = info.maxThrottle/100.0;
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
@@ -231,5 +236,15 @@ public class RequestAgeView extends ViewPart
 
   private void applyThrottle() {
     testServer.intensity((int) (throttleScalingFactor * throttle.getSelection()));
+  }
+
+  public static void main(String[] args) {
+    final Display d = Display.getDefault();
+    final Shell top = new Shell(d);
+    top.setLayout(new RowLayout());
+    new Scale(top, SWT.VERTICAL);
+    top.pack();
+    top.setVisible(true);
+    while (!top.isDisposed()) if (!d.readAndDispatch()) d.sleep();
   }
 }

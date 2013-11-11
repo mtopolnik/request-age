@@ -31,6 +31,7 @@ import org.ringojs.wrappers.ScriptableList;
 import org.ringojs.wrappers.ScriptableMap;
 
 import com.ingemark.requestage.JsHttp;
+import com.ingemark.requestage.JsHttp.InitParams;
 import com.ingemark.requestage.StressTester;
 
 public class JsScope {
@@ -65,8 +66,8 @@ public class JsScope {
       }});
     evaluateFile(fname);
   }
-  public int initDone() {
-    return (Integer) fac.call(new ContextAction() { @Override public Object run(Context cx) {
+  public InitParams initDone() {
+    return (InitParams) fac.call(new ContextAction() { @Override public Object run(Context cx) {
       global.sealObject();
       return ((JsHttp)global.get("req")).initDone();
     }});
