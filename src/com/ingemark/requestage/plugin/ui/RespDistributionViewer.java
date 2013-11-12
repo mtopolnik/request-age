@@ -31,6 +31,7 @@ public class RespDistributionViewer
   Chart chart;
   private long[] dist = {};
   private long totalCount, lastUpdate;
+  boolean cumulative;
 
   private final TLongObjectProcedure<TIntIntHashMap> mergeIntoDistribution =
       new TLongObjectProcedure<TIntIntHashMap>() {
@@ -66,7 +67,6 @@ public class RespDistributionViewer
     final ITitle yTitle = y.getTitle();
     yTitle.setFont(disp.getSystemFont());
     yTitle.setForeground(black);
-    yTitle.setText("% total");
     x.getGrid().setForeground(gridColor);
     final ISeriesSet ss = chart.getSeriesSet();
     final ILineSeries ser = (ILineSeries) ss.createSeries(SeriesType.LINE, "elapsedMillisDist");
@@ -77,8 +77,28 @@ public class RespDistributionViewer
 
   void statsUpdate(Stats stats) {
     stats.respHistory.forEachEntry(mergeIntoDistribution);
+    updateChart();
+  }
+
+  void setCumulative(boolean cumulative) {
+    this.cumulative = cumulative;
+    final IAxisSet axes = chart.getAxisSet();
+    final IAxis y = axes.getYAxis(0);
+    final ITitle yTitle = y.getTitle();
+    yTitle.setText(cumulative ? "% > x" : "%");
+    updateChart();
+  }
+
+  private void updateChart() {
     final double[] ySeries = new double[dist.length];
-    for (int i = 0; i < ySeries.length; i++) ySeries[i] = 100L*dist[i]/(double)totalCount;
+    final double dblTotalCount = totalCount;
+    if (cumulative) {
+      long remaining = totalCount;
+      for (int i = 0; i < ySeries.length; i++) {
+        ySeries[i] = 100*remaining/dblTotalCount;
+        remaining -= dist[i];
+      }
+    } else for (int i = 0; i < ySeries.length; i++) ySeries[i] = 100L*dist[i]/dblTotalCount;
     chart.getSeriesSet().getSeries()[0].setYSeries(ySeries);
     if (now() - lastUpdate > SECONDS.toNanos(2)) {
       chart.getAxisSet().adjustRange();

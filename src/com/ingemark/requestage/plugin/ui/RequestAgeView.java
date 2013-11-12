@@ -33,6 +33,7 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
@@ -131,6 +132,9 @@ public class RequestAgeView extends ViewPart
           final TabFolder tabs = new TabFolder(statsParent, SWT.NONE);
           final Composite histsParent = tab(tabs, "Histogram"),
                           distsParent = tab(tabs, "Resp time dist");
+          final TabItem cumulativeTab = new TabItem(tabs, SWT.NONE);
+          cumulativeTab.setText("Resp time dist-cumulative");
+          cumulativeTab.setControl(distsParent);
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
@@ -155,6 +159,13 @@ public class RequestAgeView extends ViewPart
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 final RespDistributionViewer distribution = new RespDistributionViewer(distsParent);
                 gridData().grab(true, true).applyTo(distribution.chart);
+                  tabs.addSelectionListener(new SelectionListener() {
+                    @Override public void widgetSelected(SelectionEvent e) {
+                      final int ind = tabs.getSelectionIndex();
+                      if (ind > 0) distribution.setCumulative(ind == 2);
+                    }
+                    @Override public void widgetDefaultSelected(SelectionEvent e) {}
+                  });
                 final History history = histories[i] = new History();
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
                   public void handleEvent(Event e) {
