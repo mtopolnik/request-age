@@ -35,6 +35,7 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
@@ -44,6 +45,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Scale;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.TabFolder;
+import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.ui.part.ViewPart;
 import org.slf4j.Logger;
 
@@ -58,6 +61,7 @@ public class RequestAgeView extends ViewPart
 {
   static final Logger log = getLogger(RequestAgeView.class);
   private static final Runnable DO_NOTHING = new Runnable() { public void run() {} };
+  static Color gridColor;
   public static RequestAgeView requestAgeView;
   public Composite statsParent;
   private volatile IStressTestServer testServer = StressTestServer.NULL;
@@ -74,6 +78,7 @@ public class RequestAgeView extends ViewPart
   public void createPartControl(Composite p) {
     this.viewParent = new Composite(p, SWT.NONE);
     final Display disp = p.getDisplay();
+    gridColor = new Color(disp, 240, 240, 240);
     final Color colWhite = disp.getSystemColor(SWT.COLOR_WHITE);
     viewParent.setBackground(colWhite);
     requestAgeView = this;
@@ -114,11 +119,8 @@ public class RequestAgeView extends ViewPart
     scriptsRunning.setText("");
     if (statsParent != null) statsParent.dispose();
     statsParent = new Composite(viewParent, SWT.NONE);
+    statsParent.setLayout(new FillLayout());
     gridData().grab(true, true).applyTo(statsParent);
-    final GridLayout l = new GridLayout(2, false);
-    l.marginHeight = l.marginWidth = 0;
-    final GridLayout statsParentLayout = l;
-    statsParent.setLayout(statsParentLayout);
     statsParent.addListener(EVT_RUN_SCRIPT, new Listener() {
       public void handleEvent(final Event event) {
         try {
@@ -126,6 +128,9 @@ public class RequestAgeView extends ViewPart
             @Override public void run() { shutdownAndThen(DO_NOTHING); }
           });
           newStatsParent();
+          final TabFolder tabs = new TabFolder(statsParent, SWT.NONE);
+          final Composite histsParent = tab(tabs, "Histogram"),
+                          distsParent = tab(tabs, "Resp time dist");
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
@@ -146,13 +151,16 @@ public class RequestAgeView extends ViewPart
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
               for (int i = 0; i < size; i++) {
-                final HistogramViewer histogram = hists[i] = new HistogramViewer(statsParent);
-                final History history = histories[i] = new History();
+                final HistogramViewer histogram = hists[i] = new HistogramViewer(histsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
+                final RespDistributionViewer distribution = new RespDistributionViewer(distsParent);
+                gridData().grab(true, true).applyTo(distribution.chart);
+                final History history = histories[i] = new History();
                 statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
                   public void handleEvent(Event e) {
                     final Stats stats = (Stats) e.data;
                     histogram.statsUpdate(stats);
+                    distribution.statsUpdate(stats);
                     history.statsUpdate(stats);
                   }
                 });
@@ -178,16 +186,21 @@ public class RequestAgeView extends ViewPart
                     availRows = max(1, bounds.height/DESIRED_HEIGHT),
                     maxCols = size/availRows + (int)signum(size % availRows),
                     desiredCols = max(1, min(maxCols, bounds.width / minDesiredWidth));
-                  if (desiredCols == statsParentLayout.numColumns) return;
-                  statsParentLayout.numColumns = desiredCols;
-                  statsParent.setLayout(statsParentLayout);
+                  GridLayout layout = (GridLayout)histsParent.getLayout();
+                  if (desiredCols == layout.numColumns) return;
+                  layout.numColumns = desiredCols;
+                  histsParent.setLayout(layout);
+                  layout = (GridLayout)distsParent.getLayout();
+                  layout.numColumns = desiredCols;
+                  distsParent.setLayout(layout);
                 }
                 @Override public void controlMoved(ControlEvent e) {}
               });
               throttle.setSelection(0);
               applyThrottle();
               viewParent.layout(true);
-              statsParent.layout(true);
+              histsParent.layout(true);
+              distsParent.layout(true);
             }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
@@ -216,18 +229,23 @@ public class RequestAgeView extends ViewPart
     shutdownAndThen(new Runnable() { public void run() { pd.pm().done(); }});
   }
 
+  private Composite tab(TabFolder tabs, String title) {
+    final TabItem tabItem = new TabItem(tabs, SWT.NONE);
+    tabItem.setText(title);
+    final Composite tabPane = new Composite(tabs, SWT.NONE);
+    tabItem.setControl(tabPane);
+    final GridLayout gridLayout = new GridLayout(2, false);
+    gridLayout.marginHeight = gridLayout.marginWidth = 0;
+    tabPane.setLayout(gridLayout);
+    return tabPane;
+  }
+
   private void shutdownAndThen(Runnable andThen) {
     testServer.progressMonitor(pd != null? pd.pm() : null);
     enableActions(false);
     final IStressTestServer ts = testServer;
     testServer = StressTestServer.NULL;
     ts.shutdown(andThen);
-  }
-
-  static String joinPath(String[] ps) {
-    final StringBuilder b = new StringBuilder(128);
-    for (String p : ps) b.append(p).append(":");
-    return b.toString();
   }
 
   @Override public void dispose() { shutdownAndThen(DO_NOTHING);}

@@ -6,6 +6,7 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.okButton;
+import static com.ingemark.requestage.plugin.ui.RequestAgeView.log;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.eclipse.swt.SWT.CENTER;
@@ -125,7 +126,9 @@ public class HistoryView extends ViewPart implements Listener
       @Override public void widgetSelected(SelectionEvent e) {
         histKey = key;
         chart.getAxisSet().getYAxis(0).getTitle().setText(title);
-        pullHistories();
+        for (ISeries s : chart.getSeriesSet().getSeries()) s.setYSeries(new double[0]);
+        if (requestAgeView != null)
+          for (History h : requestAgeView.histories) update(h);
       }
       @Override public void widgetDefaultSelected(SelectionEvent e) {}
     });
@@ -164,11 +167,6 @@ public class HistoryView extends ViewPart implements Listener
     }
   }
 
-  void pullHistories() {
-    if (requestAgeView == null) return;
-    for (History h : requestAgeView.histories) update(h);
-  }
-
   private void update(History h) {
     final String name = h.name;
     if (name == null) return;
@@ -184,7 +182,11 @@ public class HistoryView extends ViewPart implements Listener
       xs = hist.timestamps;
       maxTimestamp = hist.maxTimestamp;
       ser.setYSeries(hist.times);
-      chart.getAxisSet().getYAxis(0).enableLogScale(true);
+      try {
+        chart.getAxisSet().getYAxis(0).enableLogScale(true);
+      } catch (IllegalStateException e) {
+        log.warn("Cannot enable log scale on history due to some non-positive Y values");
+      }
     } else {
       ser.setLineStyle(LineStyle.SOLID);
       ser.setSymbolType(PlotSymbolType.NONE);
@@ -207,5 +209,6 @@ public class HistoryView extends ViewPart implements Listener
   @Override public void dispose() {
     globalEventHub().removeListener(EVT_INIT_HIST, this);
     globalEventHub().removeListener(EVT_HISTORY_UPDATE, this);
+    super.dispose();
   }
 }
