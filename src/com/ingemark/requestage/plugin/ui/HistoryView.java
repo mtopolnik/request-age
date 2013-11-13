@@ -51,7 +51,7 @@ public class HistoryView extends ViewPart implements Listener
     SWT.COLOR_DARK_GREEN, SWT.COLOR_DARK_CYAN, SWT.COLOR_DARK_MAGENTA, SWT.COLOR_DARK_YELLOW,
     SWT.COLOR_GRAY, SWT.COLOR_CYAN, SWT.COLOR_BLACK, SWT.COLOR_YELLOW };
   private static final String RESP_SCATTER_TITLE = "resp_time_scatter";
-  public static final String[] yTitles = {"resp_time","pending_reqs","reqs/sec","fails/sec"};
+  public static final String[] yTitles = {"pending_reqs","resp_time","reqs/sec","fails/sec"};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private long start;
   private Chart chart;
