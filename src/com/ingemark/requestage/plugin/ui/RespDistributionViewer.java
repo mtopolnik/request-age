@@ -79,9 +79,8 @@ public class RespDistributionViewer
     ser.enableArea(true);
     ensureCapacity(60);
     chart.addPaintListener(new PaintListener() {
-      @Override public void paintControl(PaintEvent e) {
-        if (dirty && now() - lastUpdate > REFRESH_INTERVAL) updateChart();
-      }});
+      @Override public void paintControl(PaintEvent e) { if (dirty) updateChart(); }
+    });
   }
 
   private void formatTitle(ITitle title) {
@@ -92,6 +91,7 @@ public class RespDistributionViewer
   void statsUpdate(Stats stats) {
     dirty = true;
     stats.respHistory.forEachEntry(mergeIntoDistribution);
+    if (now() - lastUpdate > REFRESH_INTERVAL) chart.redraw();
   }
 
   void setCumulative(boolean cumulative) {
@@ -99,6 +99,7 @@ public class RespDistributionViewer
     this.cumulative = cumulative;
     chart.getAxisSet().getYAxis(0).getTitle().setText(cumulative ? "% > x" : "%");
     updateChart();
+    chart.redraw();
   }
 
   private void updateChart() {
@@ -117,7 +118,6 @@ public class RespDistributionViewer
     chart.getSeriesSet().getSeries()[0].setYSeries(ySeries);
     chart.getAxisSet().getYAxis(0).enableLogScale(true);
     adjustXSeries();
-    chart.redraw();
   }
 
   private void ensureCapacity(int requestedIndex) {

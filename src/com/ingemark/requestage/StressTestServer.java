@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.Launch;
-import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.jboss.netty.bootstrap.ServerBootstrap;
@@ -236,9 +235,6 @@ public class StressTestServer implements IStressTestServer
         eventReceiver.notifyListeners(EVT_SCRIPTS_RUNNING, event(value.scriptsRunning));
         for (Stats s : value.statsAry)
           eventReceiver.notifyListeners(STATS_EVTYPE_BASE + s.index, event(s));
-        final Rectangle area = eventReceiver.getBounds();
-        eventReceiver.redraw(0, 0, area.width, area.height, true);
-//        eventReceiver.update();
         final long end = NANOSECONDS.toMillis(now());
         final int elapsed = (int)(end-start), timeInQueue = (int)(start-enqueuedAt);
         refreshTimes[toIndex(refreshTimes, refreshTimeslot++)] = elapsed;
