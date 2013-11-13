@@ -6,7 +6,6 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.okButton;
-import static com.ingemark.requestage.plugin.ui.RequestAgeView.log;
 import static com.ingemark.requestage.plugin.ui.RequestAgeView.requestAgeView;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.eclipse.swt.SWT.CENTER;
@@ -52,6 +51,7 @@ public class HistoryView extends ViewPart implements Listener
     SWT.COLOR_GRAY, SWT.COLOR_CYAN, SWT.COLOR_BLACK, SWT.COLOR_YELLOW };
   private static final String RESP_SCATTER_TITLE = "resp_time_scatter";
   public static final String[] yTitles = {"pending_reqs","resp_time","reqs/sec","fails/sec"};
+  private static final double[] DUMMY_SERIES = {1}, EMPTY_SERIES = {};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
   private long start;
   private Chart chart;
@@ -130,7 +130,9 @@ public class HistoryView extends ViewPart implements Listener
       @Override public void widgetSelected(SelectionEvent e) {
         histKey = key;
         chart.getAxisSet().getYAxis(0).getTitle().setText(title);
-        for (ISeries s : chart.getSeriesSet().getSeries()) s.setYSeries(new double[0]);
+        for (ISeries s : chart.getSeriesSet().getSeries()) {
+          s.setYSeries(DUMMY_SERIES); s.setYSeries(EMPTY_SERIES);
+        }
         if (requestAgeView != null)
           for (History h : requestAgeView.histories) update(h);
       }
@@ -147,7 +149,7 @@ public class HistoryView extends ViewPart implements Listener
       for (Control c : chooser.getChildren()) c.dispose();
       int color = 0;
       start = System.currentTimeMillis();
-      for (final String name : ((InitInfo) event.data).histograms) {
+      for (final String name : ((InitInfo) event.data).reqNames) {
         final ILineSeries ser = (ILineSeries) ss.createSeries(LINE, name);
         final Color c = color(colors[color++ % colors.length]);
         ser.setLineColor(c);
@@ -186,11 +188,7 @@ public class HistoryView extends ViewPart implements Listener
       xs = hist.timestamps;
       maxTimestamp = hist.maxTimestamp;
       ser.setYSeries(hist.times);
-      try {
-        chart.getAxisSet().getYAxis(0).enableLogScale(true);
-      } catch (IllegalStateException e) {
-        log.warn("Cannot enable log scale on history due to some non-positive Y values");
-      }
+      chart.getAxisSet().getYAxis(0).enableLogScale(true);
     } else {
       ser.setLineStyle(LineStyle.SOLID);
       ser.setSymbolType(PlotSymbolType.NONE);
