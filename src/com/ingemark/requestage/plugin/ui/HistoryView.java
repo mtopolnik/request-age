@@ -80,27 +80,7 @@ public class HistoryView extends ViewPart implements Listener
       selected = false;
     }
     newRadio(RESP_SCATTER_TITLE, RESP_SCATTER_TITLE);
-    final Shell chooserShell = new Shell(disp, SWT.TITLE | SWT.ON_TOP);
-    chooserShell.setText("Choose visible data series");
-    chooserShell.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
-    chooserShell.setLayout(new GridLayout(1, false));
-    chooser = new Composite(chooserShell, SWT.NONE);
-    chooser.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
-    chooser.setLayout(new RowLayout(SWT.VERTICAL));
-    okButton(chooserShell, false);
-    chooserShell.pack();
-    final Button choose = new Button(radios, SWT.PUSH);
-    choose.setText("Choose series");
-    choose.addSelectionListener(new SelectionListener() {
-      @Override public void widgetSelected(SelectionEvent e) {
-        if (!chooserShown) {
-          chooserShown = true;
-          chooserShell.setLocation(disp.map(choose, null, 0, 0));
-        }
-        chooserShell.setVisible(!chooserShell.isVisible());
-      }
-      @Override public void widgetDefaultSelected(SelectionEvent e) {}
-    });
+    newSeriesChooser(disp);
 
     chart.getTitle().setVisible(false);
     final IAxisSet axes = chart.getAxisSet();
@@ -116,6 +96,30 @@ public class HistoryView extends ViewPart implements Listener
     x.getGrid().setForeground(gridColor);
     globalEventHub().addListener(EVT_INIT_HIST, this);
     globalEventHub().addListener(EVT_HISTORY_UPDATE, this);
+  }
+
+  private void newSeriesChooser(final Display d) {
+    final Shell s = new Shell(d, SWT.TITLE | SWT.ON_TOP);
+    s.setText("Choose visible data series");
+    s.setBackground(d.getSystemColor(SWT.COLOR_WHITE));
+    s.setLayout(new GridLayout(1, false));
+    chooser = new Composite(s, SWT.NONE);
+    chooser.setBackground(d.getSystemColor(SWT.COLOR_WHITE));
+    chooser.setLayout(new RowLayout(SWT.VERTICAL));
+    okButton(s, false);
+    s.pack();
+    final Button choose = new Button(radios, SWT.PUSH);
+    choose.setText("Choose series");
+    choose.addSelectionListener(new SelectionListener() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        if (!chooserShown) {
+          chooserShown = true;
+          s.setLocation(d.map(choose, null, 0, 0));
+        }
+        s.setVisible(!s.isVisible());
+      }
+      @Override public void widgetDefaultSelected(SelectionEvent e) {}
+    });
   }
 
   private Button newRadio(final String key, final String title) {
