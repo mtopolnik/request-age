@@ -9,11 +9,11 @@ public class InitInfo implements Serializable
 {
   public final int maxThrottle;
   public final boolean showRunningScriptCount;
-  public final String[] histograms;
+  public final String[] reqNames;
 
   public InitInfo(Map<String, LiveStats> stats, InitParams ps) {
-    this.histograms = new String[stats.size()];
-    for (LiveStats ls : stats.values()) histograms[ls.index] = ls.name;
+    this.reqNames = new String[stats.size()];
+    for (LiveStats ls : stats.values()) reqNames[ls.index] = ls.name;
     this.maxThrottle = ps.maxThrottle;
     this.showRunningScriptCount = ps.showRunningScriptCount;
   }

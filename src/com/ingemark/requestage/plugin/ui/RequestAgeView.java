@@ -130,10 +130,10 @@ public class RequestAgeView extends ViewPart
           });
           newStatsParent();
           final TabFolder tabs = new TabFolder(statsParent, SWT.NONE);
-          final Composite histsParent = tab(tabs, "Histogram"),
-                          distsParent = tab(tabs, "Resp time dist");
+          final Composite histsParent = tab(tabs, "request_age"),
+                          distsParent = tab(tabs, "resp_time_dist");
           final TabItem cumulativeTab = new TabItem(tabs, SWT.NONE);
-          cumulativeTab.setText("Resp time dist-cumulative");
+          cumulativeTab.setText("resp_time_dist_cumul");
           cumulativeTab.setControl(distsParent);
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
@@ -149,7 +149,7 @@ public class RequestAgeView extends ViewPart
                 }
               });
               final InitInfo info = (InitInfo)event.data;
-              final int size = info.histograms.length;
+              final int size = info.reqNames.length;
               showScriptsRunning = info.showRunningScriptCount;
               throttleScalingFactor = info.maxThrottle/100.0;
               histories = new History[size];
@@ -157,12 +157,13 @@ public class RequestAgeView extends ViewPart
               for (int i = 0; i < size; i++) {
                 final HistogramViewer histogram = hists[i] = new HistogramViewer(histsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
-                final RespDistributionViewer distribution = new RespDistributionViewer(distsParent);
-                gridData().grab(true, true).applyTo(distribution.chart);
+                final RespDistributionViewer distViewer =
+                    new RespDistributionViewer(info.reqNames[i], distsParent);
+                gridData().grab(true, true).applyTo(distViewer.chart);
                   tabs.addSelectionListener(new SelectionListener() {
                     @Override public void widgetSelected(SelectionEvent e) {
                       final int ind = tabs.getSelectionIndex();
-                      if (ind > 0) distribution.setCumulative(ind == 2);
+                      if (ind > 0) distViewer.setCumulative(ind == 2);
                     }
                     @Override public void widgetDefaultSelected(SelectionEvent e) {}
                   });
@@ -171,7 +172,7 @@ public class RequestAgeView extends ViewPart
                   public void handleEvent(Event e) {
                     final Stats stats = (Stats) e.data;
                     histogram.statsUpdate(stats);
-                    distribution.statsUpdate(stats);
+                    distViewer.statsUpdate(stats);
                     history.statsUpdate(stats);
                   }
                 });
