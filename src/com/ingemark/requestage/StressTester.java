@@ -166,9 +166,7 @@ public class StressTester implements Runnable
       raiseLogLevel("com.ning", JS_LOGGER_NAME);
       scheduleTest(1);
       sched.scheduleAtFixedRate(new Runnable() { public void run() {
-        final List<Stats> statsList = stats();
-        if (statsList.isEmpty()) return;
-        nettySend(channel, new Message(STATS, new StatsHolder(statsList, scriptsRunning.get())));
+        nettySend(channel, new Message(STATS, new StatsHolder(stats(), scriptsRunning.get())));
       }}, MILLISECONDS.toMicros(100), SECONDS.toMicros(1)/TIMESLOTS_PER_SEC, MICROSECONDS);
     }
     catch (Throwable t) {
@@ -217,11 +215,11 @@ public class StressTester implements Runnable
     }
   }
 
-  List<Stats> stats() {
-    final List<Stats> ret = new ArrayList<Stats>(lsmap.size());
+  Stats[] stats() {
+    final Stats[] ret = new Stats[lsmap.size()];
     for (LiveStats ls : lsmap.values()) {
       final Stats stats = ls.stats();
-      if (stats != null) ret.add(stats);
+      ret[stats.index] = stats;
     }
     return ret;
   }
