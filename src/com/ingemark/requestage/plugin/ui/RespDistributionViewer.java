@@ -89,9 +89,11 @@ public class RespDistributionViewer
   }
 
   void statsUpdate(Stats stats) {
-    dirty = true;
     stats.respHistory.forEachEntry(mergeIntoDistribution);
-    if (now() - lastUpdate > REFRESH_INTERVAL) chart.redraw();
+    if (now() - lastUpdate > REFRESH_INTERVAL) {
+      dirty = true;
+      chart.redraw();
+    }
   }
 
   void setCumulative(boolean cumulative) {
