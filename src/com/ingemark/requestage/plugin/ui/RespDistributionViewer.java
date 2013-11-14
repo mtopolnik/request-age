@@ -44,7 +44,7 @@ public class RespDistributionViewer implements Listener
   private double[] xSeries = {};
   private long totalCount, lastUpdate;
   boolean cumulative;
-  private boolean dirty;
+  private boolean dirty = true;
 
   private final TLongObjectProcedure<TIntIntHashMap> mergeIntoDistribution =
       new TLongObjectProcedure<TIntIntHashMap>() {
@@ -82,7 +82,8 @@ public class RespDistributionViewer implements Listener
     final ILineSeries ser = (ILineSeries) ss.createSeries(SeriesType.LINE, "elapsedMillisDist");
     ser.setSymbolType(PlotSymbolType.NONE);
     ser.enableArea(true);
-    ensureCapacity(60);
+    adjustXSeries();
+    chart.redraw();
     chart.addPaintListener(new PaintListener() {
       @Override public void paintControl(PaintEvent e) { if (dirty) updateChart(); }
     });
@@ -135,11 +136,16 @@ public class RespDistributionViewer implements Listener
 
   private void adjustXSeries() {
     final ISeries ser = chart.getSeriesSet().getSeries()[0];
-    if (xSeries.length >= dist.length) return;
-    xSeries = new double[dist.length];
-    for (int i = 0; i < xSeries.length; i++) xSeries[i] = i/(double)DIVS_PER_DECADE - 3;
-    ser.setXSeries(xSeries);
-    chart.getAxisSet().getXAxis(0).setRange(new Range(xSeries[0], xSeries[xSeries.length-1]));
+    if (xSeries.length < dist.length) {
+      xSeries = new double[dist.length];
+      for (int i = 0; i < xSeries.length; i++) xSeries[i] = i/(double)DIVS_PER_DECADE - 3;
+      ser.setXSeries(xSeries);
+    }
+    if (dist.length == 0) return;
+    int start = 0;
+    for (int i = 0; i < dist.length; i++) if (dist[i] > 0) { start = i; break; }
+    chart.getAxisSet().getXAxis(0).setRange(
+        new Range(xSeries[start]-0.5, xSeries[xSeries.length-1]+0.5));
   }
 }
 
