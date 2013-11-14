@@ -29,13 +29,12 @@ public class RequestAgePlugin extends AbstractUIPlugin
     REQUESTAGE_VIEW_ID = "com.ingemark.requestage.views.RequestAgeView",
     HISTORY_VIEW_ID = "com.ingemark.requestage.views.HistoryView";
   public static final int
-    EVT_RUN_SCRIPT = 1024,
-    EVT_INIT_HIST = 1025,
-    EVT_ERROR = 1026,
-    EVT_REPORT = 1027,
+    EVT_RUN_SCRIPT     = 1024,
+    EVT_INIT_HIST      = 1025,
+    EVT_ERROR          = 1026,
+    EVT_REPORT         = 1027,
     EVT_HISTORY_UPDATE = 1028,
-    EVT_SCRIPTS_RUNNING = 1028,
-    STATS_EVTYPE_BASE = 2048;
+    EVT_STATS          = 1029;
   static RequestAgePlugin instance;
   private static final DecimalFormat threeDigitFormat = new DecimalFormat("@##");
   private Bundle bundle;
@@ -45,7 +44,7 @@ public class RequestAgePlugin extends AbstractUIPlugin
     static final Shell SHELL = new Shell(Display.getDefault());
     static final int LINE_HEIGHT, AVG_CHAR_WIDTH;
     static {
-      final GC gc = new GC(globalEventHub());
+      final GC gc = new GC(SHELL);
       final FontMetrics fm = gc.getFontMetrics();
       LINE_HEIGHT = fm.getHeight();
       AVG_CHAR_WIDTH = fm.getAverageCharWidth();

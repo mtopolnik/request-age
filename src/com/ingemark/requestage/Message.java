@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public class Message implements Serializable
 {
-  public static final int INTENSITY = 0, DIVISOR = 1, INITED = 2, STATS = 3, SHUTDOWN = 4, ERROR = 5,
+  public static final int INTENSITY = 0, INITED = 2, STATS = 3, SHUTDOWN = 4, ERROR = 5,
       EXCEPTION = 6, INIT = 7;
   final int type;
   final Serializable value;

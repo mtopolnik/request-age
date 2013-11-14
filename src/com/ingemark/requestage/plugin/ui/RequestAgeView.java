@@ -7,9 +7,9 @@ import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_ERROR;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_REPORT;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_RUN_SCRIPT;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_SCRIPTS_RUNNING;
-import static com.ingemark.requestage.plugin.RequestAgePlugin.STATS_EVTYPE_BASE;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_STATS;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.averageCharWidth;
+import static com.ingemark.requestage.plugin.RequestAgePlugin.globalEventHub;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.lineHeight;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.requestAgePlugin;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.threeDigitFormat;
@@ -29,6 +29,8 @@ import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ControlEvent;
 import org.eclipse.swt.events.ControlListener;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -56,6 +58,7 @@ import com.ingemark.requestage.IStressTestServer;
 import com.ingemark.requestage.InitInfo;
 import com.ingemark.requestage.Message;
 import com.ingemark.requestage.Stats;
+import com.ingemark.requestage.StatsHolder;
 import com.ingemark.requestage.StressTestServer;
 
 public class RequestAgeView extends ViewPart
@@ -84,7 +87,10 @@ public class RequestAgeView extends ViewPart
     viewParent.setBackground(colWhite);
     requestAgeView = this;
     viewParent.setLayout(new GridLayout(2, false));
-    stopAction = new Action() { public void run() { shutdownAndNewStatsParent(); } };
+    stopAction = new Action() { public void run() {
+      pd = new ProgressDialog("Shutting down Stress Test", 15, DO_NOTHING).cancelable(false);
+      shutdownAndThen(new Runnable() { public void run() { pd.pm().done(); }});
+    }};
     stopAction.setImageDescriptor(requestAgePlugin().imageDescriptor("stop.gif"));
     stopAction.setDisabledImageDescriptor(requestAgePlugin().imageDescriptor("stop_disabled.gif"));
     reportAction = new Action() { public void run() {
@@ -113,7 +119,7 @@ public class RequestAgeView extends ViewPart
 
   private void enableActions(boolean state) {
     stopAction.setEnabled(state);
-    reportAction.setEnabled(state);
+//    reportAction.setEnabled(state);
   }
 
   void newStatsParent() {
@@ -138,14 +144,20 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
-              statsParent.addListener(EVT_SCRIPTS_RUNNING, new Listener() {
-                public void handleEvent(Event e) {
+              final Listener statsListener = new Listener() { public void handleEvent(Event e) {
+                  statsParent.notifyListeners(EVT_STATS, e);
+                  if (!showScriptsRunning) return;
                   final long now = now();
                   if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
                     numbersLastUpdated = now;
-                    if (showScriptsRunning)
-                      scriptsRunning.setText(threeDigitFormat((Integer)e.data, false));
+                    scriptsRunning.setText(
+                        threeDigitFormat(((StatsHolder)e.data).scriptsRunning, false));
                   }
+              }};
+              globalEventHub().addListener(EVT_STATS, statsListener);
+              statsParent.addDisposeListener(new DisposeListener() {
+                @Override public void widgetDisposed(DisposeEvent e) {
+                  globalEventHub().removeListener(EVT_STATS, statsListener);
                 }
               });
               final InitInfo info = (InitInfo)event.data;
@@ -155,10 +167,10 @@ public class RequestAgeView extends ViewPart
               histories = new History[size];
               final HistogramViewer[] hists = new HistogramViewer[size];
               for (int i = 0; i < size; i++) {
-                final HistogramViewer histogram = hists[i] = new HistogramViewer(histsParent);
+                final HistogramViewer histogram = hists[i] = new HistogramViewer(i, histsParent);
                 gridData().grab(true, true).applyTo(histogram.canvas);
                 final RespDistributionViewer distViewer =
-                    new RespDistributionViewer(info.reqNames[i], distsParent);
+                    new RespDistributionViewer(i, info.reqNames[i], distsParent);
                 gridData().grab(true, true).applyTo(distViewer.chart);
                   tabs.addSelectionListener(new SelectionListener() {
                     @Override public void widgetSelected(SelectionEvent e) {
@@ -167,15 +179,9 @@ public class RequestAgeView extends ViewPart
                     }
                     @Override public void widgetDefaultSelected(SelectionEvent e) {}
                   });
-                final History history = histories[i] = new History();
-                statsParent.addListener(STATS_EVTYPE_BASE + i, new Listener() {
-                  public void handleEvent(Event e) {
-                    final Stats stats = (Stats) e.data;
-                    histogram.statsUpdate(stats);
-                    distViewer.statsUpdate(stats);
-                    history.statsUpdate(stats);
-                  }
-                });
+                histories[i] = new History(i);
+                for (Listener l : new Listener[] {histogram, distViewer, histories[i]})
+                  statsParent.addListener(EVT_STATS, l);
                 histogram.canvas.addMouseListener(new MouseListener() {
                   @Override public void mouseDoubleClick(MouseEvent e) {
                     testServer.send(new Message(EXCEPTION, histogram.stats.name));
@@ -233,12 +239,6 @@ public class RequestAgeView extends ViewPart
           InfoDialog.show(new DialogInfo("Stress test init error", t));
         }
       }});
-  }
-
-  public void shutdownAndNewStatsParent() {
-    newStatsParent();
-    pd = new ProgressDialog("Shutting down Stress Test", 15, DO_NOTHING).cancelable(false);
-    shutdownAndThen(new Runnable() { public void run() { pd.pm().done(); }});
   }
 
   private Composite tab(TabFolder tabs, String title) {

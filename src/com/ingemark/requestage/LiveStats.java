@@ -58,10 +58,9 @@ public class LiveStats {
     if (ind != 0) System.arraycopy(hist, 0, ret, hist.length-ind, ind);
     return ret;
   }
-  synchronized Stats stats(int guiUpdateDivisor) {
-    try {
-      return timeSlot % guiUpdateDivisor == 0? new Stats(this) : null;
-    } finally {
+  synchronized Stats stats() {
+    try { return new Stats(this); }
+    finally {
       timeSlot--;
       reqs[toIndex(reqs, timeSlot)] = succs[toIndex(succs, timeSlot)] =
           fails[toIndex(fails, timeSlot)] = histogram[toIndex(histogram, timeSlot)] = 0;

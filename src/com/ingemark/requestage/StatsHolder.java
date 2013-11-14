@@ -5,8 +5,8 @@ import java.util.List;
 
 public class StatsHolder implements Serializable
 {
-  final Stats[] statsAry;
-  final int scriptsRunning;
+  public final Stats[] statsAry;
+  public final int scriptsRunning;
 
   public StatsHolder(List<Stats> statsList, int scriptsRunning) {
     this.statsAry = statsList.toArray(new Stats[statsList.size()]);

@@ -26,12 +26,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ingemark.requestage.Stats;
+import com.ingemark.requestage.StatsHolder;
 
-public class History {
+public class History implements Listener {
   static final Logger log = LoggerFactory.getLogger(History.class);
   private static final int FULL_SIZE = 1<<11, BUFSIZ = 8*TIMESLOTS_PER_SEC;
   public static final String[] keys = {
@@ -42,6 +45,7 @@ public class History {
   }
   public String name;
   private int index, bufIndex, bufLimit = TIMESLOTS_PER_SEC, divisor = 1, calledCount;
+  private int statsIndex;
   private final Map<String, double[]> histories = new HashMap<String, double[]>(); {
     for (String key : keys) histories.put(key, new double[FULL_SIZE]);
   }
@@ -63,7 +67,10 @@ public class History {
         }
   };
 
-  public void statsUpdate(Stats stats) {
+  public History(int statsIndex) { this.statsIndex = statsIndex; }
+
+  @Override public void handleEvent(Event event) {
+    final Stats stats = ((StatsHolder)event.data).statsAry[statsIndex];
     stats.respHistory.forEachEntry(mergeIntoHistory);
     if (++calledCount % divisor != 0) return;
     name = stats.name;

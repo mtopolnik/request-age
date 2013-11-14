@@ -18,6 +18,8 @@ import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.swtchart.Chart;
 import org.swtchart.IAxis;
 import org.swtchart.IAxisSet;
@@ -30,12 +32,14 @@ import org.swtchart.ITitle;
 import org.swtchart.Range;
 
 import com.ingemark.requestage.Stats;
+import com.ingemark.requestage.StatsHolder;
 
-public class RespDistributionViewer
+public class RespDistributionViewer implements Listener
 {
   private static final long REFRESH_INTERVAL = SECONDS.toNanos(2);
   private static final double CHART_BOTTOM = 0.01;
   Chart chart;
+  private final int statsIndex;
   private long[] dist = {};
   private double[] xSeries = {};
   private long totalCount, lastUpdate;
@@ -56,7 +60,8 @@ public class RespDistributionViewer
         }
   };
 
-  RespDistributionViewer(String name, Composite parent) {
+  RespDistributionViewer(int statsIndex, String name, Composite parent) {
+    this.statsIndex = statsIndex;
     final Display disp = parent.getDisplay();
     chart = new Chart(parent, SWT.NONE);
     final Color black = color(SWT.COLOR_BLACK), white = disp.getSystemColor(SWT.COLOR_WHITE);
@@ -88,7 +93,8 @@ public class RespDistributionViewer
     title.setForeground(color(SWT.COLOR_BLACK));
   }
 
-  void statsUpdate(Stats stats) {
+  @Override public void handleEvent(Event event) {
+    final Stats stats = ((StatsHolder)event.data).statsAry[statsIndex];
     stats.respHistory.forEachEntry(mergeIntoDistribution);
     if (now() - lastUpdate > REFRESH_INTERVAL) {
       dirty = true;

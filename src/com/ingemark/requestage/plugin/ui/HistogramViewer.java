@@ -27,8 +27,9 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
 import com.ingemark.requestage.Stats;
+import com.ingemark.requestage.StatsHolder;
 
-public class HistogramViewer implements PaintListener
+public class HistogramViewer implements Listener, PaintListener
 {
   private static final int
     TICKMARK_LEN = 5,
@@ -45,12 +46,14 @@ public class HistogramViewer implements PaintListener
   final Canvas canvas;
   Stats stats = new Stats();
   private final Color colReqBar, colRespPlusBar, colRespMinusBar, colFailBar, colHist, colTotalReq;
+  private final int statsIndex;
   private GC gc;
   private Image backdrop;
   private long numbersLastUpdated;
   private int printedReqsPerSec, printedPendingReqs;
 
-  HistogramViewer(Composite parent) {
+  HistogramViewer(int statsIndex, Composite parent) {
+    this.statsIndex = statsIndex;
     final Display d = Display.getCurrent();
     colReqBar = new Color(d, 12, 12, 240);
     colRespPlusBar = new Color(d, 0, 170, 12);
@@ -70,6 +73,17 @@ public class HistogramViewer implements PaintListener
       minDesiredWidth = TOTAL_REQS_OFFSET + 6*fm.getAverageCharWidth();
       gc.dispose();
     }
+  }
+
+  @Override public void handleEvent(Event event) {
+    final long now = now();
+    stats = ((StatsHolder)event.data).statsAry[statsIndex];
+    if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
+      numbersLastUpdated = now;
+      printedReqsPerSec = stats.reqsPerSec;
+      printedPendingReqs = stats.pendingReqs;
+    }
+    canvas.redraw();
   }
 
   private void recreateBackdrop() {
@@ -101,17 +115,6 @@ public class HistogramViewer implements PaintListener
     }
     gc.dispose();
     gc = null;
-  }
-
-  void statsUpdate(Stats stats) {
-    final long now = now();
-    if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
-      numbersLastUpdated = now;
-      printedReqsPerSec = stats.reqsPerSec;
-      printedPendingReqs = stats.pendingReqs;
-    }
-    this.stats = stats;
-    canvas.redraw();
   }
 
   @Override public void paintControl(PaintEvent e) {

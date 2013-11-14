@@ -1,7 +1,6 @@
 package com.ingemark.requestage;
 
 import static ch.qos.logback.classic.Level.INFO;
-import static com.ingemark.requestage.Message.DIVISOR;
 import static com.ingemark.requestage.Message.ERROR;
 import static com.ingemark.requestage.Message.EXCEPTION;
 import static com.ingemark.requestage.Message.INITED;
@@ -94,7 +93,7 @@ public class StressTester implements Runnable
   final JsScope jsScope;
   private final ClientBootstrap netty;
   final Channel channel;
-  private volatile int intensity = 0, updateDivisor = 1;
+  private volatile int intensity = 0;
   final AtomicInteger scriptsRunning = new AtomicInteger();
   private ScheduledFuture<?> testTask;
 
@@ -135,7 +134,6 @@ public class StressTester implements Runnable
           try {
             final Message msg = (Message)e.getMessage();
             switch (msg.type) {
-            case DIVISOR: updateDivisor = (Integer) msg.value; break;
             case INTENSITY:
               scheduleTest((Integer) msg.value);
               break;
@@ -222,7 +220,7 @@ public class StressTester implements Runnable
   List<Stats> stats() {
     final List<Stats> ret = new ArrayList<Stats>(lsmap.size());
     for (LiveStats ls : lsmap.values()) {
-      final Stats stats = ls.stats(updateDivisor);
+      final Stats stats = ls.stats();
       if (stats != null) ret.add(stats);
     }
     return ret;
