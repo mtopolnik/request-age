@@ -102,10 +102,23 @@ public class HistoryView extends ViewPart implements Listener
     final Shell s = new Shell(d, SWT.TITLE | SWT.ON_TOP);
     s.setText("Choose visible data series");
     s.setBackground(d.getSystemColor(SWT.COLOR_WHITE));
-    s.setLayout(new GridLayout(1, false));
+    s.setLayout(new GridLayout(2, false));
     chooser = new Composite(s, SWT.NONE);
+    gridData().span(2,1).applyTo(chooser);
     chooser.setBackground(d.getSystemColor(SWT.COLOR_WHITE));
     chooser.setLayout(new RowLayout(SWT.VERTICAL));
+    final Button invertBut = new Button(s, SWT.NONE);
+    invertBut.setText("Invert sel");
+    invertBut.addSelectionListener(new SelectionListener() {
+      @Override public void widgetSelected(SelectionEvent e) {
+        for (Control c : chooser.getChildren()) {
+          final Button check = (Button)c;
+          check.setSelection(!check.getSelection());
+          check.notifyListeners(SWT.Selection, null);
+        }
+      }
+      @Override public void widgetDefaultSelected(SelectionEvent e) {}
+    });
     okButton(s, false);
     s.pack();
     final Button choose = new Button(radios, SWT.PUSH);
@@ -161,6 +174,8 @@ public class HistoryView extends ViewPart implements Listener
         check.addSelectionListener(new SelectionListener() {
           @Override public void widgetSelected(SelectionEvent e) {
             ss.getSeries(name).setVisible(check.getSelection());
+            chart.getAxisSet().getYAxis(0).adjustRange();
+            chart.redraw();
           }
           @Override public void widgetDefaultSelected(SelectionEvent e) {}
         });
