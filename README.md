@@ -9,12 +9,17 @@ If you are a programmer and want to leverage your skills to do some stress testi
 
 - interactive: apply "throttle" and see how the server keeps up on live histograms:
   
-  ![Stress testing session](http://i811.photobucket.com/albums/zz35/mtopolnik/Scenario-histogram_zpsdf65ba10.png)
+  ![Stress testing session---request age](http://i811.photobucket.com/albums/zz35/mtopolnik/Scenario-histogram_zpsdf65ba10.png)
+
+  ![Stress testing session---response time distribution](http://i811.photobucket.com/albums/zz35/mtopolnik/resp_dist_zpse4a05094.png)
 
 - the histograms are visually minimalistiic, yet information packed;
 - history charts allow long-term monitoring:
 
-  ![Stress testing history](http://i811.photobucket.com/albums/zz35/mtopolnik/Scenario-history_zps56ef6fcf.png)
+  ![Stress testing history---pending requests](http://i811.photobucket.com/albums/zz35/mtopolnik/pending_reqs_zps814ce9c4.png)
+  
+  ![Stress testing history---response time scatter chart](http://i811.photobucket.com/albums/zz35/mtopolnik/scatter_zps2b8f64a9.png)
+  
 
 
 - geared towards developing intuition about the tested system through rich interaction and visualisation.
