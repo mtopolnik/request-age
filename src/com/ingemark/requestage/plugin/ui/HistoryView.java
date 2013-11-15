@@ -94,8 +94,8 @@ public class HistoryView extends ViewPart implements Listener
     x.getTick().setForeground(color(SWT.COLOR_BLACK));
     x.getTitle().setVisible(false);
     x.getGrid().setForeground(gridColor);
-    globalEventHub().addListener(EVT_INIT_HIST, this);
-    globalEventHub().addListener(EVT_HISTORY_UPDATE, this);
+    for (int evType : new int[] {EVT_INIT_HIST, EVT_HISTORY_UPDATE})
+      globalEventHub().addListener(evType, this);
   }
 
   private void newSeriesChooser(final Display d) {
@@ -224,8 +224,8 @@ public class HistoryView extends ViewPart implements Listener
   @Override public void setFocus() { radios.setFocus(); }
 
   @Override public void dispose() {
-    globalEventHub().removeListener(EVT_INIT_HIST, this);
-    globalEventHub().removeListener(EVT_HISTORY_UPDATE, this);
+    for (int evType : new int[] {EVT_INIT_HIST, EVT_HISTORY_UPDATE})
+      globalEventHub().removeListener(evType, this);
     super.dispose();
   }
 }

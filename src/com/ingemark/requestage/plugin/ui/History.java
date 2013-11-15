@@ -43,7 +43,7 @@ public class History implements Listener {
     try { for (String key : keys) statFields.put(key, Stats.class.getField(key)); }
     catch (Exception e) { sneakyThrow(e); }
   }
-  public String name;
+  public final String name;
   private int index, bufIndex, bufLimit = TIMESLOTS_PER_SEC, divisor = 1, calledCount;
   private int statsIndex;
   private final Map<String, double[]> histories = new HashMap<String, double[]>(); {
@@ -67,13 +67,12 @@ public class History implements Listener {
         }
   };
 
-  public History(int statsIndex) { this.statsIndex = statsIndex; }
+  public History(int statsIndex, String name) { this.statsIndex = statsIndex; this.name = name; }
 
   @Override public void handleEvent(Event event) {
     final Stats stats = ((StatsHolder)event.data).statsAry[statsIndex];
     stats.respHistory.forEachEntry(mergeIntoHistory);
     if (++calledCount % divisor != 0) return;
-    name = stats.name;
     try {
       for (String key : keys) histBufs.get(key)[bufIndex] = statFields.get(key).getFloat(stats);
     } catch (Exception e) { sneakyThrow(e); }

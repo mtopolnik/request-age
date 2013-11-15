@@ -97,7 +97,8 @@ public class RequestAgeView extends ViewPart
       statsParent.notifyListeners(EVT_REPORT, null);
     }};
     reportAction.setImageDescriptor(requestAgePlugin().imageDescriptor("report.gif"));
-    enableActions(false);
+    reportAction.setEnabled(false);
+    stopAction.setEnabled(false);
     final IToolBarManager toolbar = getViewSite().getActionBars().getToolBarManager();
     toolbar.add(stopAction);
     toolbar.add(reportAction);
@@ -116,11 +117,6 @@ public class RequestAgeView extends ViewPart
   }
 
   public History[] histories() { return histories; }
-
-  private void enableActions(boolean state) {
-    stopAction.setEnabled(state);
-//    reportAction.setEnabled(state);
-  }
 
   void newStatsParent() {
     scriptsRunning.setText("");
@@ -179,7 +175,7 @@ public class RequestAgeView extends ViewPart
                     }
                     @Override public void widgetDefaultSelected(SelectionEvent e) {}
                   });
-                histories[i] = new History(i);
+                histories[i] = new History(i, info.reqNames[i]);
                 for (Listener l : new Listener[] {histogram, distViewer, histories[i]})
                   statsParent.addListener(EVT_STATS, l);
                 histogram.canvas.addMouseListener(new MouseListener() {
@@ -222,16 +218,15 @@ public class RequestAgeView extends ViewPart
             }});
           statsParent.addListener(EVT_ERROR, new Listener() {
             @Override public void handleEvent(Event e) {
-              enableActions(false);
+              stopAction.setEnabled(false);
               if (pd != null) pd.close();
               InfoDialog.show(new DialogInfo("Stress testing error", ((String)e.data)));
             }
           });
           shutdownAndThen(new Runnable() { public void run() {
-            testServer = new StressTestServer(statsParent, (String)event.data)
-              .progressMonitor(pd.pm());
+            testServer = new StressTestServer((String)event.data).progressMonitor(pd.pm());
             testServer.start();
-            enableActions(true);
+            stopAction.setEnabled(true);
           }});
         }
         catch (Throwable t) {
@@ -254,7 +249,7 @@ public class RequestAgeView extends ViewPart
 
   private void shutdownAndThen(Runnable andThen) {
     testServer.progressMonitor(pd != null? pd.pm() : null);
-    enableActions(false);
+    stopAction.setEnabled(false);
     final IStressTestServer ts = testServer;
     testServer = StressTestServer.NULL;
     ts.shutdown(andThen);

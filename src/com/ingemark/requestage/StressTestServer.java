@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.Launch;
-import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
@@ -68,7 +67,7 @@ public class StressTestServer implements IStressTestServer
   private volatile Process subprocess;
   private volatile ProgressMonitor pm;
 
-  public StressTestServer(Control c, String filename) {
+  public StressTestServer(String filename) {
     this.filename = filename;
   }
 
