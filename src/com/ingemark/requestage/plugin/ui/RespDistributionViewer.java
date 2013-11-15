@@ -142,10 +142,11 @@ public class RespDistributionViewer implements Listener
       ser.setXSeries(xSeries);
     }
     if (dist.length == 0) return;
-    int start = 0;
-    for (int i = 0; i < dist.length; i++) if (dist[i] > 0) { start = i; break; }
-    chart.getAxisSet().getXAxis(0).setRange(
-        new Range(xSeries[start]-0.5, xSeries[xSeries.length-1]+0.5));
+    final double[] ySeries = ser.getYSeries();
+    int start = 0, end = dist.length;
+    for (int i = 0; i < dist.length; i++) if (ySeries[i] > CHART_BOTTOM) { start = i; break; }
+    for (int i = dist.length-1; i >= 0; i--) if (ySeries[i] > CHART_BOTTOM) { end = i; break; }
+    chart.getAxisSet().getXAxis(0).setRange(new Range(xSeries[start]-0.5, xSeries[end]+0.5));
   }
 }
 
