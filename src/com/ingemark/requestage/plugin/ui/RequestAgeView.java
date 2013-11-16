@@ -70,6 +70,7 @@ public class RequestAgeView extends ViewPart
   public Composite statsParent;
   private volatile IStressTestServer testServer = StressTestServer.NULL;
   volatile History[] histories = {};
+  volatile long start;
   private Composite viewParent;
   private Label scriptsRunning;
   private boolean showScriptsRunning;
@@ -140,6 +141,7 @@ public class RequestAgeView extends ViewPart
           statsParent.addListener(EVT_INIT_HIST, new Listener() {
             @Override public void handleEvent(Event event) {
               log.debug("Init histogram");
+              start = System.currentTimeMillis();
               final Listener statsListener = new Listener() { public void handleEvent(Event e) {
                   statsParent.notifyListeners(EVT_STATS, e);
                   if (!showScriptsRunning) return;

@@ -1,6 +1,7 @@
 package com.ingemark.requestage.plugin.ui;
 
 import static com.ingemark.requestage.Util.color;
+import static com.ingemark.requestage.Util.event;
 import static com.ingemark.requestage.Util.gridData;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_HISTORY_UPDATE;
 import static com.ingemark.requestage.plugin.RequestAgePlugin.EVT_INIT_HIST;
@@ -53,7 +54,6 @@ public class HistoryView extends ViewPart implements Listener
   public static final String[] yTitles = {"pending_reqs","resp_time","reqs/sec","fails/sec"};
   private static final double[] DUMMY_SERIES = {1}, EMPTY_SERIES = {};
   private final Color gridColor = new Color(Display.getCurrent(), 240, 240, 240);
-  private long start;
   private Chart chart;
   private Composite radios;
   private String histKey;
@@ -71,13 +71,11 @@ public class HistoryView extends ViewPart implements Listener
     chart = new Chart(parent, SWT.NONE);
     chart.setBackground(disp.getSystemColor(SWT.COLOR_WHITE));
     gridData().align(FILL, FILL).grab(true, true).applyTo(chart);
-    boolean selected = true;
+    Button selectedRadio = null;
     for (int i = 0; i < History.keys.length; i++) {
       final String key = History.keys[i], title = yTitles[i];
       final Button radio = newRadio(key, title);
-      radio.setSelection(selected);
-      if (selected) radio.notifyListeners(SWT.Selection, null);
-      selected = false;
+      if (selectedRadio == null) selectedRadio = radio;
     }
     newRadio(RESP_SCATTER_TITLE, RESP_SCATTER_TITLE);
     newSeriesChooser(disp);
@@ -96,6 +94,14 @@ public class HistoryView extends ViewPart implements Listener
     x.getGrid().setForeground(gridColor);
     for (int evType : new int[] {EVT_INIT_HIST, EVT_HISTORY_UPDATE})
       globalEventHub().addListener(evType, this);
+    final History[] hists = requestAgeView != null? requestAgeView.histories : new History[0];
+    if (hists.length > 0) {
+      final String[] reqNames = new String[hists.length];
+      for (int i = 0; i < hists.length; i++) reqNames[i] = hists[i].name;
+      handleEvent(event(EVT_INIT_HIST, new InitInfo(reqNames)));
+    }
+    selectedRadio.setSelection(true);
+    selectedRadio.notifyListeners(SWT.Selection, null);
   }
 
   private void newSeriesChooser(final Display d) {
@@ -146,8 +152,7 @@ public class HistoryView extends ViewPart implements Listener
         for (ISeries s : chart.getSeriesSet().getSeries()) {
           s.setYSeries(DUMMY_SERIES); s.setYSeries(EMPTY_SERIES);
         }
-        if (requestAgeView != null)
-          for (History h : requestAgeView.histories) update(h);
+        if (requestAgeView != null) for (History h : requestAgeView.histories) update(h);
       }
       @Override public void widgetDefaultSelected(SelectionEvent e) {}
     });
@@ -161,7 +166,6 @@ public class HistoryView extends ViewPart implements Listener
       for (ISeries s : ss.getSeries()) ss.deleteSeries(s.getId());
       for (Control c : chooser.getChildren()) c.dispose();
       int color = 0;
-      start = System.currentTimeMillis();
       for (final String name : ((InitInfo) event.data).reqNames) {
         final ILineSeries ser = (ILineSeries) ss.createSeries(LINE, name);
         final Color c = color(colors[color++ % colors.length]);
@@ -197,7 +201,7 @@ public class HistoryView extends ViewPart implements Listener
     final long maxTimestamp;
     if (histKey.equals(RESP_SCATTER_TITLE)) {
       ser.setLineStyle(LineStyle.NONE);
-      ser.setSymbolType(PlotSymbolType.CIRCLE);
+      ser.setSymbolType(PlotSymbolType.SQUARE);
       ser.setSymbolSize(2);
       final RespTimeHistory hist = h.respTimeHistory();
       xs = hist.timestamps;
@@ -216,6 +220,7 @@ public class HistoryView extends ViewPart implements Listener
     final IAxisSet axes = chart.getAxisSet();
     axes.getYAxis(0).adjustRange();
     final IAxis x = axes.getXAxis(0);
+    final long start = requestAgeView.start;
     if (maxTimestamp-start >= MIN_HIST_RANGE) x.adjustRange();
     else x.setRange(new Range(start, start + MIN_HIST_RANGE));
     chart.redraw();
@@ -224,6 +229,7 @@ public class HistoryView extends ViewPart implements Listener
   @Override public void setFocus() { radios.setFocus(); }
 
   @Override public void dispose() {
+    chooser.getShell().dispose();
     for (int evType : new int[] {EVT_INIT_HIST, EVT_HISTORY_UPDATE})
       globalEventHub().removeListener(evType, this);
     super.dispose();

@@ -118,9 +118,10 @@ public class Util
       eventReceiver.notifyListeners(evtype, event(value));
     }});
   }
-  public static Event event(Object data) {
-    final Event e = new Event(); e.data = data; return e;
+  public static Event event(int type, Object data) {
+    final Event e = new Event(); e.type = type; e.data = data; return e;
   }
+  public static Event event(Object data) { return event(0, data); }
   public static <R> R sneakyThrow(Throwable t) {
     return Util.<RuntimeException, R>sneakyThrow0(t);
   }

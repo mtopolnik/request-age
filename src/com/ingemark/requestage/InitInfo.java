@@ -17,4 +17,9 @@ public class InitInfo implements Serializable
     this.maxThrottle = ps.maxThrottle;
     this.showRunningScriptCount = ps.showRunningScriptCount;
   }
+
+  public InitInfo(String[] reqNames) {
+    this.reqNames = reqNames;
+    maxThrottle = 0; showRunningScriptCount = false;
+  }
 }

@@ -129,8 +129,8 @@ public class StressTestServer implements IStressTestServer
               pm.done();
               Display.getDefault().asyncExec(new Runnable() { public void run() {
                 requestAgeView.statsParent.notifyListeners(EVT_INIT_HIST, event(msg.value));
-                showView(HISTORY_VIEW_ID);
                 globalEventHub().notifyListeners(EVT_INIT_HIST, event(msg.value));
+                showView(HISTORY_VIEW_ID);
               }});
             }
             break;
@@ -222,7 +222,7 @@ public class StressTestServer implements IStressTestServer
     b.setPipelineFactory(pipelineFactory(pipeline(
         new ObjectDecoder(softCachingResolver(StressTestServer.class.getClassLoader())),
         new SimpleChannelHandler(), new ObjectEncoder())));
-    b.bind(new InetSocketAddress("localhost", NETTY_PORT));
+    b.bind(new InetSocketAddress("127.0.0.1", NETTY_PORT));
     log.info("Listening on " + NETTY_PORT);
   }
 }
