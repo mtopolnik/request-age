@@ -6,6 +6,7 @@ public class StatsHolder implements Serializable
 {
   public final Stats[] statsAry;
   public final int scriptsRunning;
+  public boolean redraw;
 
   public StatsHolder(Stats[] statsAry, int scriptsRunning) {
     this.statsAry = statsAry;

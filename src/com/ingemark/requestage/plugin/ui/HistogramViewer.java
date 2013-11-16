@@ -77,13 +77,14 @@ public class HistogramViewer implements Listener, PaintListener
 
   @Override public void handleEvent(Event event) {
     final long now = now();
-    stats = ((StatsHolder)event.data).statsAry[statsIndex];
+    final StatsHolder statsHolder = (StatsHolder)event.data;
+    stats = statsHolder.statsAry[statsIndex];
     if (now-numbersLastUpdated > MILLISECONDS.toNanos(200)) {
       numbersLastUpdated = now;
       printedReqsPerSec = stats.reqsPerSec;
       printedPendingReqs = stats.pendingReqs;
     }
-    canvas.redraw();
+    if (statsHolder.redraw) canvas.redraw();
   }
 
   private void recreateBackdrop() {

@@ -15,7 +15,7 @@ import com.ingemark.requestage.StatsHolder;
 public class StatsReceiver
 {
   private int refreshDivisor = 1;
-  private volatile int refreshTimeslot = Integer.MIN_VALUE;
+  private volatile int timeslot = Integer.MIN_VALUE;
   private volatile long guiSlowSince, guiFastSince;
 
   public void receiveStats(final StatsHolder statsHolder) {
@@ -23,11 +23,12 @@ public class StatsReceiver
     Display.getDefault().asyncExec(new Runnable() {
       public void run() {
         final long now = NANOSECONDS.toMillis(now());
+        statsHolder.redraw = timeslot++ % refreshDivisor == 0;
         globalEventHub().notifyListeners(EVT_STATS, event(statsHolder));
         final int timeInQueue = (int)(now-enqueuedAt);
         if (!adjustSlowGui(now, timeInQueue))
           adjustFastGui(now, timeInQueue);
-        if (refreshTimeslot % ((5*TIMESLOTS_PER_SEC)/refreshDivisor) == 0)
+        if (timeslot % ((5*TIMESLOTS_PER_SEC)/refreshDivisor) == 0)
           log.debug("timeInQueue {} refreshDivisor {}", timeInQueue, refreshDivisor);
       }
       private boolean adjustSlowGui(long now, int timeInQueue) {
