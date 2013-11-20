@@ -98,7 +98,7 @@ public class RequestAgeView extends ViewPart
       statsParent.notifyListeners(EVT_REPORT, null);
     }};
     reportAction.setImageDescriptor(requestAgePlugin().imageDescriptor("report.gif"));
-    reportAction.setEnabled(false);
+    reportAction.setEnabled(true);
     stopAction.setEnabled(false);
     final IToolBarManager toolbar = getViewSite().getActionBars().getToolBarManager();
     toolbar.add(stopAction);
@@ -246,6 +246,7 @@ public class RequestAgeView extends ViewPart
     final GridLayout gridLayout = new GridLayout(2, false);
     gridLayout.marginHeight = gridLayout.marginWidth = 0;
     tabPane.setLayout(gridLayout);
+    tabPane.setBackground(tabPane.getDisplay().getSystemColor(SWT.COLOR_WIDGET_LIGHT_SHADOW));
     return tabPane;
   }
 
