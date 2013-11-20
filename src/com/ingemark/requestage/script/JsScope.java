@@ -21,7 +21,6 @@ import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ContextFactory.Listener;
 import org.mozilla.javascript.Function;
-import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -104,8 +103,7 @@ public class JsScope {
         return obj;
       }
       final Object ret =
-        obj != null && obj.getClass().isArray()? new NativeArray((Object[])obj)
-      : obj instanceof List? new ScriptableList(scope, (List) obj)
+        obj instanceof List? new ScriptableList(scope, (List) obj)
       : obj instanceof Map? new ScriptableMap(scope, (Map) obj)
       : obj instanceof Text? ((Text)obj).getValue()
       : super.wrap(cx, scope, obj, staticType);
