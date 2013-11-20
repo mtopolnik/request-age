@@ -47,6 +47,7 @@ public class JsScope {
     catch (IOException e) { throw (RuntimeException)sneakyThrow(e); }
     fac.addListener(new Listener() {
       @Override public void contextCreated(Context cx) {
+        cx.setLanguageVersion(Context.VERSION_1_8);
         cx.setOptimizationLevel(9);
         cx.setWrapFactory(betterWrapFactory);
       }
