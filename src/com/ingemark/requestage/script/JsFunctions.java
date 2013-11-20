@@ -9,7 +9,6 @@ import static java.util.Collections.newSetFromMap;
 import static org.jdom2.Namespace.getNamespace;
 import static org.jdom2.filter.Filters.fpassthrough;
 import static org.jdom2.output.Format.getPrettyFormat;
-import static org.mozilla.javascript.Context.getCurrentContext;
 import static org.mozilla.javascript.ScriptRuntime.constructError;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -33,7 +32,6 @@ import org.jdom2.xpath.XPathExpression;
 import org.jdom2.xpath.XPathFactory;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
-import org.mozilla.javascript.NativeJSON;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -184,9 +182,7 @@ public class JsFunctions {
   private static Object logArg(Object in) {
     if (in instanceof NativeJavaObject) in = ((NativeJavaObject)in).unwrap();
     return
-        in instanceof Function? ScriptRuntime.toString(in)
-      : in instanceof Scriptable? NativeJSON.stringify(getCurrentContext(),
-          ((Scriptable)in).getParentScope(), in, null, " ")
+        in instanceof Scriptable? ScriptRuntime.toString(in)
       : isJdom(in)? prettyXml(in)
       : in;
   }
