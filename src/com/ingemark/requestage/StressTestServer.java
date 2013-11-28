@@ -212,7 +212,7 @@ public class StressTestServer implements IStressTestServer
     @Override public void shutdown(Runnable r) { r.run(); }
     @Override public void send(Message msg) { }
     @Override public IStressTestServer progressMonitor(ProgressMonitor ipm) { return this; }
-    @Override public String testName() { return ""; }
+    @Override public String testName() { return "NULL-testServer"; }
   };
 
 
