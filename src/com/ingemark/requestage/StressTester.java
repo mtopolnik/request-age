@@ -227,11 +227,8 @@ public class StressTester implements Runnable
   void shutdown() {
     log.info("Shutting down");
     sched.shutdown();
-    pool.shutdown();
-    try {
-      sched.awaitTermination(2, SECONDS);
-      pool.awaitTermination(2, SECONDS);
-    } catch (InterruptedException e) { sneakyThrow(e); }
+    pool.shutdownNow();
+    try { pool.awaitTermination(2, SECONDS); } catch (InterruptedException e) { sneakyThrow(e); }
     if (client != null) client.close();
     log.debug("HTTP Client shut down");
     netty.shutdown();
