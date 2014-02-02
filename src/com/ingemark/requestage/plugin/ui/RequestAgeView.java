@@ -108,6 +108,7 @@ public class RequestAgeView extends ViewPart
     scriptsRunning = new Label(leftSide, SWT.NONE);
     gridData().minSize(7*averageCharWidth(), lineHeight()).grab(true,false).applyTo(scriptsRunning);
     throttle = new Scale(leftSide, SWT.VERTICAL);
+    throttle.setSize(1, 1); // workaround for SWT bug #422446
     throttle.setMinimum(0);
     throttle.setMaximum(100);
     throttle.setBackground(colWhite);
@@ -270,7 +271,7 @@ public class RequestAgeView extends ViewPart
     final Display d = Display.getDefault();
     final Shell top = new Shell(d);
     top.setLayout(new RowLayout());
-    new Scale(top, SWT.VERTICAL);
+    new Scale(top, SWT.VERTICAL).setSize(1,1);;
     top.pack();
     top.setVisible(true);
     while (!top.isDisposed()) if (!d.readAndDispatch()) d.sleep();
